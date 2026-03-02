@@ -22,7 +22,7 @@ def get_status():
 
     # Get strike statistics from all app state directories
     statistics = {}
-    state_dir = os.path.join(os.getenv("CONFIG_DIR", "/config"), "swaparr")
+    state_dir = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
 
     if os.path.exists(state_dir):
         for app_name in os.listdir(state_dir):
@@ -103,7 +103,7 @@ def reset_strikes():
     data = request.json
     app_name = data.get("app_name") if data else None
 
-    state_dir = os.path.join(os.getenv("CONFIG_DIR", "/config"), "swaparr")
+    state_dir = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
 
     if not os.path.exists(state_dir):
         return jsonify({"success": True, "message": "No strike data to reset"})

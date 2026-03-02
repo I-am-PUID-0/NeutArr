@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 from src.primary import settings_manager
 
 # Define the config directory - typically /config in Docker environment
-CONFIG_DIR = os.environ.get("CONFIG_DIR", "/config")
+CONFIG_DIR = os.environ.get("NEUTARR_CONFIG_DIR", "/config")
 
 # Get the logger at module level
 from src.primary.utils.logger import get_logger

@@ -18,7 +18,7 @@ from src.primary.state import get_state_file_path
 swaparr_logger = get_logger("swaparr")
 
 # Create state directory for tracking strikes
-SWAPARR_STATE_DIR = os.path.join(os.getenv("CONFIG_DIR", "/config"), "swaparr")
+SWAPARR_STATE_DIR = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
 
 
 def ensure_state_directory(app_name):

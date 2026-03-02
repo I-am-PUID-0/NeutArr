@@ -20,7 +20,7 @@ scheduler_logger = logging.getLogger("scheduler")
 scheduler_api = Blueprint("scheduler_api", __name__)
 
 # Configuration file path
-CONFIG_DIR = "/config/scheduler"
+CONFIG_DIR = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "scheduler")
 SCHEDULE_FILE = os.path.join(CONFIG_DIR, "schedule.json")
 
 

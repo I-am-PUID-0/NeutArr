@@ -23,7 +23,7 @@ scheduler_logger = get_logger("scheduler")
 
 # Scheduler constants
 SCHEDULE_CHECK_INTERVAL = 60  # Check schedule every minute
-SCHEDULE_DIR = "/config/scheduler"
+SCHEDULE_DIR = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "scheduler")
 SCHEDULE_FILE = os.path.join(SCHEDULE_DIR, "schedule.json")
 
 # Track last executed actions to prevent duplicates

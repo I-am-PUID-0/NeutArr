@@ -47,7 +47,7 @@ def generate_instance_list():
     instances = instances_ordered
 
     # Base config directory (internal Docker path)
-    config_dir = Path("/config")
+    config_dir = Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config"))
 
     # Ensure the scheduling directory exists
     scheduling_dir = config_dir / "scheduling"

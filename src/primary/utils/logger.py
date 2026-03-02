@@ -11,7 +11,7 @@ import pathlib
 from typing import Dict, Optional
 
 # Create log directory
-LOG_DIR = pathlib.Path("/config/logs")  # Changed path
+LOG_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default log file for general messages
