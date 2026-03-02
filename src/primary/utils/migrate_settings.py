@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("settings_migration")
 
 # Settings file path
-SETTINGS_DIR = pathlib.Path("/config")
+SETTINGS_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config"))
 SETTINGS_FILE = SETTINGS_DIR / "neutarr.json"
 
 

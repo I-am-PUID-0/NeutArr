@@ -912,9 +912,9 @@ def reset_app_cycle(app_name):
     try:
         # Trigger cycle reset for the app using a file-based approach
         # Ensure reset directory exists
-        reset_dir = "/config/reset"
         import os
 
+        reset_dir = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "reset")
         os.makedirs(reset_dir, exist_ok=True)
 
         # Create the reset file

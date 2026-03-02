@@ -437,7 +437,7 @@ def app_specific_loop(app_type: str) -> None:
         # Use shorter sleep intervals and check for reset file
         wait_interval = 1  # Check every second to be more responsive
         elapsed = 0
-        reset_file_path = f"/config/reset/{app_type}.reset"
+        reset_file_path = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "reset", f"{app_type}.reset")
 
         while elapsed < sleep_seconds:
             # Check if stop event is set
@@ -492,7 +492,7 @@ def reset_app_cycle(app_type: str) -> bool:
     logger.info(f"Manual cycle reset requested for {app_type} - Creating reset file")
 
     # Create a reset file for this app
-    reset_file_path = f"/config/reset/{app_type}.reset"
+    reset_file_path = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "reset", f"{app_type}.reset")
     try:
         with open(reset_file_path, "w") as f:
             f.write(str(int(time.time())))

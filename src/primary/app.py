@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 import pathlib
 from datetime import datetime
 import time
@@ -55,7 +56,7 @@ def configure_logging():
 def migrate_settings():
     """Migrate settings from nested to flat structure"""
     # Settings file path
-    SETTINGS_DIR = pathlib.Path("/config")
+    SETTINGS_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config"))
     SETTINGS_FILE = SETTINGS_DIR / "neutarr.json"
 
     if not SETTINGS_FILE.exists():
