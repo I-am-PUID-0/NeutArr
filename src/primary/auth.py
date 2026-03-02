@@ -32,7 +32,7 @@ logger = logging.getLogger("neutarr.auth")
 # Constants
 # ---------------------------------------------------------------------------
 
-USERS_FILE = Path("/config/users.json")
+USERS_FILE = Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "users.json"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 JWT_ALGORITHM = "HS256"

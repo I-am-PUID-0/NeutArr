@@ -1,16 +1,16 @@
-import os
 import json
+import logging
+import os
+import pathlib
+import threading
 import time
 from datetime import datetime
-import threading
-import logging
-import pathlib
 
 # Create a logger
 logger = logging.getLogger(__name__)
 
-# Path will be /config/history in production
-HISTORY_BASE_PATH = pathlib.Path("/config/history")
+# Path controlled by NEUTARR_CONFIG_DIR env var
+HISTORY_BASE_PATH = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "history"
 
 # Lock to prevent race conditions during file operations
 history_locks = {
@@ -446,7 +446,7 @@ def sync_history_files_with_instances():
             result["app_instances"][app_type] = []
 
             # Let's check for instance settings from settings directory
-            instances_dir = pathlib.Path("/config") / app_type
+            instances_dir = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / app_type
             if instances_dir.exists():
                 for instance_file in instances_dir.glob("*.json"):
                     try:

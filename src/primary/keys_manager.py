@@ -4,18 +4,18 @@ Keys manager for NeutArr
 Handles storage and retrieval of API keys and URLs from neutarr.json
 """
 
-import os
 import json
-import pathlib
 import logging
-from typing import Dict, Any, Optional, Tuple
+import os
+import pathlib
+from typing import Any, Dict, Optional, Tuple
 
 # Create a simple logger
 logging.basicConfig(level=logging.INFO)
 keys_logger = logging.getLogger("keys_manager")
 
-# Settings directory - Changed to match the updated settings_manager.py
-SETTINGS_DIR = pathlib.Path("/config")
+# Settings directory — controlled by NEUTARR_CONFIG_DIR env var
+SETTINGS_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config"))
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 SETTINGS_FILE = SETTINGS_DIR / "neutarr.json"
