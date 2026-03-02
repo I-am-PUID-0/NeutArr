@@ -18,7 +18,7 @@ logger = get_logger("stats")
 
 # Path constants - Define multiple possible locations and check them in order
 STATS_DIRS = [
-    "/config/tally",  # Docker default
+    os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "tally"),  # Env-controlled or Docker default
     os.path.join(os.path.expanduser("~"), ".neutarr/tally"),  # User's home directory
     os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data/tally"
