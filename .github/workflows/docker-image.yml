@@ -16,6 +16,10 @@ concurrency:
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   setup:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'chore(main): release '))    
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -194,52 +198,84 @@ jobs:
             await core.summary.write();
 
   # ─────────────────────────────────────────────────────────────────────────────
-  announce-dev:
+  announce:
+    needs: [create-release, build-and-push, setup]
+    if: needs.setup.outputs.is_release == 'true'
     runs-on: ubuntu-latest
-    needs: [setup, build-and-push]
-    if: >
-      needs.setup.outputs.is_release == 'false' &&
-      needs.setup.outputs.branch_name == 'dev'
     steps:
-      - name: Checkout
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Post announcement to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ needs.setup.outputs.version }}
+        run: |
+          RELEASE_NOTES=$(sed -n '/^## \[[0-9]\+\.[0-9]\+\.[0-9]\+\](/,$p' CHANGELOG.md | sed -n '1!{/^## \[/q;p}')
+          ANNOUNCEMENT_BODY="🚀 **New NeutArr Release: Version ${{ env.VERSION }}**${RELEASE_NOTES}"
+          ESCAPED_BODY=$(echo "$ANNOUNCEMENT_BODY" | jq -Rsa .)
+          curl -H "Content-Type: application/json" \
+               -d "{\"content\": $ESCAPED_BODY, \"flags\": 4}" \
+               "$DISCORD_WEBHOOK_URL"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  announce-dev:
+    needs: [build-and-push, setup]
+    if: github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code (full history)
         uses: actions/checkout@v6
         with:
-          fetch-depth: 20
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Get recent commits
-        id: commits
-        run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            LOG=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges | head -10)
-          else
-            LOG=$(git log --oneline --no-merges | head -10)
-          fi
-          {
-            echo "log<<EOF"
-            echo "$LOG"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Post Discord dev build announcement
+      - name: Post dev announcement to Discord
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ needs.setup.outputs.version }}
+          DEV_VERSION: ${{ needs.setup.outputs.dev_version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK" ]; then
-            echo "DISCORD_WEBHOOK not configured, skipping announcement"
-            exit 0
+          set -Eeuo pipefail
+
+          DEV_TAG="dev-build"
+          BASE_LABEL="Changes since last dev build"
+
+          if git rev-parse -q --verify "refs/tags/${DEV_TAG}" >/dev/null; then
+            RANGE="${DEV_TAG}..HEAD"
+          else
+            BASE_LABEL=""
+            if LAST_TAG=$(gh release view --json tagName -q .tagName --repo "${{ github.repository }}" 2>/dev/null); then
+              RANGE="${LAST_TAG}..HEAD"
+              BASE_LABEL="Changes since Release ${LAST_TAG}"
+            else
+              RANGE=""
+              BASE_LABEL="Changes since initial commit"
+            fi
           fi
-          PAYLOAD=$(jq -n \
-            --arg version "${{ needs.setup.outputs.dev_version }}" \
-            --arg log "${{ steps.commits.outputs.log }}" \
-            '{
-              embeds: [{
-                title: ("NeutArr Dev Build — " + $version),
-                color: 5814783,
-                description: ("**Recent commits:**\n```\n" + $log + "\n```"),
-                footer: { text: "iampuid0/neutarr:dev" }
-              }]
-            }')
-          curl -s -X POST "$DISCORD_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD"
+
+          COMMITS=$(git log ${RANGE} --pretty=format:"- %s ([%h](https://github.com/${REPO}/commit/%H))")
+          if [[ -z "${COMMITS}" ]]; then
+            COMMITS="- (no new commits since last release)"
+          fi
+
+          export COMMITS BASE_LABEL
+          ANNOUNCEMENT_BODY="$(python -c 'import os; version=os.environ.get("DEV_VERSION") or os.environ.get("VERSION","dev"); commits=os.environ.get("COMMITS","").strip(); base=os.environ.get("BASE_LABEL","").strip(); header=f"🛠️ **NeutArr Dev Build** (version \`{version}\`)\n"; label=(f"{base}\n" if base else ""); body=header+label+commits; max_len=1900; print(body[:max_len-3].rstrip()+"..." if len(body)>max_len else body)')"
+
+          ESCAPED_BODY=$(echo "$ANNOUNCEMENT_BODY" | jq -Rsa .)
+          curl -H "Content-Type: application/json" \
+               -d "{\"content\": $ESCAPED_BODY, \"flags\": 4}" \
+               "$DISCORD_WEBHOOK_URL"
+
+      - name: Update dev build tag
+        if: success()
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f dev-build
+          git push -f origin dev-build
