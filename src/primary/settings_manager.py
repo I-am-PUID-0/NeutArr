@@ -5,21 +5,21 @@ Handles loading, saving, and providing settings from individual JSON files per a
 Supports default configurations for different Arr applications
 """
 
-import os
 import json
-import pathlib
 import logging
+import os
+import pathlib
 import shutil
 import subprocess  # nosec B404
 import time
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 # Create a simple logger for settings_manager
 logging.basicConfig(level=logging.INFO)
 settings_logger = logging.getLogger("settings_manager")
 
-# Settings directory setup - Root config directory
-SETTINGS_DIR = pathlib.Path("/config")
+# Settings directory setup - Root config directory can be overridden by environment variable, defaulting to /config
+SETTINGS_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config"))
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default configs location remains the same
