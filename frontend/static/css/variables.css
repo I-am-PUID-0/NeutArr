@@ -1,0 +1,37 @@
+/*
+ * NeutArr brand colors
+ * Loaded after style.css and new-style.css to override the default blue accent.
+ * Also sets Ubuntu as the base font.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap');
+
+:root {
+    --accent-color: #6366F1;
+    --accent-hover: #4F46E5;
+    --accent-light: #818CF8;
+
+    --sidebar-item-active: #6366F1;
+    --switch-active: #6366F1;
+
+    --button-primary-bg: #6366F1;
+    --button-primary-hover: #4F46E5;
+
+    --info-color: #6366F1;
+}
+
+.dark-theme {
+    --accent-color: #818CF8;
+    --accent-hover: #6366F1;
+
+    --sidebar-item-active: #818CF8;
+}
+
+/* Base font override */
+body, html {
+    font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+button, input, select, textarea {
+    font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}

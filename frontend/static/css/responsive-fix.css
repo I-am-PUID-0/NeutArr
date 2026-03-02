@@ -1,0 +1,97 @@
+/* 
+ * Fix responsive design issues in the Settings section
+ * Ensures proper transitions between desktop and mobile layouts
+ */
+
+/* Improve header consistency across viewport sizes */
+.section-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+    padding: 15px 0 !important;
+    margin-bottom: 20px !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* Better handling of the Save button in the settings header */
+.settings-actions {
+    margin-left: auto;
+}
+
+/* Mobile-specific settings adjustments */
+@media (max-width: 768px) {
+    /* Force mobile mode at this breakpoint for consistency - moved from tablet view */
+    .sidebar {
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+    }
+    
+    .main-content {
+        margin-left: 0 !important;
+        width: calc(100% - 60px) !important;
+    }
+    
+    /* Navbar item adjustments - moved from tablet view */
+    .nav-item {
+        padding: 10px 0;
+        justify-content: center;
+    }
+    
+    .nav-item span {
+        display: none !important;
+    }
+    
+    .nav-icon-wrapper {
+        margin-right: 0 !important;
+    }
+    
+    /* Ensure General Settings header is responsive - moved from tablet view */
+    #settingsSection .section-header {
+        flex-wrap: wrap !important;
+    }
+    
+    /* Move Save button to its own row when space is limited - moved from tablet view */
+    #settingsSection .settings-actions {
+        margin-top: 10px;
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+    }
+    
+    /* Fix the positioning of the Save button on narrow screens - moved from tablet view */
+    #saveSettingsButton {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+    }
+    
+    /* Fix General Settings section header on mobile */
+    #settingsSection .section-header {
+        padding: 10px 15px !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    #settingsSection .section-header h2 {
+        margin-bottom: 10px;
+    }
+    
+    /* Save button positioning for mobile */
+    #settingsSection .settings-actions {
+        margin-top: 10px;
+        width: 100%;
+    }
+    
+    #saveSettingsButton {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+}

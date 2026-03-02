@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "neutarr"
+version = "0.1.0"
+description = "NeutArr - Automated missing media hunter and quality upgrader for *arr apps"
+authors = ["I-am-PUID-0 <36779668+I-am-PUID-0@users.noreply.github.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12"
+flask = ">=3.0.0,<4.0.0"
+requests = ">=2.31.0,<3.0.0"
+waitress = ">=3.0.1,<4.0.0"
+bcrypt = ">=4.1.2,<5.0.0"
+pyjwt = ">=2.9.0,<3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.8.0,<2.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = ["docs/"]
+
+[tool.ruff.lint]
+# E9: syntax errors  F: pyflakes (undefined names, etc.)  W6: deprecated features
+select = ["E9", "F", "W6"]
+ignore = [
+    "F401",  # unused imports — common in inherited code
+    "F811",  # redefinition of unused name from import
+    "F841",  # local variable assigned but never used
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

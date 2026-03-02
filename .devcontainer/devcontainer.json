@@ -1,0 +1,54 @@
+{
+  "name": "NeutArr",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  // Mount workspace at /app to match the production Dockerfile layout
+  "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+  "workspaceFolder": "/app",
+
+  // Bind-mount local ./config to /config so settings persist on the host
+  "mounts": [
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
+  ],
+
+  "forwardPorts": [9705],
+  "portsAttributes": {
+    "9705": {
+      "label": "NeutArr Web UI",
+      "onAutoForward": "notify"
+    }
+  },
+
+  // Install Poetry via pipx (isolated venv — keeps cffi 2.x out of system Python),
+  // pre-pin cffi<2.0 + cryptography before poetry install so pip resolver keeps 1.x,
+  // then install project deps (dev group) and create config dirs.
+  "postCreateCommand": "pipx install poetry && pip install --upgrade --force-reinstall 'cffi>=1.16,<2.0' 'cryptography>=42.0,<47.0' && poetry config virtualenvs.create false && poetry install --no-root --with dev && mkdir -p /config/settings /config/stateful /config/user /config/logs",
+
+  "containerEnv": {
+    "PYTHONPATH": "/app",
+    "TZ": "UTC"
+  },
+
+  "remoteUser": "vscode",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+          }
+        }
+      }
+    }
+  }
+}

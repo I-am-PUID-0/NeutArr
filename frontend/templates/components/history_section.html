@@ -1,0 +1,969 @@
+<section id="historySection" class="content-section">
+    <div class="section-header">
+        <!-- History App Dropdown -->
+        <div class="history-dropdown-container">
+            <select id="historyAppSelect" class="styled-select">
+                <option value="all">All</option>
+                <option value="sonarr">Sonarr</option>
+                <option value="radarr">Radarr</option>
+                <option value="lidarr">Lidarr</option>
+                <option value="readarr">Readarr</option>
+                <option value="whisparr">Whisparr</option>
+                <option value="eros">Whisparr V3</option>
+            </select>
+        </div>
+        
+        <!-- Search and Controls -->
+        <div class="history-controls">
+            <div class="history-search">
+                <input type="text" id="historySearchInput" placeholder="Search...">
+                <button id="historySearchButton">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            
+            <div class="history-page-size">
+                <label for="historyPageSize">Show:</label>
+                <select id="historyPageSize">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="250">250</option>
+                    <option value="1000">1000</option>
+                </select>
+            </div>
+            
+            <button id="clearHistoryButton" class="clear-button">
+                <i class="fas fa-trash-alt"></i> Clear
+            </button>
+        </div>
+    </div>
+    
+    <div class="history-container">
+        <div class="modern-table-wrapper force-scrollbar">
+            <table class="modern-table history-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 280px; width: 40%;">Processed Information</th>
+                        <th style="min-width: 100px; width: 15%;">Operation</th>
+                        <th style="min-width: 100px; width: 15%;">ID Number</th>
+                        <th style="min-width: 120px; width: 15%;">Name of Instance</th>
+                        <th style="min-width: 120px; width: 15%;">How Long Ago</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <!-- History items will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Empty state message -->
+        <div id="historyEmptyState" class="empty-state-message">
+            <i class="fas fa-history fa-3x"></i>
+            <p>No history found. Items will appear here when media is processed.</p>
+        </div>
+        
+        <!-- Loading indicator -->
+        <div id="historyLoading" class="loading-indicator">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Loading history...</p>
+        </div>
+    </div>
+    
+    <!-- Pagination controls -->
+    <div class="pagination-controls mobile-sticky">
+        <button id="historyPrevPage" class="pagination-button"><i class="fas fa-chevron-left"></i> Previous</button>
+        <span id="historyPageInfo">Page <span id="historyCurrentPage">1</span> of <span id="historyTotalPages">1</span></span>
+        <button id="historyNextPage" class="pagination-button">Next <i class="fas fa-chevron-right"></i></button>
+    </div>
+</section>
+
+<style>
+    /* Scope all styles to this section only */
+    #historySection {
+        width: 100%;
+        display: none;
+    }
+    
+    #historySection.active {
+        display: block;
+    }
+    
+    /* Scrollbar handling for only this section */
+    #historySection .history-container {
+        overflow: visible !important;
+    }
+    
+    /* Hide WebKit scrollbar for main elements */
+    html::-webkit-scrollbar, body::-webkit-scrollbar, #app::-webkit-scrollbar, 
+    .main-content::-webkit-scrollbar, .content-section::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+    
+    /* Table scrollbar styling - same as logs section */
+    .modern-table-wrapper::-webkit-scrollbar {
+        width: 10px;
+    }
+    
+    .modern-table-wrapper::-webkit-scrollbar-track {
+        background: rgba(18, 22, 30, 0.5);
+        border-radius: 0 10px 10px 0;
+    }
+    
+    .modern-table-wrapper::-webkit-scrollbar-thumb {
+        background: rgba(90, 109, 137, 0.5);
+        border-radius: 5px;
+    }
+    
+    .modern-table-wrapper::-webkit-scrollbar-thumb:hover {
+        background: rgba(90, 109, 137, 0.8);
+    }
+    
+    /* Make space for the fixed pagination on mobile */
+    .history-container {
+        padding-bottom: 60px;
+    }
+    
+    /* Main container styling */
+    .content-section {
+        max-width: 100%;
+    }
+    
+    /* Modern History Section Styling */
+    #historySection {
+        padding: 20px;
+        max-width: 100%;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .history-container {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    /* Dropdown styling */
+    .history-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .history-dropdown-btn {
+        background: linear-gradient(135deg, rgba(28, 36, 54, 0.9), rgba(24, 32, 48, 0.8));
+        color: white;
+        padding: 8px 15px;
+        border: 1px solid rgba(90, 109, 137, 0.3);
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+        min-width: 120px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .history-dropdown-btn:hover {
+        background: linear-gradient(135deg, rgba(38, 46, 64, 0.9), rgba(34, 42, 58, 0.8));
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .history-dropdown-btn i {
+        margin-left: auto;
+        transition: transform 0.3s ease;
+    }
+    
+    .history-dropdown-content {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        min-width: 160px;
+        z-index: 100;
+        background: linear-gradient(135deg, rgba(22, 26, 34, 0.98), rgba(18, 22, 30, 0.95));
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+        border: 1px solid rgba(90, 109, 137, 0.2);
+        overflow: hidden;
+        margin-top: 5px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+    
+    /* Fix dropdown disappearing when moving to content */
+    .history-dropdown-wrapper {
+        position: relative;
+        padding-bottom: 5px; /* Create space to safely move to dropdown */
+    }
+    
+    .history-dropdown-wrapper:after {
+        content: '';
+        position: absolute;
+        height: 10px; /* Invisible bridge between button and content */
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 99;
+    }
+    
+    .history-dropdown-wrapper:hover .history-dropdown-content,
+    .history-dropdown-content:hover {
+        display: block;
+    }
+    
+    .history-dropdown-wrapper:hover .history-dropdown-btn i {
+        transform: rotate(180deg);
+    }
+    
+    .history-option {
+        color: white;
+        padding: 10px 15px;
+        text-decoration: none;
+        display: block;
+        transition: all 0.2s ease;
+        text-align: left;
+        border-bottom: 1px solid rgba(90, 109, 137, 0.1);
+    }
+    
+    .history-option:last-child {
+        border-bottom: none;
+    }
+    
+    .history-option:hover {
+        background: rgba(65, 105, 225, 0.2);
+    }
+    
+    .history-option.active {
+        background: rgba(65, 105, 225, 0.3);
+        font-weight: 500;
+    }
+    
+    /* Search and controls styling */
+    .history-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .history-search {
+        position: relative;
+        width: 250px;
+    }
+    
+    .history-search input {
+        width: 100%;
+        padding: 8px 40px 8px 12px;
+        border: 1px solid rgba(90, 109, 137, 0.3);
+        border-radius: 8px;
+        background-color: rgba(28, 36, 54, 0.6);
+        color: white;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+    
+    .history-search input:focus {
+        outline: none;
+        border-color: rgba(65, 105, 225, 0.6);
+        box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.2);
+    }
+    
+    .history-search button {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s ease;
+    }
+    
+    .history-search button:hover {
+        color: rgba(255, 255, 255, 1);
+    }
+    
+    .history-page-size {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .history-page-size label {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+    }
+    
+    .history-page-size select {
+        padding: 6px 10px;
+        border: 1px solid rgba(90, 109, 137, 0.3);
+        border-radius: 6px;
+        background-color: rgba(28, 36, 54, 0.6);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .history-page-size select:focus {
+        outline: none;
+        border-color: rgba(65, 105, 225, 0.6);
+    }
+    
+    .clear-button {
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #e74c3c 0%, #f15846 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    }
+    
+    .clear-button:hover {
+        background: linear-gradient(135deg, #f15846 0%, #f3695a 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+    }
+    
+    /* Modern-table-wrapper for scrollable tables - using the same approach as logs */
+    .modern-table-wrapper {
+        width: 100%;
+        height: calc(100vh - 200px); /* Same method used in logs section */
+        overflow-y: auto;
+        overflow-x: auto;
+        position: relative;
+        border-radius: 8px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+        padding-right: 5px;
+        background: linear-gradient(135deg, rgba(30, 39, 56, 0.95) 0%, rgba(14, 20, 32, 0.95) 50%, rgba(16, 24, 36, 0.95) 100%);
+        border: 1px solid rgba(90, 109, 137, 0.15);
+        /* Add gradient glow border effect */
+        position: relative;
+    }
+    
+    /* Add subtle colored accent to the table wrapper */
+    .modern-table-wrapper::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(52, 152, 219, 0.5), rgba(155, 89, 182, 0.5)); /* Sonarr blue to Whisparr purple */
+        z-index: 1;
+    }
+    
+    /* We don't need this class anymore since we're using a simpler approach */
+    
+    /* Make Processed Information column text wrap for very long content */
+    .history-table td:nth-child(2) {
+        white-space: normal;
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 400px;
+    }
+    
+    .modern-table, .history-table {
+        width: 100%;
+        min-width: 830px; /* Sum of all min-widths */
+        border-collapse: collapse;
+        text-align: left;
+        color: white;
+        table-layout: fixed;
+    }
+    
+    .modern-table thead, .history-table thead {
+        background: linear-gradient(135deg, #1e2738 0%, #0e1420 50%, #101824 100%);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Table headers with improved styling */
+    .modern-table th, .history-table th {
+        padding: 14px 15px;
+        font-weight: 600;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid rgba(90, 109, 137, 0.25);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+    
+    /* Add subtle colored accent to first table header */
+    .modern-table thead th:first-child::before, .history-table thead th:first-child::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(52, 152, 219, 0.7), rgba(155, 89, 182, 0.3));
+    }
+    
+    .modern-table td, .history-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid rgba(90, 109, 137, 0.1);
+        font-size: 14px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: rgba(255, 255, 255, 0.85);
+        /* Subtle text shadow for better readability */
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Highlight important info in Date Time column */
+    .modern-table td:first-child, .history-table td:first-child {
+        color: rgba(255, 255, 255, 0.95);
+        font-weight: 500;
+    }
+    
+    /* Reset all styling for the ID column */
+    .modern-table td:nth-child(3), .history-table td:nth-child(3) {
+        all: initial; /* This resets all properties */
+        display: table-cell; /* Restore table-cell display */
+        font-family: inherit !important;
+        font-size: 14px !important;
+        font-weight: normal !important;
+        text-shadow: none !important;
+        color: rgba(255, 255, 255, 0.85) !important;
+        background: transparent !important; 
+        border: none !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        letter-spacing: normal !important;
+        padding: 12px 15px !important;
+        text-align: left !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Extra specificity to ensure IDs have absolutely no styling */
+    .modern-table td.plain-id, .history-table td.plain-id {
+        background: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 12px 15px !important;
+        margin: 0 !important;
+        border: none !important;
+        color: rgba(255, 255, 255, 0.85) !important;
+    }
+    
+    /* Ensure no child elements inside ID cell have styling */
+    .modern-table td.plain-id *, .history-table td.plain-id * {
+        background: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        color: inherit !important;
+    }
+    
+    .modern-table tbody tr, .history-table tbody tr {
+        transition: all 0.3s ease;
+        background: rgba(16, 20, 30, 0.3);
+        border-left: 2px solid transparent;
+    }
+    
+    /* Alternating row styling with subtle gradients */
+    .modern-table tbody tr:nth-child(odd), .history-table tbody tr:nth-child(odd) {
+        background: linear-gradient(90deg, rgba(24, 32, 48, 0.4) 0%, rgba(16, 22, 38, 0.3) 100%);
+    }
+    
+    .modern-table tbody tr:nth-child(even), .history-table tbody tr:nth-child(even) {
+        background: linear-gradient(90deg, rgba(20, 28, 44, 0.3) 0%, rgba(16, 20, 34, 0.2) 100%);
+    }
+    
+    .modern-table tbody tr:hover, .history-table tbody tr:hover {
+        background: linear-gradient(90deg, rgba(65, 105, 225, 0.15), rgba(52, 152, 219, 0.1));
+        border-left: 2px solid rgba(52, 152, 219, 0.4);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modern-table tbody tr:last-child td, .history-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Operation status styling */
+    .operation-status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 12px;
+        text-align: center;
+        min-width: 80px;
+    }
+    
+    .operation-status.success {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #2ecc71;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    /* Operation status badges with gradient styling */
+    .operation-status.error {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.2) 0%, rgba(220, 53, 69, 0.3) 100%);
+        color: #ff6b6b;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .operation-status.upgrade {
+        background: linear-gradient(135deg, rgba(25, 118, 210, 0.2) 0%, rgba(33, 150, 243, 0.3) 100%);
+        color: #42a5f5;
+        border: 1px solid rgba(25, 118, 210, 0.3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .operation-status.missing {
+        background: linear-gradient(135deg, rgba(211, 47, 47, 0.2) 0%, rgba(244, 67, 54, 0.3) 100%);
+        color: #ef5350;
+        border: 1px solid rgba(211, 47, 47, 0.3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .operation-status.warning {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 193, 7, 0.3) 100%);
+        color: #ffc107;
+        border: 1px solid rgba(255, 193, 7, 0.3);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Info icon and JSON tooltip styling */
+    .info-hover-icon {
+        color: rgb(52, 152, 219); /* Fully opaque - no transparency */
+        margin-right: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        /* Make sure the icon is fully opaque with background */
+        background-color: rgb(14, 22, 33); /* Match the table background */
+        border-radius: 50%;
+        padding: 2px;
+        height: 14px;
+        width: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        /* Add subtle glow effect matching the tooltip */
+        box-shadow: 0 0 5px rgb(52, 152, 219);
+    }
+    
+    /* Hide info icons on mobile devices */
+    @media screen and (max-width: 768px) {
+        .info-hover-icon {
+            display: none;
+        }
+    }
+    
+    .info-hover-icon:hover {
+        color: rgb(255, 255, 255); /* Bright white on hover */
+        background-color: rgb(52, 152, 219); /* Blue background on hover */
+        transform: scale(1.2);
+        box-shadow: 0 0 8px rgb(52, 152, 219);
+    }
+    
+    /* Hide the tooltip by default */
+    .json-tooltip {
+        display: none;
+        position: absolute;
+        left: 35px; /* Move the tooltip to the right by default */
+        top: 100%;
+        /* Extra thick solid background with absolutely no transparency */
+        background-color: #121824;
+        /* Add a thick dark background behind content */
+        background-image: 
+            linear-gradient(to bottom, 
+                #121824 0%, 
+                #0c111d 100%);
+        /* Double border for better definition */
+        border: 3px solid #2185d0;
+        border-radius: 8px;
+        padding: 10px;
+        width: 350px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 999999; /* Super high z-index */
+        font-family: monospace;
+        font-size: 12px;
+        color: #ffffff; /* Pure white text */
+        text-align: left;
+        white-space: pre-wrap;
+        /* Force complete opacity */
+        opacity: 1 !important;
+        /* Strong glow effect similar to NeutArr logo - more pronounced */
+        box-shadow: 
+            0 0 0 4px #121824, /* Thick barrier */
+            0 0 0 5px #2185d0, /* Border highlight */
+            0 0 20px 5px #2185d0, /* Much stronger blue glow */
+            0 5px 15px rgba(0, 0, 0, 0.9); /* Deep shadow */
+        /* Animation for the glow effect - faster to be more noticeable */
+        animation: tooltipGlow 2s ease-in-out infinite alternate;
+    }
+    
+    /* Glowing border animation */
+    @keyframes tooltipGlow {
+        0% {
+            box-shadow: 
+                0 0 0 4px #121824, /* Solid barrier */
+                0 0 0 5px #2185d0, /* Blue border */
+                0 0 25px 8px #2185d0, /* Much stronger blue glow */
+                0 5px 15px rgba(0, 0, 0, 0.9); /* Deep shadow */
+            border-color: #2185d0;
+        }
+        50% {
+            box-shadow: 
+                0 0 0 4px #121824, /* Solid barrier */
+                0 0 0 5px #9b59b6, /* Brighter purple border */
+                0 0 25px 8px #9b59b6, /* Much stronger purple glow */
+                0 5px 15px rgba(0, 0, 0, 0.9); /* Deep shadow */
+            border-color: #9b59b6;
+        }
+        100% {
+            box-shadow: 
+                0 0 0 4px #121824, /* Solid barrier */
+                0 0 0 5px #2185d0, /* Blue border */
+                0 0 25px 8px #2185d0, /* Much stronger blue glow */
+                0 5px 15px rgba(0, 0, 0, 0.9); /* Deep shadow */
+            border-color: #2185d0;
+        }
+    }
+    
+    /* Style the JSON content */
+    .json-content {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    
+    /* Show tooltip on hover */
+    .info-hover-icon:hover .json-tooltip {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Processed title styling */
+    .processed-title {
+        font-weight: 500;
+        word-break: break-word;
+        white-space: normal;
+        overflow: visible;
+        display: inline;
+        width: auto;
+        flex: 1;
+    }
+    
+    /* Style for the line container that holds icon and title */
+    .title-line-container {
+        display: flex;
+        align-items: flex-start;
+        flex-wrap: nowrap;
+        width: 100%;
+    }
+    
+    /* Style for the info icon to keep it at the top when title wraps */
+    .title-line-container .info-hover-icon {
+        flex-shrink: 0;
+        margin-top: 2px; /* Align with the first line of text */
+    }
+    
+    /* Ensure the first column allows wrapping */
+    .modern-table td:first-child, .history-table td:first-child {
+        white-space: normal;
+        word-break: break-word;
+        max-width: 300px;
+        overflow: visible;
+    }
+    
+    /* Empty state and loading styling */
+    .empty-state-message, .loading-indicator {
+        text-align: center;
+        padding: 50px 20px;
+        color: rgba(255, 255, 255, 0.7);
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+    }
+    
+    .empty-state-message i, .loading-indicator i {
+        margin-bottom: 15px;
+        opacity: 0.8;
+    }
+    
+    .empty-state-message p, .loading-indicator p {
+        font-size: 16px;
+    }
+    
+    /* Pagination controls styling */
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+        padding: 10px;
+        background: rgba(22, 26, 34, 0.9);
+        z-index: 1000;
+    }
+    
+    /* Mobile-specific styling */
+    .mobile-sticky {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+        border-top: 1px solid rgba(90, 109, 137, 0.3);
+    }
+    
+    /* Desktop styling (default) */
+    @media (max-width: 768px) {
+        /* Mobile-specific styles remain */
+    }
+    
+    /* Default desktop styling */
+    .mobile-sticky {
+        position: static;
+        box-shadow: none;
+        border-top: none;
+        background: transparent;
+    }
+    
+    .pagination-button {
+        padding: 8px 16px;
+        background: linear-gradient(135deg, rgba(28, 36, 54, 0.8), rgba(24, 32, 48, 0.7));
+        border: 1px solid rgba(90, 109, 137, 0.3);
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .pagination-button:hover:not(:disabled) {
+        background: linear-gradient(135deg, rgba(38, 46, 64, 0.9), rgba(34, 42, 58, 0.8));
+        transform: translateY(-1px);
+    }
+    
+    .pagination-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    #historyPageInfo {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+    }
+    
+    /* Mobile Table Adjustments */
+    @media (max-width: 768px) {
+        /* Keep all columns at their natural width */
+        .modern-table, .history-table {
+            table-layout: fixed;
+            min-width: 830px; /* Sum of all min-widths */
+            width: auto;
+        }
+        
+        /* Ensure the wrapper allows horizontal scrolling */
+        .modern-table-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* General responsive styling */
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .history-dropdown-container, .history-controls {
+            width: 100%;
+        }
+        
+        .history-search {
+            width: 100%;
+        }
+        
+        .pagination-controls {
+            flex-wrap: wrap;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 30px; /* Add horizontal padding to move buttons inward */
+            z-index: 1000;
+        }
+        
+        .pagination-button {
+            padding: 8px 12px;
+            font-size: 14px;
+            min-width: 85px;
+        }
+        
+        #historyPageInfo {
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        /* Ensure the table wrapper doesn't overflow in mobile */
+        .modern-table-wrapper {
+            max-height: calc(100vh - 300px);
+            padding-bottom: 60px; /* Add padding to ensure content isn't hidden under pagination */
+        }
+        
+        /* Fix for small screen height */
+        @media (max-height: 700px) {
+            .pagination-controls {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+            }
+        }
+    }
+</style>
+
+<script>
+    // Fixes for formatting the history items
+    document.addEventListener('DOMContentLoaded', function() {
+        // Simplified scrollbar setup for history section - matches logs approach
+        const fixHistoryScrolling = function() {
+            // Apply minimal CSS needed for proper table scrolling
+            const style = document.createElement('style');
+            style.id = 'history-scrollbar-fix';
+            style.innerHTML = `
+                /* Ensure the history container allows proper scrolling */
+                .history-container {
+                    overflow: visible !important;
+                }
+                
+                /* Ensure the table wrapper has proper scrolling */
+                .modern-table-wrapper {
+                    height: calc(100vh - 200px) !important;
+                    overflow-y: auto !important;
+                    overflow-x: auto !important;
+                }
+                
+                /* Prevent text from wrapping in table cells except for the second column */
+                .modern-table td:not(:nth-child(2)), .history-table td:not(:nth-child(2)) {
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Keep the table wrapper reference for potential future use
+            const tableWrapper = document.querySelector('.modern-table-wrapper');
+            if (tableWrapper) {
+                // Remove any inline styles that could be interfering
+                tableWrapper.style.removeProperty('overflow-y');
+                tableWrapper.style.removeProperty('overflow-x');
+                tableWrapper.style.removeProperty('height');
+                tableWrapper.style.removeProperty('max-height');
+                tableWrapper.style.removeProperty('min-height');
+                
+                // Let the CSS handle the scrollbar
+                tableWrapper.classList.remove('force-scrollbar');
+            }
+        };
+        
+        // Run immediately for history page
+        if (neutarrUI && neutarrUI.currentSection === 'history') {
+            setTimeout(fixHistoryScrolling, 100);
+        }
+        
+        // Add event listener for section changes
+        document.addEventListener('sectionChanged', function(e) {
+            if (e.detail.section === 'history') {
+                setTimeout(fixHistoryScrolling, 100);
+            } else {
+                // Remove existing style if it exists
+                const existingStyle = document.getElementById('history-scrollbar-fix');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                
+                // Force the table wrapper to have a fixed height to ensure scrollbar appears
+                const tableWrapper = document.querySelector('.modern-table-wrapper');
+                if (tableWrapper) {
+                    // Add a class to force scrollbars to be visible
+                    tableWrapper.classList.add('force-scrollbar');
+                }
+                
+                // Also clear inline styles
+                document.querySelectorAll('#app, .main-content, body, #main, .main-content > .inner, .section-content').forEach(container => {
+                    if (container) {
+                        container.style.overflow = '';
+                    }
+                });
+            }
+        });
+        
+        // Original function exists in history.js
+        const originalRenderHistoryData = historyModule.renderHistoryData;
+        
+        if (typeof historyModule !== 'undefined') {
+            // Override the render method to apply our styling
+            historyModule.renderHistoryData = function(data) {
+                // Call the original render method
+                originalRenderHistoryData.call(this, data);
+                
+                // After the data is rendered, format the operation status columns
+                const operationCells = document.querySelectorAll('#historyTableBody tr td:nth-child(3)');
+                operationCells.forEach(cell => {
+                    const operationText = cell.textContent.trim();
+                    const statusClass = operationText.toLowerCase() === 'success' ? 'success' : 
+                                 operationText.toLowerCase() === 'missing' ? 'missing' : 
+                                 operationText.toLowerCase() === 'upgrade' ? 'upgrade' : 
+                                 operationText.toLowerCase() === 'warning' ? 'warning' : 'error';
+                    
+                    cell.innerHTML = `<span class="operation-status ${statusClass}">${operationText}</span>`;
+                });
+            };
+        }
+    });
+</script>

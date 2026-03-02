@@ -1,0 +1,13 @@
+services:
+  neutarr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neutarr
+    ports:
+      - "9705:9705"
+    volumes:
+      - ./config:/config
+    environment:
+      - TZ=UTC
+    restart: unless-stopped

@@ -1,0 +1,250 @@
+name: Docker Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+
+concurrency:
+  group: docker-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dev_version: ${{ steps.dev_version.outputs.dev_version }}
+      repo_owner_lower: ${{ steps.repo_lower.outputs.repo_owner_lower }}
+      branch_name: ${{ steps.branch.outputs.branch_name }}
+      is_release: ${{ steps.release_check.outputs.is_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(grep -E '^version = ' pyproject.toml | head -1 | cut -d '"' -f2)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${VERSION}"
+
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "branch_name=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "Branch: ${BRANCH}"
+
+      - name: Lowercase repo owner
+        id: repo_lower
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "repo_owner_lower=${OWNER}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute dev version
+        id: dev_version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Count commits since last release tag (falls back to total count if no tags)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            DEV_COUNT=$(git rev-list "${LAST_TAG}..HEAD" --count)
+          else
+            DEV_COUNT=$(git rev-list HEAD --count)
+          fi
+          DEV_VERSION="${VERSION}-dev.${DEV_COUNT}"
+          echo "dev_version=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Dev version: ${DEV_VERSION}"
+
+      - name: Check if this is a release build
+        id: release_check
+        run: |
+          IS_RELEASE="false"
+          # Release builds trigger when a release-please PR is merged to main
+          if [[ "${{ github.event_name }}" == "pull_request" && \
+                "${{ github.event.pull_request.merged }}" == "true" && \
+                "${{ github.event.pull_request.title }}" == chore\(main\):\ release* ]]; then
+            IS_RELEASE="true"
+          fi
+          # Also allow manual dispatch with release intent
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && \
+                "${{ github.ref_name }}" == "main" ]]; then
+            IS_RELEASE="true"
+          fi
+          echo "is_release=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "Is release: ${IS_RELEASE}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine image tags
+        id: tags
+        env:
+          OWNER: ${{ needs.setup.outputs.repo_owner_lower }}
+          VERSION: ${{ needs.setup.outputs.version }}
+          DEV_VERSION: ${{ needs.setup.outputs.dev_version }}
+          IS_RELEASE: ${{ needs.setup.outputs.is_release }}
+          BRANCH: ${{ needs.setup.outputs.branch_name }}
+        run: |
+          IMAGE="iampuid0/neutarr"
+          if [[ "$IS_RELEASE" == "true" ]]; then
+            TAGS="${IMAGE}:${VERSION},${IMAGE}:latest"
+          elif [[ "$BRANCH" == "dev" ]]; then
+            TAGS="${IMAGE}:dev,${IMAGE}:${DEV_VERSION}"
+          else
+            # Any other branch → branch-name tag only
+            SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-' | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+            TAGS="${IMAGE}:${SAFE_BRANCH}"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "Image tags: ${TAGS}"
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            NEUTARR_VERSION=${{ needs.setup.outputs.is_release == 'true' && needs.setup.outputs.version || needs.setup.outputs.dev_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Job summary
+        run: |
+          echo "## Docker Build Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ----- | ----- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | \`${{ needs.setup.outputs.branch_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | \`${{ needs.setup.outputs.version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dev version | \`${{ needs.setup.outputs.dev_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Is release | \`${{ needs.setup.outputs.is_release }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tags | \`${{ steps.tags.outputs.tags }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platforms | \`linux/amd64, linux/arm64\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [setup, build-and-push]
+    if: needs.setup.outputs.is_release == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        run: |
+          VERSION="${{ needs.setup.outputs.version }}"
+          # Extract the section for this version from CHANGELOG.md
+          NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d' | head -50)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${VERSION}"
+          fi
+          # Multi-line output — use delimiter
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          script: |
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ needs.setup.outputs.version }}',
+              name: '${{ needs.setup.outputs.version }}',
+              body: `${{ steps.changelog.outputs.notes }}`,
+              draft: false,
+              prerelease: false,
+            });
+            console.log(`Created release: ${release.html_url}`);
+            core.summary.addRaw(`## Release Created\n[${release.name}](${release.html_url})`);
+            await core.summary.write();
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  announce-dev:
+    runs-on: ubuntu-latest
+    needs: [setup, build-and-push]
+    if: >
+      needs.setup.outputs.is_release == 'false' &&
+      needs.setup.outputs.branch_name == 'dev' &&
+      secrets.DISCORD_WEBHOOK != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Get recent commits
+        id: commits
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            LOG=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges | head -10)
+          else
+            LOG=$(git log --oneline --no-merges | head -10)
+          fi
+          {
+            echo "log<<EOF"
+            echo "$LOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post Discord dev build announcement
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg version "${{ needs.setup.outputs.dev_version }}" \
+            --arg log "${{ steps.commits.outputs.log }}" \
+            '{
+              embeds: [{
+                title: ("NeutArr Dev Build — " + $version),
+                color: 5814783,
+                description: ("**Recent commits:**\n```\n" + $log + "\n```"),
+                footer: { text: "iampuid0/neutarr:dev" }
+              }]
+            }')
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

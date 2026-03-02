@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - NeutArr</title>
+    <script>
+        // Always use dark mode for setup page
+        document.documentElement.classList.add('dark-theme');
+        document.write('<style>body, html { background-color: #1a1d24 !important; color: #f8f9fa !important; } .login-container { background-color: #252a34 !important; } .login-header { background-color: #121212 !important; }</style>');
+    </script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='49' fill='%230e1420'/><circle cx='37' cy='47' r='22' fill='%236366F1'/><ellipse cx='28' cy='38' rx='7' ry='5' fill='white' opacity='0.15' transform='rotate(-15 28 38)'/><circle cx='66' cy='54' r='15' fill='%234F46E5'/><ellipse cx='60' cy='47' rx='5' ry='3' fill='white' opacity='0.15' transform='rotate(-15 60 47)'/></svg>" type="image/svg+xml">
+    <script src="/static/js/theme-preload.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <style>
+        @keyframes logo-glow {
+            0%   { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+            25%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+            50%  { box-shadow: 0 0 15px #4F46E5, 0 0 5px rgba(79, 70, 229, 0.4); }
+            75%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+            100% { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+        }
+
+        .login-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            animation: logo-glow 10s infinite ease-in-out;
+            transition: all 0.3s ease;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            margin-right: auto;
+            background: rgba(20, 30, 45, 0.6);
+        }
+
+        .login-logo i {
+            font-size: 28px;
+            color: #e0e6ed;
+            filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.5));
+        }
+
+        .login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #13171f 0%, #1c2230 100%);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 500px;
+            max-width: 90%;
+            background: linear-gradient(180deg, rgba(22, 26, 34, 0.98), rgba(18, 22, 30, 0.95));
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            border: 1px solid rgba(90, 109, 137, 0.15);
+        }
+
+        .login-header {
+            background: linear-gradient(180deg, rgba(18, 22, 30, 0.98), rgba(24, 28, 37, 0.95));
+            padding: 25px 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(90, 109, 137, 0.15);
+        }
+
+        .login-header h1 {
+            margin: 0;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-form {
+            padding: 25px;
+        }
+
+        /* Step indicators */
+        .setup-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            gap: 10px;
+        }
+
+        .step {
+            padding: 10px;
+            background: rgba(28, 36, 54, 0.6);
+            border-radius: 10px;
+            font-weight: 500;
+            flex: 1;
+            text-align: center;
+            opacity: 0.6;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(90, 109, 137, 0.2);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .step.active {
+            background: linear-gradient(135deg, #6366F1 0%, #7577f3 100%);
+            color: white;
+            opacity: 1;
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .step.completed {
+            background: linear-gradient(135deg, #28a745 0%, #34ce57 100%);
+            color: white;
+            opacity: 1;
+            border-color: rgba(40, 167, 69, 0.3);
+        }
+
+        /* Section visibility */
+        .setup-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .setup-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+
+        .form-group label i {
+            margin-right: 8px;
+            color: rgba(99, 102, 241, 0.9);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(90, 109, 137, 0.2);
+            border-radius: 8px;
+            background-color: rgba(28, 36, 54, 0.6);
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            outline: none;
+        }
+
+        .form-group select option {
+            background-color: #1c2436;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 40px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .toggle-password:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Buttons */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 25px;
+            gap: 10px;
+        }
+
+        .next-button, .submit-button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #6366F1 0%, #7577f3 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+            cursor: pointer;
+        }
+
+        .next-button:hover, .submit-button:hover {
+            background: linear-gradient(135deg, #7577f3 0%, #818CF8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .next-button:active, .submit-button:active {
+            transform: translateY(0);
+        }
+
+        .back-button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: 1px solid rgba(90, 109, 137, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background: rgba(90, 109, 137, 0.1);
+            border-color: rgba(90, 109, 137, 0.5);
+            color: white;
+        }
+
+        /* Error/success messages */
+        .error-message {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #ff6b6b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+
+        .auth-mode-description {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(28, 36, 54, 0.4);
+            border-radius: 6px;
+            border-left: 3px solid rgba(99, 102, 241, 0.5);
+        }
+
+        .warning-text {
+            font-size: 13px;
+            color: #ff9966;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .login-container { width: 95%; }
+            .login-form { padding: 20px; }
+            .login-header { padding: 20px 0; }
+            .login-logo { width: 50px; height: 50px; }
+            .form-actions { flex-direction: column-reverse; }
+            .next-button, .back-button, .submit-button { width: 100%; justify-content: center; }
+            .step { font-size: 0.75em; padding: 8px 5px; }
+        }
+    </style>
+</head>
+<body class="login-page dark-mode">
+    <div class="login-container">
+        <div class="login-header">
+            <span class="login-logo" aria-label="NeutArr"><img src="/static/logo/neutarr.svg" alt="NeutArr"></span>
+            <h1>NeutArr</h1>
+        </div>
+        <div class="login-form">
+            <div class="setup-steps">
+                <div id="step1" class="step active">1. Create Account</div>
+                <div id="step2" class="step">2. Auth Mode</div>
+            </div>
+
+            <!-- Step 1: Account creation -->
+            <div id="accountSetup" class="setup-section active">
+                <h2 style="margin: 0 0 20px; color: #fff; font-size: 20px; font-weight: 500;">Create Your Account</h2>
+                <div class="error-message" id="accountError"></div>
+                <div class="form-group">
+                    <label for="username">
+                        <i class="fas fa-user"></i>
+                        <span>Username</span>
+                    </label>
+                    <input type="text" id="username" name="username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="password">
+                        <i class="fas fa-lock"></i>
+                        <span>Password</span>
+                    </label>
+                    <input type="password" id="password" name="password" required>
+                    <i class="toggle-password fas fa-eye" id="togglePassword"></i>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Confirm Password</span>
+                    </label>
+                    <input type="password" id="confirm_password" name="confirm_password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="accountNextButton" class="next-button">
+                        <i class="fas fa-arrow-right"></i> Next
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Auth mode selection -->
+            <div id="authModeSetup" class="setup-section">
+                <h2 style="margin: 0 0 20px; color: #fff; font-size: 20px; font-weight: 500;">Choose Authentication Mode</h2>
+                <div class="error-message" id="authModeError"></div>
+                <div class="form-group">
+                    <label for="auth_mode">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Authentication Mode</span>
+                    </label>
+                    <select id="auth_mode">
+                        <option value="login" selected>Login Mode (recommended)</option>
+                        <option value="local_bypass">Local Bypass Mode</option>
+                        <option value="no_login">No Login Mode</option>
+                    </select>
+                    <div class="auth-mode-description" id="authModeDescription">
+                        Standard login required for all connections.
+                    </div>
+                    <div class="warning-text" id="authModeWarning" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Only use this if your reverse proxy is properly securing access.
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="backButton" class="back-button">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button type="button" id="finishButton" class="next-button">
+                        <i class="fas fa-check"></i> Finish Setup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const accountError = document.getElementById('accountError');
+            const authModeError = document.getElementById('authModeError');
+
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            const togglePassword = document.getElementById('togglePassword');
+            const accountNextButton = document.getElementById('accountNextButton');
+
+            const authModeSelect = document.getElementById('auth_mode');
+            const authModeDescription = document.getElementById('authModeDescription');
+            const authModeWarning = document.getElementById('authModeWarning');
+            const backButton = document.getElementById('backButton');
+            const finishButton = document.getElementById('finishButton');
+
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+
+            // Toggle password visibility
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+
+            // Auth mode descriptions
+            const modeDescriptions = {
+                login: 'Standard login required for all connections.',
+                local_bypass: 'Local network connections (192.168.x.x, 10.x.x.x, 172.16.x.x) bypass authentication. Remote connections still require login.',
+                no_login: 'Authentication is completely disabled. Only use this when running behind a properly configured reverse proxy with its own auth.'
+            };
+
+            authModeSelect.addEventListener('change', function() {
+                authModeDescription.textContent = modeDescriptions[this.value] || '';
+                authModeWarning.style.display = (this.value === 'no_login') ? 'block' : 'none';
+            });
+
+            function showError(el, message) {
+                el.textContent = message;
+                el.style.display = 'block';
+            }
+
+            function hideError(el) {
+                el.style.display = 'none';
+                el.textContent = '';
+            }
+
+            function goToStep(step) {
+                if (step === 1) {
+                    step1.className = 'step active';
+                    step2.className = 'step';
+                    document.getElementById('accountSetup').classList.add('active');
+                    document.getElementById('authModeSetup').classList.remove('active');
+                } else if (step === 2) {
+                    step1.className = 'step completed';
+                    step2.className = 'step active';
+                    document.getElementById('accountSetup').classList.remove('active');
+                    document.getElementById('authModeSetup').classList.add('active');
+                }
+            }
+
+            // Step 1: Create account
+            accountNextButton.addEventListener('click', async function() {
+                hideError(accountError);
+
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
+
+                if (!username || !password || !confirmPassword) {
+                    showError(accountError, 'All fields are required.');
+                    return;
+                }
+                if (username.length < 3) {
+                    showError(accountError, 'Username must be at least 3 characters.');
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    showError(accountError, 'Passwords do not match.');
+                    return;
+                }
+                if (password.length < 8) {
+                    showError(accountError, 'Password must be at least 8 characters.');
+                    return;
+                }
+
+                const originalText = accountNextButton.innerHTML;
+                accountNextButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+                accountNextButton.disabled = true;
+
+                try {
+                    const response = await fetch('/api/auth/setup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, confirm_password: confirmPassword }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Store tokens — we're now authenticated
+                        AuthManager.setTokens(data.access_token, data.refresh_token, data.username);
+                        goToStep(2);
+                    } else {
+                        showError(accountError, data.error || 'Failed to create account.');
+                    }
+                } catch (err) {
+                    console.error('Setup error:', err);
+                    showError(accountError, 'An error occurred. Please try again.');
+                } finally {
+                    accountNextButton.innerHTML = originalText;
+                    accountNextButton.disabled = false;
+                }
+            });
+
+            // Step 2: Back button
+            backButton.addEventListener('click', function() {
+                goToStep(1);
+            });
+
+            // Step 2: Finish — save auth mode, then redirect
+            finishButton.addEventListener('click', async function() {
+                hideError(authModeError);
+
+                const selectedMode = authModeSelect.value;
+                const originalText = finishButton.innerHTML;
+                finishButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                finishButton.disabled = true;
+
+                try {
+                    const response = await authFetch('/api/settings/general', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            local_access_bypass: selectedMode === 'local_bypass',
+                            proxy_auth_bypass: selectedMode === 'no_login',
+                        }),
+                    });
+
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        const data = await response.json().catch(() => ({}));
+                        showError(authModeError, data.error || 'Failed to save settings.');
+                        finishButton.innerHTML = originalText;
+                        finishButton.disabled = false;
+                    }
+                } catch (err) {
+                    console.error('Settings save error:', err);
+                    showError(authModeError, 'An error occurred. Please try again.');
+                    finishButton.innerHTML = originalText;
+                    finishButton.disabled = false;
+                }
+            });
+
+            // Enter key advances the active step
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const activeSection = document.querySelector('.setup-section.active');
+                    if (!activeSection) return;
+                    if (activeSection.id === 'accountSetup') {
+                        accountNextButton.click();
+                    } else if (activeSection.id === 'authModeSetup') {
+                        finishButton.click();
+                    }
+                }
+            });
+
+            localStorage.setItem('neutarr-dark-mode', 'true');
+        });
+    </script>
+</body>
+</html>

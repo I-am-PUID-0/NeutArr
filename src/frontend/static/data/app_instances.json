@@ -1,0 +1,58 @@
+{
+  "order": [
+    "sonarr",
+    "radarr",
+    "readarr",
+    "lidarr",
+    "whisparr",
+    "eros"
+  ],
+  "sonarr": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "Sonarr",
+      "order": 1
+    }
+  ],
+  "radarr": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "Radarr",
+      "order": 2
+    }
+  ],
+  "readarr": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "Readarr",
+      "order": 3
+    }
+  ],
+  "lidarr": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "Lidarr",
+      "order": 4
+    }
+  ],
+  "whisparr": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "WhisparrV2",
+      "order": 5
+    }
+  ],
+  "eros": [
+    {
+      "id": "0",
+      "name": "Default",
+      "display_name": "WhisparrV3",
+      "order": 6
+    }
+  ]
+}

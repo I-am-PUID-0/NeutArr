@@ -1,0 +1,393 @@
+<div class="top-bar">
+    <!-- Add color line at the top of the topbar -->
+    <div class="top-color-line"></div>
+    <div class="topbar-section left">
+        <div class="page-title" id="currentPageTitle"></div>
+        <span class="topbar-tagline">a neutered fork of <a href="https://github.com/plexguide/Huntarr.io"
+                target="_blank" rel="noopener">Huntarr</a> v6.6.3</span>
+    </div>
+    <div class="topbar-section center">
+        <div class="version-bar">
+            <div class="version-item">
+                <i class="fas fa-code-branch version-icon"></i>
+                <span>Version <span id="version-value">6.6.3</span></span>
+            </div>
+        </div>
+    </div>
+    <div class="topbar-section right">
+        <div class="user-info" id="userInfoContainer">
+            <span id="username">User</span>
+            <a href="#" id="logoutLink" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .top-bar {
+        height: 35px;
+        /* Slightly increased height for better spacing */
+        background: linear-gradient(135deg, rgba(30, 39, 56, 0.95) 0%, rgba(14, 20, 32, 0.95) 50%, rgba(16, 24, 36, 0.95) 100%);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(90, 109, 137, 0.15);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        position: relative;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+        /* Add subtle blur effect for depth */
+    }
+
+    /* Top color line */
+    .top-color-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(80, 118, 46, 0.6), rgba(141, 158, 64, 0.6));
+        z-index: 2;
+        box-shadow: 0 0 8px rgba(80, 118, 46, 0.4);
+    }
+
+    /* Add subtle colored accent to the bottom of the top bar */
+    .top-bar::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(80, 118, 46, 0.6), rgba(141, 158, 64, 0.6));
+        z-index: 1;
+    }
+
+    .topbar-section {
+        display: flex;
+        align-items: center;
+    }
+
+    .topbar-section.left {
+        flex: 1;
+        justify-content: flex-start;
+    }
+
+    .topbar-section.center {
+        flex: 1;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        position: static;
+        left: unset;
+        transform: unset;
+        width: auto;
+    }
+
+    .topbar-section.right {
+        flex: 1;
+        justify-content: flex-end;
+    }
+
+    /* Page title styling */
+    .page-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #ffffff;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.5px;
+    }
+
+    .topbar-tagline {
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.3);
+        margin-left: 12px;
+        white-space: nowrap;
+    }
+
+    .topbar-tagline a {
+        color: #8D9E40;
+        text-decoration: none;
+    }
+
+    .topbar-tagline a:hover {
+        color: #a8b84d;
+        text-decoration: underline;
+    }
+
+    .version-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        background: rgba(20, 30, 45, 0.4);
+        border-radius: 6px;
+        padding: 4px 10px;
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(90, 109, 137, 0.15);
+    }
+
+    .version-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #e0e6ed;
+        transition: all 0.2s ease;
+    }
+
+    .version-item:hover {
+        transform: translateY(-1px);
+    }
+
+    .version-divider {
+        width: 1px;
+        height: 14px;
+        background-color: rgba(120, 140, 180, 0.3);
+    }
+
+    .version-icon {
+        color: #8D9E40;
+        font-size: 13px;
+        filter: drop-shadow(0 0 2px rgba(80, 118, 46, 0.4));
+    }
+
+    .star-icon {
+        color: #ffd700;
+        animation: star-pulse 3s infinite alternate;
+    }
+
+    @keyframes star-pulse {
+        0% {
+            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.4));
+        }
+
+        100% {
+            filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8));
+        }
+    }
+
+    .version-bar a {
+        color: #8D9E40;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .version-bar a::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 1px;
+        bottom: -1px;
+        left: 0;
+        background-color: #8D9E40;
+        transition: width 0.3s ease;
+    }
+
+    .version-bar a:hover {
+        color: #a8b84d;
+    }
+
+    .version-bar a:hover::after {
+        width: 100%;
+    }
+
+    .developer-credit {
+        color: #e0e6ed;
+    }
+
+    .developer-credit a {
+        color: #8D9E40;
+        font-weight: 600;
+    }
+
+    /* User info styling */
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(20, 30, 45, 0.4);
+        border-radius: 6px;
+        padding: 4px 10px;
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(90, 109, 137, 0.15);
+        transition: all 0.2s ease;
+    }
+
+    .user-info:hover {
+        background: rgba(25, 35, 50, 0.6);
+    }
+
+    #username {
+        font-weight: 600;
+        color: #e0e6ed;
+        font-size: 13px;
+    }
+
+    .logout-btn {
+        color: #e74c3c;
+        transition: all 0.2s ease;
+        opacity: 0.8;
+    }
+
+    .logout-btn:hover {
+        color: #ff6b6b;
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    /* Responsive styling */
+    @media (max-width: 768px) {
+        .top-bar {
+            height: 50px;
+            /* Increased height for mobile to fit version info */
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        /* Ensure color line spans full width on mobile */
+        .top-color-line {
+            width: 100%;
+        }
+
+        .topbar-section.left,
+        .topbar-section.center {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .topbar-section.left {
+            margin-right: 10px;
+        }
+
+        .topbar-tagline {
+            display: none;
+        }
+
+        .topbar-section.center {
+            flex-grow: 1;
+            justify-content: flex-start;
+        }
+
+        .topbar-section.right {
+            display: none;
+            /* Hide user info on mobile to save space */
+        }
+
+        .version-bar {
+            display: flex !important;
+            gap: 8px !important;
+            flex-wrap: nowrap;
+        }
+
+        .version-item {
+            display: none !important;
+        }
+
+        .version-item:nth-child(1),
+        .version-item:nth-child(3) {
+            display: flex !important;
+            font-size: 13px !important;
+            background: rgba(30, 39, 56, 0.6);
+            border-radius: 4px;
+            padding: 2px 5px;
+            margin: 0;
+            border: 1px solid rgba(90, 109, 137, 0.2);
+        }
+
+        .version-divider {
+            display: none !important;
+        }
+
+        .version-divider:nth-child(2) {
+            display: block !important;
+            height: 12px;
+            margin: 0 5px;
+        }
+
+        /* Sidebar related styles, preserved */
+        .sidebar {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            height: 100vh !important;
+        }
+
+        .nav-menu {
+            flex-direction: column !important;
+            align-items: center !important;
+            width: 100%;
+        }
+
+        .nav-item {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            width: 60px !important;
+            margin: 0 auto 8px auto !important;
+            padding: 0 !important;
+        }
+
+        .nav-icon-wrapper {
+            margin: 0 !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+    }
+
+    /* Phone-specific styling for very small screens */
+    @media (max-width: 480px) {
+        .top-bar {
+            height: 80px;
+            /* Increased height for phones to accommodate wrapped version info */
+            flex-direction: column;
+            justify-content: center;
+            padding: 5px 10px;
+        }
+
+        .topbar-section.left {
+            margin: 0 0 5px 0;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .topbar-section.center {
+            justify-content: center;
+            width: 100%;
+        }
+
+        .version-bar {
+            justify-content: center;
+            flex-wrap: wrap !important;
+            gap: 5px !important;
+        }
+
+        /* Make the page title centered */
+        .page-title {
+            width: 100%;
+            text-align: center;
+            margin: 0 0 4px 0;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var el = document.getElementById('version-value');
+        if (el) {
+            fetch('/version.txt').then(function (r) { return r.text(); })
+                .then(function (v) { el.textContent = v.trim(); })
+                .catch(function () { });
+        }
+    });
+</script>

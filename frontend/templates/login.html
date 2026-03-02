@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NeutArr Login</title>
+    <!-- Inline script to prevent theme flashing -->
+    <script>
+        // Check theme preference immediately before any rendering
+        (function() {
+            var prefersDarkMode = localStorage.getItem('neutarr-dark-mode') === 'true';
+            if (prefersDarkMode || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark-theme');
+                // Add inline styles to prevent flash
+                document.write('<style>body, html { background-color: #1a1d24 !important; color: #f8f9fa !important; } .login-container { background-color: #252a34 !important; } .login-header { background-color: #121212 !important; }</style>');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='49' fill='%230e1420'/><circle cx='37' cy='47' r='22' fill='%236366F1'/><ellipse cx='28' cy='38' rx='7' ry='5' fill='white' opacity='0.15' transform='rotate(-15 28 38)'/><circle cx='66' cy='54' r='15' fill='%234F46E5'/><ellipse cx='60' cy='47' rx='5' ry='3' fill='white' opacity='0.15' transform='rotate(-15 60 47)'/></svg>" type="image/svg+xml">
+    <script src="/static/js/theme-preload.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <style>
+        .login-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #13171f 0%, #1c2230 100%);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 400px;
+            max-width: 90%;
+            background: linear-gradient(180deg, rgba(22, 26, 34, 0.98), rgba(18, 22, 30, 0.95));
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            border: 1px solid rgba(90, 109, 137, 0.15);
+        }
+
+        .login-header {
+            background: linear-gradient(180deg, rgba(18, 22, 30, 0.98), rgba(24, 28, 37, 0.95));
+            padding: 30px 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(90, 109, 137, 0.15);
+        }
+
+        @keyframes logo-glow {
+            0%   { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+            25%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+            50%  { box-shadow: 0 0 15px #4F46E5, 0 0 5px rgba(79, 70, 229, 0.4); }
+            75%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+            100% { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+            transition: transform 0.3s ease, opacity 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 50%;
+            background: rgba(20, 30, 45, 0.6);
+            animation: logo-glow 10s infinite ease-in-out;
+        }
+
+        .login-logo i {
+            font-size: 36px;
+            color: #e0e6ed;
+            filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.5));
+        }
+
+        .login-logo:hover {
+            transform: scale(1.05);
+        }
+
+        .login-header h1 {
+            margin: 0;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-form {
+            padding: 30px;
+        }
+
+        .login-form h2 {
+            margin: 0 0 25px;
+            text-align: center;
+            font-size: 20px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+
+        .form-group label i {
+            margin-right: 8px;
+            color: rgba(99, 102, 241, 0.9);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(90, 109, 137, 0.2);
+            border-radius: 8px;
+            background-color: rgba(28, 36, 54, 0.6);
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            outline: none;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 40px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 10;
+        }
+
+        .toggle-password:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .login-button {
+            background: linear-gradient(135deg, #6366F1 0%, #7577f3 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .login-button:hover {
+            background: linear-gradient(135deg, #7577f3 0%, #818CF8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .error-message {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: #ff6b6b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                width: 95%;
+            }
+
+            .login-form {
+                padding: 20px;
+            }
+
+            .login-header {
+                padding: 20px 0;
+            }
+
+            .login-logo {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-header">
+            <span class="login-logo" aria-label="NeutArr"><img src="/static/logo/neutarr.svg" alt="NeutArr"></span>
+            <h1>NeutArr</h1>
+        </div>
+        <div class="login-form">
+            <h2>Log in to your account</h2>
+            <div id="errorMessage" class="error-message"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">
+                        <i class="fas fa-user"></i>
+                        <span>Username</span>
+                    </label>
+                    <input type="text" id="username" name="username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="password">
+                        <i class="fas fa-lock"></i>
+                        <span>Password</span>
+                    </label>
+                    <input type="password" id="password" name="password" required>
+                    <i class="toggle-password fas fa-eye" id="togglePassword"></i>
+                </div>
+                <button type="submit" class="login-button" id="loginButton">
+                    <i class="fas fa-sign-in-alt"></i> Log In
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const errorMessage = document.getElementById('errorMessage');
+        const togglePassword = document.getElementById('togglePassword');
+
+        // Toggle password visibility
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            errorMessage.style.display = 'none';
+            errorMessage.textContent = '';
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!username || !password) {
+                showError('Please enter both username and password.');
+                return;
+            }
+
+            const loginButton = document.getElementById('loginButton');
+            const originalText = loginButton.innerHTML;
+            loginButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+            loginButton.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    AuthManager.setTokens(data.access_token, data.refresh_token, data.username);
+                    window.location.href = '/';
+                } else {
+                    showError(data.error || 'Invalid username or password.');
+                    loginButton.innerHTML = originalText;
+                    loginButton.disabled = false;
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                showError('An error occurred during login. Please try again.');
+                loginButton.innerHTML = originalText;
+                loginButton.disabled = false;
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

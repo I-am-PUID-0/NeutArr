@@ -1,0 +1,1432 @@
+<section id="homeSection" class="content-section">
+    <style>
+        /* Make support-link and community-link buttons 20% shorter in height */
+        .support-link, .community-link {
+            padding: 5px !important; /* Further reduced padding */
+            min-height: 0 !important; /* Allow height to be determined by content + padding */
+        }
+        
+        /* Keep icon containers perfectly circular but smaller */
+        .support-links-grid .icon-container, .community-links-grid .icon-container {
+            aspect-ratio: 1/1 !important; /* Maintain perfect circle */
+            border-radius: 50% !important; /* Ensure circular shape */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transform: scale(0.85) !important; /* Make icons slightly smaller */
+        }
+        
+        /* Maintain proper spacing with reduced padding */
+        .support-links-grid, .community-links-grid {
+            padding: 4px !important; /* Reduced padding further */
+            gap: 6px !important; /* Smaller gap between items */
+        }
+        
+        /* Adjust text size for compact fit */
+        .link-title {
+            font-size: 0.9em !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .link-description {
+            font-size: 0.8em !important;
+        }
+        
+        /* Reduce Community & Resources header height */
+        .community-hub-card .card-header {
+            padding: 4px 15px !important; /* Reduced padding further */
+            min-height: 0 !important;
+            height: auto !important;
+        }
+        
+        .community-hub-card .card-header h3 {
+            margin: 0 !important;
+            font-size: 15px !important; /* Slightly smaller font size */
+            line-height: 1.3 !important; /* Tighter line height */
+        }
+        
+        /* Reduce height of both container cards by 35% */
+        .support-links-card, .community-hub-card {
+            padding: 8px !important; /* Reduced padding from default */
+            margin-bottom: 8px !important;
+        }
+        
+        .support-links-container, .community-resources-container {
+            padding: 2px !important;
+        }
+        
+        /* Tighten up the entire dashboard grid */
+        .dashboard-grid {
+            gap: 10px !important; /* Reduced gap between cards */
+        }
+        
+        /* Add slight negative margin to buttons to tighten layout */
+        .support-link .link-details, .community-link .link-details {
+            margin-top: -3px !important;
+        }
+        
+        /* Reduce Live Hunts Executed header height by 50% */
+        .stats-card .card-header {
+            padding: 8px 20px !important; /* 50% reduction from original 16px */
+            min-height: 0 !important;
+        }
+        
+        .stats-card .card-header h3 {
+            font-size: 16px !important; /* Slightly smaller font size */
+            line-height: 1.2 !important; /* Tighter line height */
+        }
+        
+        .stats-card .card-header .action-button {
+            padding: 4px 10px !important; /* Smaller button padding */
+            font-size: 0.85em !important; /* Smaller font size */
+        }
+    </style>
+    <div class="dashboard-grid stack-layout mobile-scrollable">
+        <!-- Updated statistics card with new layout -->
+        <div class="card stats-card">
+            <div class="card-header">
+                <h3>Live Hunts Executed</h3>
+                <button id="reset-stats" class="action-button danger"><i class="fas fa-trash"></i> Reset</button>
+            </div>
+            <div class="media-stats-container">
+                <div class="app-stats-grid">
+                    <!-- Sonarr Card -->
+                    <div class="app-stats-card sonarr">
+                        <div class="status-container">
+                            <span id="sonarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="sonarr-hourly-cap">
+                                    <span class="hourly-cap-icon" id="sonarr-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="sonarr-api-count">0</span> / <span id="sonarr-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-sonarr.png" alt="Sonarr Logo" class="app-logo">
+                            </div>
+                            <h4>Sonarr</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <div class="stat-number" id="sonarr-hunted">0</div>
+                                <div class="stat-label">Searches Triggered</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-number" id="sonarr-upgraded">0</div>
+                                <div class="stat-label">Upgrades Triggered</div>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="sonarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Radarr Card -->
+                    <div class="app-stats-card radarr">
+                        <div class="status-container">
+                            <span id="radarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="radarr-hourly-cap">
+                                    <span class="hourly-cap-icon" id="radarr-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="radarr-api-count">0</span> / <span id="radarr-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-radarr.png" alt="Radarr Logo" class="app-logo">
+                            </div>
+                            <h4>Radarr</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <span class="stat-number" id="radarr-hunted">0</span>
+                                <span class="stat-label">Searches Triggered</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-number" id="radarr-upgraded">0</span>
+                                <span class="stat-label">Upgrades Triggered</span>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="radarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Lidarr Card -->
+                    <div class="app-stats-card lidarr">
+                        <div class="status-container">
+                            <span id="lidarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="lidarr-hourly-cap">
+                                    <span class="hourly-cap-icon" id="lidarr-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="lidarr-api-count">0</span> / <span id="lidarr-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-lidarr.png" alt="Lidarr Logo" class="app-logo">
+                            </div>
+                            <h4>Lidarr</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <span class="stat-number" id="lidarr-hunted">0</span>
+                                <span class="stat-label">Searches Triggered</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-number" id="lidarr-upgraded">0</span>
+                                <span class="stat-label">Upgrades Triggered</span>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="lidarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Readarr Card -->
+                    <div class="app-stats-card readarr">
+                        <div class="status-container">
+                            <span id="readarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="readarr-hourly-cap">
+                                    <span class="hourly-cap-icon" id="readarr-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="readarr-api-count">0</span> / <span id="readarr-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-readarr.png" alt="Readarr Logo" class="app-logo">
+                            </div>
+                            <h4>Readarr</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <span class="stat-number" id="readarr-hunted">0</span>
+                                <span class="stat-label">Searches Triggered</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-number" id="readarr-upgraded">0</span>
+                                <span class="stat-label">Upgrades Triggered</span>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="readarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Whisparr Card -->
+                    <div class="app-stats-card whisparr">
+                        <div class="status-container">
+                            <span id="whisparrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="whisparr-hourly-cap">
+                                    <span class="hourly-cap-icon" id="whisparr-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="whisparr-api-count">0</span> / <span id="whisparr-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-whisparr.png" alt="Whisparr V2 Logo" class="app-logo">
+                            </div>
+                            <h4>Whisparr V2</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <span class="stat-number" id="whisparr-hunted">0</span>
+                                <span class="stat-label">Searches Triggered</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-number" id="whisparr-upgraded">0</span>
+                                <span class="stat-label">Upgrades Triggered</span>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="whisparr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Eros Card -->
+                    <div class="app-stats-card eros">
+                        <div class="status-container">
+                            <span id="erosHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                        </div>
+                        <div class="hourly-cap-container">
+                            <div class="hourly-cap-status" id="eros-hourly-cap">
+                                    <span class="hourly-cap-icon" id="eros-cap-icon"></span>
+                                    <span class="hourly-cap-text">API: <span id="eros-api-count">0</span> / <span id="eros-api-limit">20</span></span>
+                                </div>
+                        </div>
+                        <div class="app-content">
+                            <div class="app-icon-wrapper">
+                                <img src="/static/arrs/48-whisparr.png" alt="Whisparr V3 Logo" class="app-logo">
+                            </div>
+                            <h4>Whisparr V3</h4>
+                        </div>
+                        <div class="stats-numbers">
+                            <div class="stat-box">
+                                <span class="stat-number" id="eros-hunted">0</span>
+                                <span class="stat-label">Searches Triggered</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-number" id="eros-upgraded">0</span>
+                                <span class="stat-label">Upgrades Triggered</span>
+                            </div>
+                        </div>
+                        <div class="reset-button-container">
+                            <button class="cycle-reset-button" data-app="eros"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<style>
+    .stack-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+        padding-bottom: 20px; /* Reduced padding since we removed the fixed banner */
+    }
+    
+    .stack-layout .card {
+        width: 100%;
+    }
+    
+    .thanks-list {
+        text-align: left;
+        padding-left: 20px;
+    }
+    
+    .thanks-list li {
+        margin-bottom: 10px;
+    }
+
+    /* Banner card styles */
+    .banner-card {
+        background-color: var(--bg-secondary);
+        padding: 12px 15px;
+        border-left: 3px solid var(--accent-color);
+    }
+
+    .banner-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+
+    .donation-icon {
+        color: #ff6b6b;
+    }
+
+    .star-icon {
+        color: #ffd700;
+    }
+
+    /* Improved important links */
+    .important-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+        justify-content: center;
+    }
+
+    .link-button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background-color: var(--bg-tertiary);
+        border-radius: 6px;
+        color: var(--text-primary);
+        text-decoration: none;
+        transition: all 0.2s ease;
+        font-weight: 500;
+        font-size: 0.85rem;
+        box-shadow: none;
+        border: 1px solid var(--border-color);
+    }
+
+    .link-button i {
+        font-size: 0.85em;
+    }
+
+    .link-button:hover {
+        transform: none;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        background-color: var(--accent-color);
+        color: white;
+        border-color: var(--accent-color);
+    }
+
+    .sponsor-button {
+        background-color: #4e54c8;
+        color: white;
+    }
+
+    .sponsor-button:hover {
+        background-color: #24c6dc;
+    }
+    
+    /* Stats card styling */
+    .stats-card {
+        width: 100%;
+        background-color: rgba(24, 28, 37, 0.6);
+        border: 1px solid rgba(90, 109, 137, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .stats-card .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        background-color: rgba(32, 38, 50, 0.6);
+        border-bottom: 1px solid rgba(90, 109, 137, 0.2);
+        margin-bottom: 0;
+    }
+    
+    .stats-card .card-header h3 {
+        margin: 0;
+        color: #e0e6ed;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .media-stats-container {
+        padding: 20px;
+        background-color: rgba(15, 18, 24, 0.4);
+    }
+    
+    .app-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+    }
+    
+    .app-stats-card {
+        background: linear-gradient(145deg, rgba(26, 32, 44, 0.9), rgba(20, 24, 33, 0.8));
+        border-radius: 16px;
+        padding: 0 20px 0 20px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25), 0 1px 1px rgba(255, 255, 255, 0.05) inset;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 200px;
+        justify-content: flex-start;
+        border: 1px solid rgba(120, 140, 180, 0.15);
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+    }
+    
+    .app-stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(255, 255, 255, 0.07) inset;
+        border-color: rgba(120, 140, 180, 0.3);
+    }
+
+    /* Enhanced status container styling */
+    .status-container {
+        width: 100%;
+        margin: 0 0 15px 0;
+        padding: 10px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 5px;
+        background: linear-gradient(to bottom, rgba(17, 23, 35, 0.7), rgba(13, 17, 26, 0.5));
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px 16px 0 0;
+        margin-left: -20px;
+        margin-right: -20px;
+        width: calc(100% + 40px);
+        backdrop-filter: blur(10px);
+    }
+    
+    .status-badge {
+        padding: 5px 14px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 11px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        letter-spacing: 0.5px;
+        backdrop-filter: blur(5px);
+    }
+
+    /* App content styling */
+    .app-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 10px 0 5px 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* App icon wrapper base styling */
+    .app-icon-wrapper {
+        width: 76px;
+        height: 76px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, rgba(35, 42, 55, 0.9), rgba(22, 27, 38, 0.8));
+        margin-bottom: 12px;
+        position: relative;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        transform: perspective(800px) rotateX(10deg);
+        backdrop-filter: blur(5px);
+    }
+    
+    .app-logo {
+        width: 40px;
+        height: 40px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        transform: scale(1.15);
+        transition: transform 0.3s ease;
+    }
+    
+    .app-stats-card:hover .app-logo {
+        transform: scale(1.25);
+    }
+    
+    .app-stats-card h4 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        color: #e0e6ed;
+        letter-spacing: 0.7px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(to bottom, #fff, #a0a8b8);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Glowing ring animations */
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Common styles for app icon wrappers */
+    .app-stats-card .app-icon-wrapper::before,
+    .app-stats-card .app-icon-wrapper::after {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        animation: pulse 2s infinite ease-in-out, rotate 20s infinite linear;
+    }
+    
+    .app-stats-card .app-icon-wrapper::after {
+        top: -8px;
+        left: -8px;
+        right: -8px;
+        bottom: -8px;
+        opacity: 0.5;
+        animation: pulse 3s infinite ease-in-out, rotate 30s infinite linear reverse;
+    }
+    
+    /* Sonarr blue glowing rings */
+    .app-stats-card.sonarr .app-icon-wrapper::before {
+        border-color: rgba(0, 174, 240, 0.8);
+        box-shadow: 0 0 15px rgba(0, 174, 240, 0.6);
+    }
+    
+    .app-stats-card.sonarr .app-icon-wrapper::after {
+        border-color: rgba(0, 174, 240, 0.4);
+        box-shadow: 0 0 20px rgba(0, 174, 240, 0.3);
+    }
+    
+    /* Radarr yellow glowing rings */
+    .app-stats-card.radarr .app-icon-wrapper::before {
+        border-color: rgba(253, 203, 43, 0.8);
+        box-shadow: 0 0 15px rgba(253, 203, 43, 0.6);
+    }
+    
+    .app-stats-card.radarr .app-icon-wrapper::after {
+        border-color: rgba(253, 203, 43, 0.4);
+        box-shadow: 0 0 20px rgba(253, 203, 43, 0.3);
+    }
+    
+    /* Lidarr green glowing rings */
+    .app-stats-card.lidarr .app-icon-wrapper::before {
+        border-color: rgba(49, 197, 56, 0.8);
+        box-shadow: 0 0 15px rgba(49, 197, 56, 0.6);
+    }
+    
+    .app-stats-card.lidarr .app-icon-wrapper::after {
+        border-color: rgba(49, 197, 56, 0.4);
+        box-shadow: 0 0 20px rgba(49, 197, 56, 0.3);
+    }
+    
+    /* Readarr red glowing rings */
+    .app-stats-card.readarr .app-icon-wrapper::before {
+        border-color: rgba(192, 45, 40, 0.8);
+        box-shadow: 0 0 15px rgba(192, 45, 40, 0.6);
+    }
+    
+    .app-stats-card.readarr .app-icon-wrapper::after {
+        border-color: rgba(192, 45, 40, 0.4);
+        box-shadow: 0 0 20px rgba(192, 45, 40, 0.3);
+    }
+    
+    /* Whisparr purple glowing rings */
+    .app-stats-card.whisparr .app-icon-wrapper::before {
+        border-color: rgba(195, 0, 230, 0.8);
+        box-shadow: 0 0 15px rgba(195, 0, 230, 0.6);
+    }
+    
+    .app-stats-card.whisparr .app-icon-wrapper::after {
+        border-color: rgba(195, 0, 230, 0.4);
+        box-shadow: 0 0 20px rgba(195, 0, 230, 0.3);
+    }
+    
+    /* Eros purple glowing rings (same as Whisparr) */
+    .app-stats-card.eros .app-icon-wrapper::before {
+        border-color: rgba(195, 0, 230, 0.8);
+        box-shadow: 0 0 15px rgba(195, 0, 230, 0.6);
+    }
+    
+    .app-stats-card.eros .app-icon-wrapper::after {
+        border-color: rgba(195, 0, 230, 0.4);
+        box-shadow: 0 0 20px rgba(195, 0, 230, 0.3);
+    }
+    
+    .app-logo {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .app-stats-card h4 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #e0e6ed;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Enhanced stats numbers display */
+    .stats-numbers {
+        display: flex;
+        justify-content: space-around;
+        width: 100%;
+        padding: 15px 0;
+        margin-top: auto;
+        margin-bottom: 0;
+        border-top: none;
+        background: transparent;
+    }
+
+    .stat-box {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Make the stat numbers more vibrant and prominent */
+    .stat-number {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* App-specific stat number styles */
+    .app-stats-card.sonarr .stat-number {
+        background: linear-gradient(to bottom right, #5acdff, #00aef0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .app-stats-card.radarr .stat-number {
+        background: linear-gradient(to bottom right, #ffe066, #fdcb2b);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .app-stats-card.lidarr .stat-number {
+        background: linear-gradient(to bottom right, #5de264, #31c538);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .app-stats-card.readarr .stat-number {
+        background: linear-gradient(to bottom right, #e35751, #c02d28);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .app-stats-card.whisparr .stat-number {
+        background: linear-gradient(to bottom right, #e64dff, #c300e6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .app-stats-card.eros .stat-number {
+        background: linear-gradient(to bottom right, #e64dff, #c300e6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+        color: rgba(160, 168, 184, 0.9);
+        font-weight: 500;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+        opacity: 0.8;
+    }
+    
+    /* App-specific accent colors for sonarr */
+    .app-stats-card.sonarr .app-icon-wrapper {
+        border-color: rgba(0, 174, 240, 0.5);
+        box-shadow: 0 0 15px rgba(0, 174, 240, 0.2);
+    }
+    
+    /* App-specific accent colors for radarr */
+    .app-stats-card.radarr .app-icon-wrapper {
+        border-color: rgba(253, 203, 43, 0.5);
+        box-shadow: 0 0 15px rgba(253, 203, 43, 0.2);
+    }
+    
+    /* App-specific accent colors for lidarr */
+    .app-stats-card.lidarr .app-icon-wrapper {
+        border-color: rgba(49, 197, 56, 0.5);
+        box-shadow: 0 0 15px rgba(49, 197, 56, 0.2);
+    }
+    
+    /* App-specific accent colors for readarr */
+    .app-stats-card.readarr .app-icon-wrapper {
+        border-color: rgba(192, 45, 40, 0.5);
+        box-shadow: 0 0 15px rgba(192, 45, 40, 0.2);
+    }
+    
+    /* App-specific accent colors for whisparr */
+    .app-stats-card.whisparr .app-icon-wrapper {
+        border-color: rgba(195, 0, 230, 0.5);
+        box-shadow: 0 0 15px rgba(195, 0, 230, 0.2);
+    }
+    
+    /* App-specific accent colors for eros */
+    .app-stats-card.eros .app-icon-wrapper {
+        border-color: rgba(195, 0, 230, 0.5);
+        box-shadow: 0 0 15px rgba(195, 0, 230, 0.2);
+    }
+    
+    /* Status badge colors */
+    .status-badge.connected {
+        background: linear-gradient(145deg, rgba(39, 174, 96, 0.15), rgba(46, 204, 113, 0.05));
+        color: #2ecc71;
+        border: 1px solid rgba(39, 174, 96, 0.3);
+        box-shadow: 0 3px 10px rgba(46, 204, 113, 0.1);
+    }
+    
+    .status-badge.partially-connected {
+        background: linear-gradient(145deg, rgba(243, 156, 18, 0.15), rgba(241, 196, 15, 0.05));
+        color: #f39c12;
+        border: 1px solid rgba(243, 156, 18, 0.3);
+        box-shadow: 0 3px 10px rgba(243, 156, 18, 0.1);
+    }
+    
+    .status-badge.not-connected {
+        background: linear-gradient(145deg, rgba(231, 76, 60, 0.15), rgba(192, 57, 43, 0.05));
+        color: #e74c3c;
+        border: 1px solid rgba(231, 76, 60, 0.3);
+        box-shadow: 0 3px 10px rgba(231, 76, 60, 0.1);
+    }
+    
+    .status-badge.loading {
+        background: linear-gradient(145deg, rgba(41, 128, 185, 0.15), rgba(52, 152, 219, 0.05));
+        color: #3498db;
+        border: 1px solid rgba(41, 128, 185, 0.3);
+        box-shadow: 0 3px 10px rgba(41, 128, 185, 0.1);
+    }
+    
+    /* Improved hourly cap container styling */
+    .hourly-cap-container {
+        padding: 0 10px;
+        margin: 5px 0 20px 0; /* Increase bottom margin from 5px to 20px */
+        width: 100%;
+    }
+    
+    .api-link {
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .api-link:hover .hourly-cap-status {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        transform: translateY(-1px);
+        cursor: pointer;
+    }
+    
+    .api-link:active .hourly-cap-status {
+        transform: translateY(0);
+        transition: transform 0.1s;
+    }
+    
+    .hourly-cap-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        background: linear-gradient(145deg, rgba(20, 25, 35, 0.6), rgba(15, 19, 26, 0.4));
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+        border-left: 3px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.2s ease;
+        position: relative;
+        backdrop-filter: blur(5px);
+        margin: 0 auto;
+        max-width: 200px;
+    }
+    
+    .hourly-cap-status:after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.5);
+        transition: width 0.2s ease;
+    }
+    
+    .api-link:hover .hourly-cap-status:after {
+        width: 100%;
+    }
+    
+    .hourly-cap-icon {
+        margin-right: 5px;
+        font-size: 0.9rem;
+    }
+    
+    .hourly-cap-text {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 500;
+        letter-spacing: 0.3px;
+    }
+    
+    /* API Cap Status Colors */
+    .hourly-cap-status.good {
+        background: linear-gradient(145deg, rgba(20, 25, 35, 0.5), rgba(15, 19, 26, 0.3));
+        border-left: 3px solid rgba(46, 204, 113, 0.9);
+        box-shadow: 0 3px 10px rgba(46, 204, 113, 0.15);
+    }
+    
+    .hourly-cap-status.warning {
+        background: linear-gradient(145deg, rgba(20, 25, 35, 0.5), rgba(15, 19, 26, 0.3));
+        border-left: 3px solid rgba(243, 156, 18, 0.9);
+        box-shadow: 0 3px 10px rgba(243, 156, 18, 0.15);
+    }
+    
+    .hourly-cap-status.danger {
+        background: linear-gradient(145deg, rgba(20, 25, 35, 0.5), rgba(15, 19, 26, 0.3));
+        border-left: 3px solid rgba(231, 76, 60, 0.9);
+        box-shadow: 0 3px 10px rgba(231, 76, 60, 0.15);
+    }
+    
+    .hourly-cap-status.good .hourly-cap-icon:before {
+        content: "\f201"; /* fa-chart-line */
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        color: #2ecc71;
+    }
+    
+    .hourly-cap-status.warning .hourly-cap-icon:before {
+        content: "\f252"; /* fa-hourglass-half */
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        color: #f39c12;
+    }
+    
+    .hourly-cap-status.danger .hourly-cap-icon:before {
+        content: "\f056"; /* fa-minus-circle */
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        color: #e74c3c;
+    }
+    
+    /* Header for cards */
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .card h3 {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    /* Special card styling and afterglow effects */
+    .app-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 10px 0 5px 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Add subtle after-glow to the cards */
+    .app-stats-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.08), transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* App-specific gradients */
+    .app-stats-card.sonarr::after {
+        background: radial-gradient(circle at 50% 10%, rgba(0, 174, 240, 0.08), transparent 70%);
+    }
+
+    .app-stats-card.radarr::after {
+        background: radial-gradient(circle at 50% 10%, rgba(253, 203, 43, 0.08), transparent 70%);
+    }
+
+    .app-stats-card.lidarr::after {
+        background: radial-gradient(circle at 50% 10%, rgba(49, 197, 56, 0.08), transparent 70%);
+    }
+
+    .app-stats-card.readarr::after {
+        background: radial-gradient(circle at 50% 10%, rgba(192, 45, 40, 0.08), transparent 70%);
+    }
+
+    .app-stats-card.whisparr::after, .app-stats-card.eros::after {
+        background: radial-gradient(circle at 50% 10%, rgba(195, 0, 230, 0.08), transparent 70%);
+    }
+
+    /* Ensure button in header doesn't inherit odd margins and adjust padding */
+    .card-header .action-button {
+        margin: 0;
+        padding: 6px 12px;
+        font-size: 0.9em;
+        flex-grow: 0;
+    }
+
+    /* Enhanced action button styling */
+    .card-header .action-button {
+        margin: 0;
+        padding: 6px 12px;
+        font-size: 0.85em;
+        flex-grow: 0;
+        background: linear-gradient(145deg, rgba(244, 67, 54, 0.12), rgba(229, 57, 53, 0.07));
+        border: 1px solid rgba(244, 67, 54, 0.25);
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .action-button.danger {
+        background-color: rgba(244, 67, 54, 0.1);
+        color: #f44336;
+    }
+
+    .action-button.danger:hover {
+        background: linear-gradient(145deg, rgba(244, 67, 54, 0.9), rgba(229, 57, 53, 0.8));
+        color: white;
+        border-color: #f44336;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(244, 67, 54, 0.2);
+    }
+
+    .action-button.danger:active {
+        transform: translateY(0);
+        background: linear-gradient(145deg, rgba(229, 57, 53, 0.9), rgba(244, 67, 54, 0.8));
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .important-links {
+            flex-direction: column;
+        }
+        
+        .link-button {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    /* Version display styling */
+    .version-icon {
+        color: #3498db;
+    }
+    
+    #version-number {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    
+    #version-value {
+        font-weight: 600;
+    }
+    
+    /* Added style for latest version number */
+    #latest-version-value {
+        font-weight: 600;
+    }
+    
+    /* Developer credit styling */
+    .developer-credit {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    
+    .developer-credit a {
+        color: #3498db;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    
+    .developer-credit a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Community & Resources Hub styling */
+    .community-hub-card {
+        width: 100%;
+        background-color: rgba(24, 28, 37, 0.6);
+        border: 1px solid rgba(90, 109, 137, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .community-hub-card .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        background-color: rgba(32, 38, 50, 0.6);
+        border-bottom: 1px solid rgba(90, 109, 137, 0.2);
+    }
+    
+    .community-hub-card .card-header h3 {
+        margin: 0;
+        color: #e0e6ed;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    /* Enhanced Community Hub Card with Glass Effect */
+    .community-hub-card {
+        margin-bottom: 20px;
+        background: rgba(15, 20, 30, 0.5);
+        border: 1px solid rgba(79, 93, 115, 0.2);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+    
+    .community-resources-container {
+        padding: 15px;
+    }
+    
+    .community-links-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+    }
+    
+    .community-link {
+        display: flex;
+        align-items: center;
+        background: linear-gradient(145deg, rgba(25, 30, 40, 0.4), rgba(20, 25, 35, 0.7));
+        border-radius: 10px;
+        padding: 15px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: #ffffff;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(70, 90, 120, 0.15);
+        z-index: 1;
+    }
+    
+    .community-link::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+        z-index: -1;
+        opacity: 0.3;
+        transition: opacity 0.3s ease;
+    }
+    
+    .community-link:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .community-link:hover::before {
+        opacity: 0.5;
+    }
+    
+    .community-link .icon-container {
+        width: 42px;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-right: 15px;
+        flex-shrink: 0;
+        font-size: 20px;
+        color: white;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        position: relative;
+    }
+    
+    .community-link .link-details {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .community-link .link-title {
+        font-weight: 600;
+        font-size: 15px;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Icon styles for each link type with glass effect */
+    .icon-container.discord-icon {
+        background: linear-gradient(135deg, #5865F2, #404EED);
+        box-shadow: 0 0 10px rgba(88, 101, 242, 0.5);
+    }
+    
+    .icon-container.reddit-icon {
+        background: linear-gradient(135deg, #FF4500, #FF6A33);
+        box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+    }
+    
+    .icon-container.issues-icon {
+        background: linear-gradient(135deg, #2D3436, #636E72);
+        box-shadow: 0 0 10px rgba(45, 52, 54, 0.5);
+    }
+    
+    .icon-container.wiki-icon {
+        background: linear-gradient(135deg, #00B894, #00A087);
+        box-shadow: 0 0 10px rgba(0, 184, 148, 0.5);
+    }
+    
+    .icon-container.changelog-icon {
+        background: linear-gradient(135deg, #0984E3, #0570C2);
+        box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
+    }
+    
+    /* Media queries for responsiveness */
+    @media (max-width: 768px) {
+        .community-links-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+    }
+    
+    @media (max-width: 500px) {
+        .community-links-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Mobile scrolling fix */
+    .mobile-scrollable {
+        padding-bottom: 100px;
+    }
+    
+    @media (max-width: 768px) {
+        #homeSection {
+            overflow-y: auto !important;
+            height: auto !important;
+            min-height: 100%;
+        }
+        
+        .mobile-scrollable {
+            padding-bottom: 150px;
+        }
+        
+
+    }
+    
+    /* Modern Support Links styling with glass effect */
+    .support-links-card {
+        overflow: hidden;
+        background: rgba(15, 20, 30, 0.5);
+        border: 1px solid rgba(79, 93, 115, 0.2);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+    
+    .support-links-container {
+        padding: 4px;
+    }
+    
+    .support-links-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+    }
+    
+    .support-link {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        background: linear-gradient(145deg, rgba(25, 30, 40, 0.4), rgba(20, 25, 35, 0.8));
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: #ffffff;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(70, 90, 120, 0.15);
+        z-index: 1;
+    }
+    
+    .support-link::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+        z-index: -1;
+        opacity: 0.4;
+        transition: opacity 0.3s ease;
+    }
+    
+    .support-link:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    
+    .support-link:hover::before {
+        opacity: 0.6;
+    }
+    
+    .support-link .icon-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+        margin-right: 20px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        position: relative;
+    }
+    
+    /* GitHub icon styling */
+    .support-link .icon-container.github-icon {
+        background: linear-gradient(135deg, #24292e, #1a202c);
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(255, 193, 7, 0.6);
+        /* Animation removed, static glow instead */
+    }
+    
+    .support-link .icon-container.github-icon .star-inner-icon {
+        position: absolute;
+        font-size: 0.9em;
+        margin-left: 10px;
+        margin-top: -10px;
+        color: #ffc107;
+        filter: drop-shadow(0 0 5px rgba(255, 193, 7, 0.8));
+    }
+    
+    /* Forum icon styling */
+    .support-link .icon-container.forum-icon {
+        background: linear-gradient(135deg, #0473BB, #1E3A8A);
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(4, 115, 187, 0.6);
+        /* No animation, static glow */
+    }
+    
+    /* Donation icon styling */
+    .support-link .icon-container.donate-icon {
+        background: linear-gradient(135deg, #d63031, #e84393);
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+        animation: pulse-donate 2s infinite alternate;
+    }
+    
+    @keyframes pulse-github {
+        0% { box-shadow: 0 0 10px rgba(255, 193, 7, 0.4); }
+        100% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.7); }
+    }
+    
+    @keyframes pulse-donate {
+        0% { box-shadow: 0 0 10px rgba(255, 107, 107, 0.4); }
+        100% { box-shadow: 0 0 20px rgba(255, 107, 107, 0.7); }
+    }
+    
+    .support-link .link-details {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .support-link .link-title {
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 5px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .support-link .link-description {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.8);
+        white-space: normal;
+        word-wrap: break-word;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Mobile optimizations for support links */
+    @media (max-width: 768px) {
+        .support-links-grid {
+            gap: 8px;
+        }
+        
+        .support-link {
+            padding: 15px;
+        }
+        
+        .support-link .icon-container {
+            width: 42px;
+            height: 42px;
+            font-size: 1.3rem;
+            margin-right: 12px;
+        }
+        
+        .support-link .link-title {
+            font-size: 0.95rem;
+        }
+        
+        .support-link .link-description {
+            font-size: 0.75rem;
+        }
+    }
+    
+    /* Even smaller screens */
+    @media (max-width: 480px) {
+        .support-links-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Reset button container */
+    .reset-button-container {
+        margin-top: auto;
+        padding: 12px 0;
+        background: linear-gradient(to bottom, rgba(20, 26, 38, 0.5), rgba(16, 20, 30, 0.8));
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 0 0 16px 16px;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        min-height: 45px;
+        margin-left: -20px;
+        margin-right: -20px;
+        padding-left: 20px;
+        padding-right: 20px;
+        width: calc(100% + 40px);
+    }
+    
+    /* Enhanced cycle reset button */
+    .cycle-reset-button {
+        padding: 6px 14px;
+        background: linear-gradient(145deg, rgba(52, 152, 219, 0.2), rgba(41, 128, 185, 0.1));
+        color: #3498db;
+        border: 1px solid rgba(52, 152, 219, 0.3);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(5px);
+    }
+    
+    .cycle-reset-button:hover {
+        background: linear-gradient(145deg, rgba(52, 152, 219, 0.3), rgba(41, 128, 185, 0.2));
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .cycle-reset-button:active {
+        background: linear-gradient(145deg, rgba(41, 128, 185, 0.3), rgba(52, 152, 219, 0.2));
+        transform: translateY(0);
+    }
+    
+    .cycle-reset-button i {
+        font-size: 0.75rem;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+    }
+    
+    .cycle-reset-button.resetting {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+    // DOM loaded event listener - removed card clickability
+    document.addEventListener('DOMContentLoaded', function() {
+        // App cards are no longer clickable
+    });
+</script>

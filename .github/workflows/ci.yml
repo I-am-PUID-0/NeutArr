@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/**"
+  pull_request:
+    branches:
+      - dev
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies
+        run: pip install poetry && poetry install --no-root --only dev
+
+      - name: Ruff — check
+        run: poetry run ruff check .
+
+      - name: Ruff — format
+        run: poetry run ruff format --check .
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install poetry bandit pip-audit
+
+      - name: Bandit — Python source scan
+        run: bandit -r src/ main.py -ll
+
+      - name: Export main dependencies
+        run: poetry export --without-hashes --only main -f requirements.txt -o /tmp/neutarr-requirements.txt
+
+      - name: pip-audit — dependency vulnerabilities
+        run: pip-audit -r /tmp/neutarr-requirements.txt

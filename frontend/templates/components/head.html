@@ -1,0 +1,249 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Preload theme script to prevent flashing -->
+<script src="/static/js/theme-preload.js"></script>
+<link rel="stylesheet" href="/static/css/new-style.css">
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="/static/css/apps-double-scroll-fix.css">
+<link rel="stylesheet" href="/static/css/responsive-fix.css">
+<!-- NeutArr brand overrides - must be last to win specificity -->
+<link rel="stylesheet" href="/static/css/variables.css">
+<style>
+    /* Hide sponsors section and nav - upstream project abandoned */
+    #sponsorsSection, #sponsorsNav { display: none !important; }
+    /* Disable dead upstream help links */
+    a.info-icon[href*="neutarr.io"] { pointer-events: none; }
+
+    /* === NeutArr brand accent overrides for hardcoded blues === */
+
+    /* --- Navigation --- */
+    .nav-item.active {
+        background: linear-gradient(to right, rgba(99, 102, 241, 0.9), rgba(99, 102, 241, 0.7)) !important;
+        box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3) !important;
+    }
+    .nav-item.active .nav-icon-wrapper {
+        background: rgba(255, 255, 255, 0.15) !important;
+    }
+    .nav-item:hover {
+        background: rgba(99, 102, 241, 0.15) !important;
+    }
+    .nav-item:hover .nav-icon-wrapper {
+        background: rgba(99, 102, 241, 0.2) !important;
+    }
+    .nav-item:hover::before {
+        background: linear-gradient(to bottom, rgba(99, 102, 241, 0.4), rgba(129, 140, 248, 0.4)) !important;
+    }
+    .nav-group-title {
+        color: rgba(129, 140, 248, 0.8) !important;
+        border-bottom-color: rgba(99, 102, 241, 0.2) !important;
+        text-shadow: 0 0 10px rgba(99, 102, 241, 0.3) !important;
+    }
+    @keyframes glowPulse {
+        from { box-shadow: 0 0 8px 2px rgba(99, 102, 241, 0.5); }
+        to   { box-shadow: 0 0 15px 4px rgba(99, 102, 241, 0.7); }
+    }
+
+    /* --- Gradient accent lines (topbar, sidebar, cards) --- */
+    .top-color-line,
+    .sidebar-top-line {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.6), rgba(129, 140, 248, 0.6)) !important;
+        box-shadow: 0 0 8px rgba(99, 102, 241, 0.4) !important;
+    }
+    .top-bar::before,
+    .top-bar::after,
+    .sidebar::after,
+    .sidebar::before {
+        background: linear-gradient(to bottom, rgba(99, 102, 241, 0.6), rgba(129, 140, 248, 0.6)) !important;
+    }
+    .card::before {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), rgba(129, 140, 248, 0.3)) !important;
+    }
+
+    /* --- Version bar --- */
+    .version-bar a, .version-icon {
+        color: #818CF8 !important;
+    }
+    .version-bar a:hover {
+        color: #a5b4fc !important;
+    }
+    .version-bar a::after {
+        background-color: #818CF8 !important;
+    }
+
+    /* --- Logo glow --- */
+    .logo, .login-logo {
+        animation: logo-glow-indigo 10s infinite ease-in-out !important;
+    }
+    @keyframes logo-glow-indigo {
+        0%   { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+        25%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+        50%  { box-shadow: 0 0 15px #4F46E5, 0 0 5px rgba(79, 70, 229, 0.4); }
+        75%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+        100% { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+    }
+    .logo i, .logo img,
+    .login-logo i, .login-logo img {
+        filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.5)) !important;
+    }
+    .logo img, .login-logo img {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+    }
+    .logo-small img {
+        width: 26px;
+        height: 26px;
+    }
+
+    /* --- Buttons (schedule, save, action, login, setup) --- */
+    .schedule-button,
+    #addScheduleButton,
+    #saveSchedulesButton,
+    button.save-button,
+    button.action-button {
+        background-color: #6366F1 !important;
+    }
+    .schedule-button:hover,
+    #addScheduleButton:hover,
+    #saveSchedulesButton:hover,
+    button.save-button:hover,
+    button.action-button:hover {
+        background-color: #4F46E5 !important;
+    }
+    .login-button,
+    .next-button,
+    .submit-button,
+    .step.active {
+        background: linear-gradient(135deg, #6366F1 0%, #7577f3 100%) !important;
+        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3) !important;
+    }
+    .login-button:hover,
+    .next-button:hover,
+    .submit-button:hover,
+    .step.active:hover {
+        background: linear-gradient(135deg, #7577f3 0%, #818CF8 100%) !important;
+        box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4) !important;
+    }
+
+    /* --- Test connection button --- */
+    .test-connection-btn {
+        background: linear-gradient(145deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.15)) !important;
+        color: rgba(129, 140, 248, 0.9) !important;
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+    }
+    .test-connection-btn:hover {
+        background: linear-gradient(145deg, rgba(99, 102, 241, 0.3), rgba(99, 102, 241, 0.25)) !important;
+        color: rgba(129, 140, 248, 1) !important;
+    }
+
+    /* --- Toggle switches --- */
+    input:checked + .toggle-slider {
+        background: linear-gradient(145deg, rgba(79, 70, 229, 0.7), rgba(99, 102, 241, 0.8)) !important;
+    }
+
+    /* --- Form controls & settings inputs --- */
+    .form-group input:focus,
+    .setting-item input[type="text"]:focus,
+    .setting-item input[type="number"]:focus,
+    .setting-item input[type="password"]:focus,
+    .setting-item select:focus {
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 1px 0 rgba(255, 255, 255, 0.1) inset !important;
+    }
+    .form-group label i {
+        color: rgba(99, 102, 241, 0.9) !important;
+    }
+    .scheduler-panel .form-control,
+    #schedulingSection .form-control,
+    #schedulingPage .form-control {
+        border-color: rgba(99, 102, 241, 0.3) !important;
+    }
+    .scheduler-panel .form-control:focus,
+    #schedulingSection .form-control:focus,
+    #schedulingPage .form-control:focus {
+        border-color: rgba(99, 102, 241, 0.8) !important;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+    }
+
+    /* --- Checkboxes --- */
+    .day-checkbox input[type='checkbox'] {
+        border-color: rgba(99, 102, 241, 0.3) !important;
+    }
+    .day-checkbox input[type='checkbox']:checked {
+        background-color: #6366F1 !important;
+        border-color: #6366F1 !important;
+    }
+
+    /* --- Instance header icon --- */
+    .instance-header h4::before {
+        color: rgba(99, 102, 241, 0.8) !important;
+    }
+
+    /* --- Settings-group section headers (e.g. "Sonarr Instances") --- */
+    .settings-group h3 {
+        background: linear-gradient(to right, rgba(99, 102, 241, 0.8), rgba(79, 70, 229, 0.7)) !important;
+        border-left: 4px solid rgba(99, 102, 241, 0.9) !important;
+    }
+
+    /* --- Card & settings-group accent lines --- */
+    .card h2 i, .card h3 i {
+        color: #818CF8 !important;
+    }
+    .card::before,
+    #appsSection .settings-group::before {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), rgba(129, 140, 248, 0.3)) !important;
+    }
+
+    /* --- Info icons --- */
+    .setting-item label .info-icon {
+        color: rgba(99, 102, 241, 0.8) !important;
+    }
+    .setting-item label .info-icon:hover {
+        color: rgba(99, 102, 241, 1) !important;
+    }
+
+    /* --- Select focus --- */
+    .setting-item select:focus {
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 1px 0 rgba(255, 255, 255, 0.1) inset !important;
+    }
+
+    /* --- Color-shift divider --- */
+    .color-shift-divider {
+        background: linear-gradient(to right, #6366F1, #818CF8, #4F46E5, #818CF8, #6366F1) !important;
+    }
+
+    /* --- Date values --- */
+    .date-value {
+        background-color: rgba(99, 102, 241, 0.1) !important;
+        color: #818CF8 !important;
+    }
+
+    /* --- Styled select dropdown glow --- */
+    @keyframes glowing-ring {
+        0%   { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+        25%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+        50%  { box-shadow: 0 0 15px #4F46E5, 0 0 5px rgba(79, 70, 229, 0.4); }
+        75%  { box-shadow: 0 0 15px #818CF8, 0 0 5px rgba(129, 140, 248, 0.4); }
+        100% { box-shadow: 0 0 15px #6366F1, 0 0 5px rgba(99, 102, 241, 0.4); }
+    }
+    @keyframes glowing-ring-hover {
+        0%   { box-shadow: 0 0 20px #6366F1, 0 0 10px rgba(99, 102, 241, 0.6); }
+        25%  { box-shadow: 0 0 20px #818CF8, 0 0 10px rgba(129, 140, 248, 0.6); }
+        50%  { box-shadow: 0 0 20px #4F46E5, 0 0 10px rgba(79, 70, 229, 0.6); }
+        75%  { box-shadow: 0 0 20px #818CF8, 0 0 10px rgba(129, 140, 248, 0.6); }
+        100% { box-shadow: 0 0 20px #6366F1, 0 0 10px rgba(99, 102, 241, 0.6); }
+    }
+
+    /* --- Scrollbar --- */
+    ::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.4) !important;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6) !important;
+    }
+</style>
+
+<!-- Favicon — NeutArr: binary bodies -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='49' fill='%230e1420'/><circle cx='37' cy='47' r='22' fill='%236366F1'/><ellipse cx='28' cy='38' rx='7' ry='5' fill='white' opacity='0.15' transform='rotate(-15 28 38)'/><circle cx='66' cy='54' r='15' fill='%234F46E5'/><ellipse cx='60' cy='47' rx='5' ry='3' fill='white' opacity='0.15' transform='rotate(-15 60 47)'/></svg>" type="image/svg+xml">
