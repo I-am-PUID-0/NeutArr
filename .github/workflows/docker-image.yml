@@ -184,7 +184,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           script: |
