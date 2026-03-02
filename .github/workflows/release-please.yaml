@@ -13,6 +13,7 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    if: github.ref_name == 'main'
     steps:
       - uses: googleapis/release-please-action@v4
         with:

@@ -2,17 +2,9 @@ name: Docker Image
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dev
-    paths-ignore:
-      - "**.md"
-      - ".github/**"
   pull_request:
     types:
       - closed
-    branches:
-      - main
     paths-ignore:
       - "**.md"
       - ".github/**"
@@ -207,8 +199,7 @@ jobs:
     needs: [setup, build-and-push]
     if: >
       needs.setup.outputs.is_release == 'false' &&
-      needs.setup.outputs.branch_name == 'dev' &&
-      secrets.DISCORD_WEBHOOK != ''
+      needs.setup.outputs.branch_name == 'dev'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -234,6 +225,10 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK not configured, skipping announcement"
+            exit 0
+          fi
           PAYLOAD=$(jq -n \
             --arg version "${{ needs.setup.outputs.dev_version }}" \
             --arg log "${{ steps.commits.outputs.log }}" \
