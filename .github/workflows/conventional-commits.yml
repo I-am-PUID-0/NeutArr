@@ -10,6 +10,6 @@ jobs:
   conventional-commits:
     runs-on: ubuntu-latest
     steps:
-      - uses: webiny/action-conventional-commits@v1.3.0
+      - uses: webiny/action-conventional-commits@v1.3.1
         with:
           allowed-commit-types: "feat,fix,chore,docs,style,refactor,perf,test,build,ci,revert,breaking"

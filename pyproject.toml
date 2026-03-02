@@ -11,7 +11,7 @@ python = ">=3.12"
 flask = ">=3.0.0,<4.0.0"
 requests = ">=2.31.0,<3.0.0"
 waitress = ">=3.0.1,<4.0.0"
-bcrypt = ">=4.1.2,<5.0.0"
+bcrypt = ">=4.1.2,<6.0.0"
 pyjwt = ">=2.9.0,<3.0.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -33,6 +33,7 @@ ignore = [
     "F401",  # unused imports — common in inherited code
     "F811",  # redefinition of unused name from import
     "F841",  # local variable assigned but never used
+    "F541",  # f-string without placeholders — common in inherited code
 ]
 
 [tool.ruff.format]
