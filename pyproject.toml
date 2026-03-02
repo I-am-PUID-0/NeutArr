@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "neutarr"
-version = "0.1.0"
+version = "1.0.0"
 description = "NeutArr - Automated missing media hunter and quality upgrader for *arr apps"
 authors = ["I-am-PUID-0 <36779668+I-am-PUID-0@users.noreply.github.com>"]
 readme = "README.md"
