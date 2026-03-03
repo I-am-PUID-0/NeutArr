@@ -6,6 +6,10 @@ on:
       - dev
       - main
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   conventional-commits:
     runs-on: ubuntu-latest
