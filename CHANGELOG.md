@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.1.0...1.2.0) (2026-03-03)
+
+
+### ✨ Features
+
+* **docker:** add entrypoint script and health check endpoint ([fccc41d](https://github.com/I-am-PUID-0/NeutArr/commit/fccc41dc5b12326e0afa5383ea5752a6aa162b05))
+* **release:** add waiting mechanism for previous release PR tagging ([9212f49](https://github.com/I-am-PUID-0/NeutArr/commit/9212f49b0bb7809c7396615d2201cc4785b77e01))
+
 ## [1.1.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.0.0...1.1.0) (2026-03-03)
 
 
