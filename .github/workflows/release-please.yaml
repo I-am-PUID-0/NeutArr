@@ -21,3 +21,4 @@ jobs:
           manifest-file: .github/.release-please-manifest.json
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           skip-github-release: true
+          target-branch: main
