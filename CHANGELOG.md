@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.4.0...1.5.0) (2026-03-03)
+
+
+### ✨ Features
+
+* **version:** Centralize runtime version retrieval ([b8a48dc](https://github.com/I-am-PUID-0/NeutArr/commit/b8a48dc6096a808392e09620dc916a1721c3975d))
+* **version:** implement dynamic version retrieval from environment and pyproject.toml ([b8a48dc](https://github.com/I-am-PUID-0/NeutArr/commit/b8a48dc6096a808392e09620dc916a1721c3975d))
+
 ## [1.4.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.3.0...1.4.0) (2026-03-03)
 
 
