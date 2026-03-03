@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.0.0...1.1.0) (2026-03-03)
+
+
+### ✨ Features
+
+* **ui:** consolidate account controls into settings and remove dead UI remnants ([353d46d](https://github.com/I-am-PUID-0/NeutArr/commit/353d46d2e4f7136e252af623c989930efbbf42da))
+
+
+### 🐛 Bug Fixes
+
+* **release:** add target-branch configuration for release-please action ([b2e3f6b](https://github.com/I-am-PUID-0/NeutArr/commit/b2e3f6b3aec5280a4995e606312ed847ec8e465a))
+* **tests:** remove unnecessary blank lines in test connection logs for radarr, readarr, sonarr ([2cd81fc](https://github.com/I-am-PUID-0/NeutArr/commit/2cd81fc02b95692d091f2442e007b4f685121b61))
+
 ## [1.0.0](https://github.com/I-am-PUID-0/NeutArr/compare/0.1.0...1.0.0) (2026-03-02)
 
 
