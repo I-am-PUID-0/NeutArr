@@ -159,12 +159,31 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, build-and-push]
     if: needs.setup.outputs.is_release == 'true'
+    permissions:
+      contents: write
+    outputs:
+      release_exists: ${{ steps.check_release.outputs.release_exists }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Check if Release Exists
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          VERSION="${{ needs.setup.outputs.version }}"
+          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release already exists for version $VERSION"
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release does not exist for version $VERSION"
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract release notes from CHANGELOG.md
         id: changelog
+        if: steps.check_release.outputs.release_exists == 'false'
         run: |
           VERSION="${{ needs.setup.outputs.version }}"
           # Extract the section for this version from CHANGELOG.md
@@ -180,6 +199,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
+        if: steps.check_release.outputs.release_exists == 'false'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
@@ -197,10 +217,16 @@ jobs:
             core.summary.addRaw(`## Release Created\n[${release.name}](${release.html_url})`);
             await core.summary.write();
 
+      - name: Add Job Summary for Release
+        run: |
+          echo "## Release Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Release Version:** \`${{ needs.setup.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Release Status:** ${{ steps.check_release.outputs.release_exists == 'false' && 'Created' || 'Skipped (Already Exists)' }}" >> "$GITHUB_STEP_SUMMARY"
+
   # ─────────────────────────────────────────────────────────────────────────────
   announce:
     needs: [create-release, build-and-push, setup]
-    if: needs.setup.outputs.is_release == 'true'
+    if: needs.setup.outputs.is_release == 'true' && needs.create-release.outputs.release_exists == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -279,3 +305,34 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -f dev-build
           git push -f origin dev-build
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+  update-pr-label:
+    needs: create-release
+    if: needs.create-release.outputs.release_exists == 'false' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: "Remove 'autorelease: pending' label from all merged PRs"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBERS=$(gh pr list --state merged --base main --json number,labels --jq '[.[] | select(.labels[].name == "autorelease: pending") | .number] | @sh')
+          
+          if [[ -n "$PR_NUMBERS" ]]; then
+            for PR_NUMBER in $PR_NUMBERS; do
+              PR_NUMBER=$(echo $PR_NUMBER | tr -d "'") # Remove quotes from jq output
+              echo "Updating PR #$PR_NUMBER..."
+              gh pr edit $PR_NUMBER --remove-label "autorelease: pending"
+              gh pr edit $PR_NUMBER --add-label "autorelease: tagged"
+              echo "Updated PR #$PR_NUMBER with 'autorelease: tagged'"
+            done
+          else
+            echo "No merged PRs found with 'autorelease: pending' label."
+          fi
