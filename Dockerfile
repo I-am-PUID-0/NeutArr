@@ -1,25 +1,23 @@
 FROM python:3.12-slim AS requirements-builder
 
-# Build deps for bcrypt/cffi compilation
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libffi-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # Copy dependency manifests only (layer cache)
 COPY pyproject.toml poetry.lock* ./
 
-# Create venv, pre-pin cffi<2.0 + cryptography before Poetry so pip resolver
-# never pulls cffi 2.x (breaking changes / potential segfaults), then install deps.
-RUN python -m venv /venv \
+# Use a throwaway Poetry environment to export runtime requirements, then
+# install only those runtime packages into the venv that gets copied forward.
+RUN python -m venv /tmp/poetry-venv \
+    && . /tmp/poetry-venv/bin/activate \
+    && pip install --upgrade pip \
+    && pip install poetry poetry-plugin-export \
+    && poetry export --without-hashes --only main -f requirements.txt -o /tmp/requirements.txt \
+    && python -m venv /venv \
     && . /venv/bin/activate \
     && pip install --upgrade pip \
-    && pip install "cffi>=1.16,<2.0" "cryptography>=42.0,<47.0" \
-    && pip install poetry \
-    && poetry config virtualenvs.create false \
-    && poetry install --no-root --only main
+    && pip install -r /tmp/requirements.txt \
+    && python -m pip uninstall -y pip \
+    && rm -rf /tmp/poetry-venv /tmp/requirements.txt
 
 # ─────────────────────────────────────────────
 FROM python:3.12-slim

@@ -19,10 +19,9 @@
     }
   },
 
-  // Install Poetry via pipx (isolated venv — keeps cffi 2.x out of system Python),
-  // pre-pin cffi<2.0 + cryptography before poetry install so pip resolver keeps 1.x,
-  // then install project deps (dev group) and create config dirs.
-  "postCreateCommand": "pipx install poetry && pip install --upgrade --force-reinstall 'cffi>=1.16,<2.0' 'cryptography>=42.0,<47.0' && poetry config virtualenvs.create false && poetry install --no-root --with dev && mkdir -p /config/settings /config/stateful /config/user /config/logs",
+  // Install Poetry via pipx, then install project deps (dev group)
+  // and create config dirs.
+  "postCreateCommand": "pipx install poetry && poetry config virtualenvs.create false && poetry install --no-root --with dev && mkdir -p /config/settings /config/stateful /config/user /config/logs",
 
   "containerEnv": {
     "PYTHONPATH": "/app",

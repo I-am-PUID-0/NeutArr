@@ -2,7 +2,9 @@
 
 Automated missing media hunter and quality upgrader for \*arr apps.
 
-A focused fork of [Huntarr](https://github.com/plexguide/Huntarr.io) v6.6.3 — the last clean release before the project was abandoned under [controversial circumstances](https://www.reddit.com/r/selfhosted/comments/1rckopd/huntarr_your_passwords_and_your_entire_arr_stacks/) — via ElfHosted's [NewtArr](https://github.com/elfhosted/newtarr) v1.0.0. NeutArr keeps the core functionality (hunt missing media, trigger quality upgrades) while rebuilding the auth system, hardening security, and stripping everything that grew beyond the original scope.
+A focused fork of [Huntarr](https://github.com/plexguide/Huntarr.io) v6.6.3 — the last clean release before the project was abandoned under [controversial circumstances](https://www.reddit.com/r/selfhosted/comments/1rckopd/huntarr_your_passwords_and_your_entire_arr_stacks/) — via ElfHosted's [NewtArr](https://github.com/elfhosted/newtarr) v1.0.0
+
+NeutArr keeps the core functionality (hunt missing media, trigger quality upgrades) while rebuilding the auth system, hardening security, and stripping everything that grew beyond the original scope.
 
 ## Supported Apps
 
