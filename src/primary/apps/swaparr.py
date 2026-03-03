@@ -51,15 +51,16 @@ swaparr_logger = get_logger("swaparr")
 RESETTABLE_APPS = frozenset({"radarr", "sonarr", "lidarr", "readarr", "whisparr", "eros"})
 
 
-def _get_safe_swaparr_app_dir(state_dir: Path, app_name: str) -> Path | None:
-    """Return a validated app state directory or None for invalid input."""
-    if app_name not in RESETTABLE_APPS:
-        return None
-
-    app_dir = (state_dir / app_name).resolve()
-    if app_dir.parent != state_dir:
-        return None
-    return app_dir
+def _get_swaparr_app_dirs(state_dir: Path) -> dict[str, Path]:
+    """Return the fixed set of app state directories under the swaparr root."""
+    return {
+        "radarr": state_dir / "radarr",
+        "sonarr": state_dir / "sonarr",
+        "lidarr": state_dir / "lidarr",
+        "readarr": state_dir / "readarr",
+        "whisparr": state_dir / "whisparr",
+        "eros": state_dir / "eros",
+    }
 
 
 @swaparr_bp.route("/status", methods=["GET"])
@@ -71,11 +72,11 @@ def get_status():
     # Get strike statistics from all app state directories
     statistics = {}
     state_dir = Path(os.getenv("NEUTARR_CONFIG_DIR", "/config")).resolve() / "swaparr"
+    app_dirs = _get_swaparr_app_dirs(state_dir)
 
     if state_dir.exists():
-        for app_name in os.listdir(state_dir):
-            app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
-            if app_dir and app_dir.is_dir():
+        for app_name, app_dir in app_dirs.items():
+            if app_dir.is_dir():
                 strike_file = app_dir / "strikes.json"
                 if strike_file.exists():
                     try:
@@ -152,15 +153,16 @@ def reset_strikes():
     app_name = data.get("app_name") if data else None
 
     state_dir = Path(os.getenv("NEUTARR_CONFIG_DIR", "/config")).resolve() / "swaparr"
+    app_dirs = _get_swaparr_app_dirs(state_dir)
 
     if not state_dir.exists():
         return jsonify({"success": True, "message": "No strike data to reset"})
 
     if app_name:
         # Reset strikes for a specific app
-        app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
-        if not app_dir:
+        if app_name not in RESETTABLE_APPS:
             return jsonify({"success": False, "message": f"Invalid app name: {app_name}"}), 400
+        app_dir = app_dirs[app_name]
 
         if app_dir.exists():
             strike_file = app_dir / "strikes.json"
@@ -178,9 +180,8 @@ def reset_strikes():
     else:
         # Reset strikes for all apps
         try:
-            for app_name in os.listdir(state_dir):
-                app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
-                if app_dir and app_dir.is_dir():
+            for app_dir in app_dirs.values():
+                if app_dir.is_dir():
                     strike_file = app_dir / "strikes.json"
                     if strike_file.exists():
                         os.remove(strike_file)
