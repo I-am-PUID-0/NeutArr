@@ -42,11 +42,13 @@ WORKDIR /app
 
 # Copy application code
 COPY . /app/
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Create non-root user and config directories
 RUN groupadd -r neutarr && useradd -r -g neutarr -u 1000 neutarr \
     && mkdir -p /config/settings /config/stateful /config/user /config/logs \
-    && chown -R neutarr:neutarr /config /app
+    && chown -R neutarr:neutarr /config /app \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PYTHONPATH=/app
 
@@ -57,6 +59,8 @@ LABEL name="NeutArr" \
 
 EXPOSE 9705
 
-USER neutarr
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9705/api/health', timeout=3).read()" || exit 1
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["python3", "main.py"]

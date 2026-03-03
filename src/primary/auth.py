@@ -56,6 +56,7 @@ ALWAYS_PUBLIC_PATHS = frozenset(
         "/favicon.ico",
         "/api/health",
         "/api/version",
+        "/ping",
         "/login",
         "/setup",
         "/api/auth/login",

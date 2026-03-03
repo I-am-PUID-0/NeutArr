@@ -31,10 +31,17 @@ services:
     volumes:
       - ./config:/config
     environment:
+      - PUID=1000
+      - PGID=1000
       - TZ=UTC
 ```
 
 Visit `http://localhost:9705` — the first-run wizard creates your account and sets the auth mode.
+
+For bind mounts created by Portainer or other tools as `root:root`, set `PUID` and `PGID` to your host user. The container entrypoint will repair `/config` ownership before starting NeutArr.
+
+NeutArr also exposes a native unauthenticated health endpoint at `GET /api/health` (with `/ping` kept as a legacy alias).
+The Docker image now uses this endpoint for a native container `HEALTHCHECK`, so Portainer/Docker can report app health instead of only process liveness.
 
 ## Authentication
 

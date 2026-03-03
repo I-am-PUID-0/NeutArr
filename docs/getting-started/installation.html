@@ -133,10 +133,10 @@
                             <pre><code>version: '3'
 services:
   neutarr:
-    image: plexguide/neutarr:latest
+    image: iampuid0/neutarr:latest
     container_name: neutarr
     ports:
-      - 7575:7575
+      - 9705:9705
     volumes:
       - ./config:/config
       - /path/to/media:/media
@@ -285,7 +285,7 @@ npm restart</code></pre>
                 
                 <div class="issue-card">
                     <h4>Permission issues</h4>
-                    <p>If you encounter permission issues, make sure the PUID and PGID environment variables in docker-compose.yml match your user's UID and GID.</p>
+                    <p>If you encounter permission issues, make sure the PUID and PGID environment variables in docker-compose.yml match your user's UID and GID. On startup, NeutArr will create and chown the bind-mounted <code>/config</code> paths to that UID/GID, which also fixes Portainer-created <code>root:root</code> config directories.</p>
                     <pre><code># Find your user ID and group ID
 id $(whoami)</code></pre>
                 </div>

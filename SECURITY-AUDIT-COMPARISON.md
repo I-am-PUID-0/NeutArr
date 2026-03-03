@@ -166,7 +166,7 @@ All GitHub Actions in all four workflow files are now pinned to immutable commit
 
 **Status: RESOLVED**
 
-`Dockerfile` creates a `neutarr` system group and user (UID 1000) and ends with `USER neutarr`. The runtime stage does not run as root.
+`Dockerfile` creates a `neutarr` system group and user (UID 1000). The container now starts through an entrypoint that can remap to `PUID`/`PGID`, repairs `/config` ownership for bind mounts, and then drops privileges to the configured runtime user before launching the app.
 
 ---
 
