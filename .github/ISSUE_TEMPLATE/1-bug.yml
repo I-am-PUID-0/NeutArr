@@ -1,0 +1,127 @@
+name: Bug report
+description: Report a NeutArr bug so it can be reproduced and fixed.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for defects in NeutArr itself.
+
+        If the issue is only in an upstream *Arr application and NeutArr is not the cause, report it to that project instead.
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Duplicate check
+      options:
+        - label: I searched existing issues and did not find a matching report.
+          required: true
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting, I have
+      options:
+        - label: Reviewed the relevant NeutArr docs or README.
+          required: true
+        - label: Confirmed this is a NeutArr issue and not only an upstream app issue.
+          required: true
+        - label: Re-tested on the latest applicable NeutArr release, image tag, or branch head.
+          required: true
+        - label: Collected logs or enough detail to help reproduce the issue.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area is affected?
+      multiple: false
+      options:
+        - Initial setup / first-run wizard
+        - Authentication / login / API keys
+        - App integrations (*Arr instances)
+        - Scheduling / search behavior
+        - Swaparr
+        - API
+        - UI / settings
+        - Docker / startup / container behavior
+        - Other / unsure
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior. Include the expected behavior if that makes the problem clearer.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal, reliable set of steps so the issue can be reproduced.
+      placeholder: |
+        1. Open ...
+        2. Configure ...
+        3. Run ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running NeutArr?
+      multiple: false
+      options:
+        - Docker container
+        - Docker Compose
+        - Dev container
+        - Local source checkout
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NeutArr version / image tag / branch marker
+      description: Include the exact version you are running (for example `latest`, `vX.Y.Z`, or `dev-<shortSHA>`).
+      placeholder: latest
+    validations:
+      required: true
+  - type: input
+    id: host-os
+    attributes:
+      label: Host OS / platform
+      description: Include your host OS and version (for example `Ubuntu 24.04`, `Unraid 7.x`, `Windows 11 + WSL2`).
+      placeholder: Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: apps
+    attributes:
+      label: Affected apps
+      description: List the connected app(s) involved, if any.
+      placeholder: sonarr, radarr, lidarr
+    validations:
+      required: false
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config
+      description: Paste only the relevant configuration or request details, sanitized of secrets.
+      render: yaml
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Paste logs, trace snippets, or error output that help explain the failure. Remove secrets first.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, or workaround notes that narrow the issue.
+    validations:
+      required: false

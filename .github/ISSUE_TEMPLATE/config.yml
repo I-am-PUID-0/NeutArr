@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/I-am-PUID-0/NeutArr/tree/main/docs
+    about: Check the docs and README before filing an issue.
+  - name: Security Reports
+    url: https://github.com/I-am-PUID-0/NeutArr/security/policy
+    about: Do not file public issues for vulnerabilities. Use the Security tab for private reporting.
+  - name: Discord
+    url: https://discord.gg/HWhbsBmRF4
+    about: Join the NeutArr channel for real-time discussion and troubleshooting.

@@ -1,0 +1,121 @@
+name: Help request
+description: Ask for help with NeutArr setup, configuration, or troubleshooting.
+title: "[HELP] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when you need help operating or troubleshooting NeutArr.
+
+        If you already have a clear defect with reproducible behavior, use the bug report template instead. For security issues, do not open a public issue.
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Duplicate check
+      options:
+        - label: I searched existing issues and did not find the same question.
+          required: true
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting, I have
+      options:
+        - label: Reviewed the relevant NeutArr docs or README.
+          required: true
+        - label: Checked my NeutArr configuration and environment for obvious mistakes.
+          required: true
+        - label: Re-tested on the latest applicable NeutArr release, image tag, or branch head.
+          required: true
+        - label: Collected logs, screenshots, or commands that show the current state.
+          required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe the workflow, setup step, or outcome you are trying to achieve.
+    validations:
+      required: true
+  - type: textarea
+    id: blocked
+    attributes:
+      label: Where are you stuck?
+      description: Explain what is failing, confusing, or unclear.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this involve?
+      multiple: false
+      options:
+        - Initial setup / first-run wizard
+        - Authentication / login / API keys
+        - App integrations (*Arr instances)
+        - Scheduling / search behavior
+        - Swaparr
+        - API
+        - UI / settings
+        - Docker / startup / container behavior
+        - Other / unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running NeutArr?
+      multiple: false
+      options:
+        - Docker container
+        - Docker Compose
+        - Dev container
+        - Local source checkout
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NeutArr version / image tag / branch marker
+      description: Include the exact version you are running (for example `latest`, `vX.Y.Z`, or `dev-<shortSHA>`).
+      placeholder: latest
+    validations:
+      required: true
+  - type: input
+    id: host-os
+    attributes:
+      label: Host OS / platform
+      description: Include your host OS and version.
+      placeholder: Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: apps
+    attributes:
+      label: Relevant apps
+      description: List the connected app(s) involved, if any.
+      placeholder: sonarr, radarr, readarr
+    validations:
+      required: false
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you already tried?
+      description: Include docs pages followed, config changes, commands run, or workarounds attempted.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: Paste logs, error output, or API responses that help explain the current state. Remove secrets first.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, config snippets, or anything else that would help diagnose this faster.
+    validations:
+      required: false

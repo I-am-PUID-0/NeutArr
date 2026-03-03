@@ -38,4 +38,4 @@ This documentation will eventually include:
 
 ## Contact
 
-If you have questions about the documentation, please open an issue on GitHub or join our [Discord](https://discord.com/invite/PGJJjR5Cww).
+If you have questions about the documentation, please open an issue on GitHub or join our [Discord](https://discord.gg/HWhbsBmRF4).

@@ -1,0 +1,87 @@
+name: Feature request
+description: Suggest an improvement for NeutArr.
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for NeutArr feature requests.
+
+        For vulnerabilities, do not open a public issue. Use the Security tab for private reporting.
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Duplicate check
+      options:
+        - label: I searched existing issues and did not find the same request.
+          required: true
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Request scope
+      options:
+        - label: This request is for NeutArr itself, not only an upstream app.
+          required: true
+        - label: I can clarify requirements and test behavior if this gets implemented.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area should change?
+      multiple: false
+      options:
+        - App integrations (*Arr instances)
+        - Authentication / security
+        - Scheduling / search logic
+        - Swaparr
+        - API
+        - UI / settings
+        - Docker / deployment
+        - Documentation / contributor workflow
+        - Other / unsure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Explain the operator pain point, limitation, or workflow gap.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What change do you want?
+      description: Describe the behavior, API shape, config, or UX outcome you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What alternatives have you considered?
+      description: Include workarounds, competing approaches, or why the current behavior is insufficient.
+    validations:
+      required: false
+  - type: input
+    id: apps
+    attributes:
+      label: Affected apps
+      description: List any connected app(s) this request touches, if relevant.
+      placeholder: sonarr, whisparr v3, swaparr
+    validations:
+      required: false
+  - type: textarea
+    id: impact
+    attributes:
+      label: Why does this matter?
+      description: Describe the operational benefit, expected users, and any migration or compatibility concerns.
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Add examples, screenshots, links, or reference implementations.
+    validations:
+      required: false

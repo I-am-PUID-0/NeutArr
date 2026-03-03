@@ -1,8 +1,69 @@
-# NeutArr
+<div align="center" style="max-width: 100%; height: auto;">
+  <h1>NeutArr</h1>
+  <p><strong>Automated missing media hunter and quality upgrader for *arr apps.</strong></p>
+  <a href="https://github.com/I-am-PUID-0/NeutArr">
+    <img alt="NeutArr" src="frontend/static/logo/neutarr.svg" style="max-width: 400px; height: auto;">
+  </a>
+</div>
+<div
+  align="center"
+  style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 1em;"
+>
+  <a href="https://github.com/I-am-PUID-0/NeutArr/stargazers">
+    <img
+      alt="GitHub Repo stars"
+      src="https://img.shields.io/github/stars/I-am-PUID-0/NeutArr?style=for-the-badge"
+    />
+  </a>
+  <a href="https://github.com/I-am-PUID-0/NeutArr/issues">
+    <img
+      alt="Issues"
+      src="https://img.shields.io/github/issues/I-am-PUID-0/NeutArr?style=for-the-badge"
+    />
+  </a>
+  <a href="https://github.com/I-am-PUID-0/NeutArr/blob/main/LICENSE">
+    <img
+      alt="License"
+      src="https://img.shields.io/github/license/I-am-PUID-0/NeutArr?style=for-the-badge"
+    />
+  </a>
+  <a href="https://github.com/I-am-PUID-0/NeutArr/graphs/contributors">
+    <img
+      alt="Contributors"
+      src="https://img.shields.io/github/contributors/I-am-PUID-0/NeutArr?style=for-the-badge"
+    />
+  </a>
+  <a href="https://github.com/sponsors/I-am-PUID-0">
+    <img
+      alt="Sponsors"
+      src="https://img.shields.io/github/sponsors/I-am-PUID-0?style=for-the-badge&color=%23FF1493"
+    />
+  </a>
+  <a href="https://hub.docker.com/r/iampuid0/neutarr">
+    <img
+      alt="Docker Pulls"
+      src="https://img.shields.io/docker/pulls/iampuid0/neutarr?style=for-the-badge&logo=docker&logoColor=white"
+    />
+  </a>
+  <a href="https://github.com/I-am-PUID-0/NeutArr/actions/workflows/docker-image.yml">
+    <img
+      alt="Build Status"
+      src="https://img.shields.io/github/actions/workflow/status/I-am-PUID-0/NeutArr/docker-image.yml?style=for-the-badge"
+    />
+  </a>
+  <a href="https://discord.gg/HWhbsBmRF4">
+    <img
+      alt="Join Discord"
+      src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white"
+    />
+  </a>
+</div>
 
-Automated missing media hunter and quality upgrader for \*arr apps.
+<div align="center">
+  <p>A focused fork lineage of Huntarr v6.6.3, rebuilt around tighter scope, stronger auth, and cleaner operations.</p>
+</div>
 
-A focused fork of [Huntarr](https://github.com/plexguide/Huntarr.io) v6.6.3 — the last clean release before the project was abandoned under [controversial circumstances](https://www.reddit.com/r/selfhosted/comments/1rckopd/huntarr_your_passwords_and_your_entire_arr_stacks/) — via ElfHosted's [NewtArr](https://github.com/elfhosted/newtarr) v1.0.0
+NeutArr traces its code lineage from [Huntarr](https://github.com/plexguide/Huntarr.io) v6.6.3 — the last clean release before the project was abandoned under [controversial circumstances](https://www.reddit.com/r/selfhosted/comments/1rckopd/huntarr_your_passwords_and_your_entire_arr_stacks/) — through ElfHosted's [NewtArr](https://github.com/elfhosted/newtarr) v1.0.0, which served as the starting point for this project.
 
 NeutArr keeps the core functionality (hunt missing media, trigger quality upgrades) while rebuilding the auth system, hardening security, and stripping everything that grew beyond the original scope.
 
@@ -131,3 +192,8 @@ poetry run bandit -r src/ main.py -ll
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
+
+## Community
+
+- Discord: [Join the NeutArr channel](https://discord.gg/HWhbsBmRF4)
+- Issues: [Open an issue](https://github.com/I-am-PUID-0/NeutArr/issues)
