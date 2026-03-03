@@ -17,11 +17,9 @@ from typing import Dict, List, Optional, Callable, Union, Tuple
 import datetime
 import traceback
 
-# Define the version number
-__version__ = "1.0.0"  # Consider updating this based on changes
-
 # Set up logging first
 from src.primary.utils.logger import setup_main_logger, get_logger  # Import get_logger
+from src.primary.utils.version import get_runtime_version
 
 logger = setup_main_logger()
 
@@ -702,7 +700,7 @@ def start_hourly_cap_scheduler():
 
 def start_neutarr():
     """Main entry point for NeutArr background tasks."""
-    logger.info(f"--- Starting NeutArr Background Tasks v{__version__} --- ")
+    logger.info(f"--- Starting NeutArr Background Tasks v{get_runtime_version()} --- ")
 
     # Perform initial settings migration if specified (e.g., via env var or arg)
     if os.environ.get("NEUTARR_RUN_MIGRATION", "false").lower() == "true":

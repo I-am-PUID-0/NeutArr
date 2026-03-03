@@ -44,6 +44,7 @@ from src.primary.utils.logger import (
     LOG_DIR,
     update_logging_levels,
 )  # Import get_logger, LOG_DIR, and update_logging_levels
+from src.primary.utils.version import get_runtime_version
 from src.primary.auth import authenticate_request
 
 # Import blueprints for routes
@@ -821,30 +822,11 @@ def api_version():
     2. version field in pyproject.toml — used in local dev / devcontainer
     3. Hardcoded fallback
     """
-    _logger = get_logger("web_server")
     try:
-        # 1. Docker build injects NEUTARR_VERSION (includes dev suffix for dev builds)
-        env_version = os.environ.get("NEUTARR_VERSION", "").strip()
-        if env_version:
-            return env_version, 200, {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
-
-        # 2. Fall back to pyproject.toml for local dev (tomllib is stdlib in Python 3.11+)
-        import tomllib
-
-        pyproject_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            "pyproject.toml",
-        )
-        if os.path.exists(pyproject_path):
-            with open(pyproject_path, "rb") as f:
-                data = tomllib.load(f)
-            version = data["tool"]["poetry"]["version"]
-            return version, 200, {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
-
-        _logger.warning("NEUTARR_VERSION not set and pyproject.toml not found")
-        return "0.1.0", 200, {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
-
+        version = get_runtime_version()
+        return version, 200, {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
     except Exception as e:
+        _logger = get_logger("web_server")
         _logger.error(f"Error serving version: {e}")
         return "0.1.0", 200, {"Content-Type": "text/plain", "Cache-Control": "no-cache"}
 
