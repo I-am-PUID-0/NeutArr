@@ -77,9 +77,9 @@ def run_web_server():
     web_logger.info(f"Starting web server on {host}:{port} (Debug: {debug_mode})...")
 
     if debug_mode:
-        web_logger.warning("Running in DEBUG mode with Flask development server.")
+        web_logger.warning("Running in DEBUG mode without enabling the Flask debugger.")
         try:
-            app.run(host=host, port=port, debug=True, use_reloader=False)
+            app.run(host=host, port=port, debug=False, use_reloader=False)
         except Exception as e:
             web_logger.exception(f"Flask development server failed: {e}")
             if not stop_event.is_set():

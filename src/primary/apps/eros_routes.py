@@ -89,15 +89,12 @@ def test_connection(url, api_key):
 
                 # Version check - should be v3.x for Eros
                 if version.startswith("3"):
-                    detected_version = "v3"
-                    eros_logger.info(f"Successfully connected to Eros API version: {version} (API {detected_version})")
+                    eros_logger.info("Successfully connected to Eros API")
 
                     # Success!
                     return {
                         "success": True,
                         "message": "Successfully connected to Eros API",
-                        "version": version,
-                        "api_version": detected_version,
                     }
                 elif version.startswith("2"):
                     error_msg = "Incompatible version detected. This appears to be Whisparr V2, not Eros."
@@ -209,6 +206,5 @@ def reset_processed_state():
         eros_logger.info("Successfully reset Eros processed state files")
         return jsonify({"success": True, "message": "Successfully reset processed state"})
     except Exception as e:
-        error_msg = f"Error resetting Eros state: {str(e)}"
-        eros_logger.error(error_msg)
-        return jsonify({"success": False, "message": error_msg}), 500
+        eros_logger.error(f"Error resetting Eros state: {str(e)}")
+        return jsonify({"success": False, "message": "Failed to reset processed state"}), 500
