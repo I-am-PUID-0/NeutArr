@@ -57,7 +57,6 @@ def test_connection():
         try:
             response_data = response.json()
 
-
             radarr_logger.info(
                 f"Successfully connected to Radarr API version: {response_data.get('version', 'unknown')}"
             )

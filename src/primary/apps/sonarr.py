@@ -59,7 +59,6 @@ def test_connection():
         try:
             response_data = response.json()
 
-
             sonarr_logger.debug(
                 f"Successfully connected to Sonarr API version: {response_data.get('version', 'unknown')}"
             )
