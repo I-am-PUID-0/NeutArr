@@ -2,7 +2,7 @@
   <h1>NeutArr</h1>
   <p><strong>Automated missing media hunter and quality upgrader for *arr apps.</strong></p>
   <a href="https://github.com/I-am-PUID-0/NeutArr">
-    <img alt="NeutArr" src="frontend/static/logo/neutarr.svg" style="max-width: 400px; height: auto;">
+    <img alt="NeutArr" src="frontend/static/logo/neutarr.svg" style="max-width: 340px; height: auto;">
   </a>
 </div>
 <div
