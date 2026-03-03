@@ -960,8 +960,10 @@
                                  operationText.toLowerCase() === 'missing' ? 'missing' : 
                                  operationText.toLowerCase() === 'upgrade' ? 'upgrade' : 
                                  operationText.toLowerCase() === 'warning' ? 'warning' : 'error';
-                    
-                    cell.innerHTML = `<span class="operation-status ${statusClass}">${operationText}</span>`;
+                    const statusEl = document.createElement('span');
+                    statusEl.className = `operation-status ${statusClass}`;
+                    statusEl.textContent = operationText;
+                    cell.replaceChildren(statusEl);
                 });
             };
         }

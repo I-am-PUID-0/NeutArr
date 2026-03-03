@@ -33,6 +33,14 @@ settings_cache = {}  # Format: {app_name: {'timestamp': timestamp, 'data': setti
 CACHE_TTL = 5  # Cache time-to-live in seconds
 
 
+def _validate_app_type(app_name: str) -> bool:
+    """Return True when the app name maps to a known settings file."""
+    if app_name in KNOWN_APP_TYPES:
+        return True
+    settings_logger.warning(f"Rejected unknown app type: {app_name}")
+    return False
+
+
 def clear_cache(app_name=None):
     """Clear the settings cache for a specific app or all apps."""
     global settings_cache
@@ -47,20 +55,24 @@ def clear_cache(app_name=None):
 
 def get_settings_file_path(app_name: str) -> pathlib.Path:
     """Get the path to the settings file for a specific app."""
-    if app_name not in KNOWN_APP_TYPES:
-        # Log a warning but allow for potential future app types
-        settings_logger.warning(f"Requested settings file for unknown app type: {app_name}")
+    if not _validate_app_type(app_name):
+        raise ValueError(f"Unknown app type: {app_name}")
     return SETTINGS_DIR / f"{app_name}.json"
 
 
 def get_default_config_path(app_name: str) -> pathlib.Path:
     """Get the path to the default config file for a specific app."""
+    if not _validate_app_type(app_name):
+        raise ValueError(f"Unknown app type: {app_name}")
     return pathlib.Path(DEFAULT_CONFIGS_DIR) / f"{app_name}.json"
 
 
 # Helper function to load default settings for a specific app
 def load_default_app_settings(app_name: str) -> Dict[str, Any]:
     """Load default settings for a specific app from its JSON file."""
+    if not _validate_app_type(app_name):
+        return {}
+
     default_file = get_default_config_path(app_name)
     if default_file.exists():
         try:
@@ -76,6 +88,9 @@ def load_default_app_settings(app_name: str) -> Dict[str, Any]:
 
 def _ensure_config_exists(app_name: str) -> None:
     """Ensure the config file exists for an app, copying from default if not."""
+    if not _validate_app_type(app_name):
+        return
+
     settings_file = get_settings_file_path(app_name)
     if not settings_file.exists():
         default_file = get_default_config_path(app_name)
@@ -108,9 +123,8 @@ def load_settings(app_type, use_cache=True):
     """
     global settings_cache
 
-    # Only log unexpected app types that are not 'general'
-    if app_type not in KNOWN_APP_TYPES and app_type != "general":
-        settings_logger.warning(f"load_settings called with unexpected app_type: {app_type}")
+    if not _validate_app_type(app_type):
+        return {}
 
     # Check if we have a valid cache entry
     if use_cache and app_type in settings_cache:
@@ -168,7 +182,7 @@ def load_settings(app_type, use_cache=True):
 
 def save_settings(app_name: str, settings_data: Dict[str, Any]) -> bool:
     """Save settings for a specific app."""
-    if app_name not in KNOWN_APP_TYPES:
+    if not _validate_app_type(app_name):
         settings_logger.error(f"Attempted to save settings for unknown app type: {app_name}")
         return False
 

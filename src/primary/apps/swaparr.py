@@ -6,6 +6,7 @@ Handles stalled downloads in Starr apps based on the original Swaparr applicatio
 from flask import Blueprint, request, jsonify
 import os
 import json
+from pathlib import Path
 from src.primary.utils.logger import get_logger
 from src.primary.settings_manager import load_settings, save_settings
 from src.primary.apps.swaparr.handler import process_stalled_downloads
@@ -47,6 +48,18 @@ def get_configured_instances():
 
 swaparr_bp = Blueprint("swaparr", __name__)
 swaparr_logger = get_logger("swaparr")
+RESETTABLE_APPS = frozenset({"radarr", "sonarr", "lidarr", "readarr", "whisparr", "eros"})
+
+
+def _get_safe_swaparr_app_dir(state_dir: Path, app_name: str) -> Path | None:
+    """Return a validated app state directory or None for invalid input."""
+    if app_name not in RESETTABLE_APPS:
+        return None
+
+    app_dir = (state_dir / app_name).resolve()
+    if app_dir.parent != state_dir:
+        return None
+    return app_dir
 
 
 @swaparr_bp.route("/status", methods=["GET"])
@@ -57,14 +70,14 @@ def get_status():
 
     # Get strike statistics from all app state directories
     statistics = {}
-    state_dir = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
+    state_dir = Path(os.getenv("NEUTARR_CONFIG_DIR", "/config")).resolve() / "swaparr"
 
-    if os.path.exists(state_dir):
+    if state_dir.exists():
         for app_name in os.listdir(state_dir):
-            app_dir = os.path.join(state_dir, app_name)
-            if os.path.isdir(app_dir):
-                strike_file = os.path.join(app_dir, "strikes.json")
-                if os.path.exists(strike_file):
+            app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
+            if app_dir and app_dir.is_dir():
+                strike_file = app_dir / "strikes.json"
+                if strike_file.exists():
                     try:
                         with open(strike_file, "r") as f:
                             strike_data = json.load(f)
@@ -138,17 +151,20 @@ def reset_strikes():
     data = request.json
     app_name = data.get("app_name") if data else None
 
-    state_dir = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
+    state_dir = Path(os.getenv("NEUTARR_CONFIG_DIR", "/config")).resolve() / "swaparr"
 
-    if not os.path.exists(state_dir):
+    if not state_dir.exists():
         return jsonify({"success": True, "message": "No strike data to reset"})
 
     if app_name:
         # Reset strikes for a specific app
-        app_dir = os.path.join(state_dir, app_name)
-        if os.path.exists(app_dir):
-            strike_file = os.path.join(app_dir, "strikes.json")
-            if os.path.exists(strike_file):
+        app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
+        if not app_dir:
+            return jsonify({"success": False, "message": f"Invalid app name: {app_name}"}), 400
+
+        if app_dir.exists():
+            strike_file = app_dir / "strikes.json"
+            if strike_file.exists():
                 try:
                     os.remove(strike_file)
                     swaparr_logger.info(f"Reset strikes for {app_name}")
@@ -163,10 +179,10 @@ def reset_strikes():
         # Reset strikes for all apps
         try:
             for app_name in os.listdir(state_dir):
-                app_dir = os.path.join(state_dir, app_name)
-                if os.path.isdir(app_dir):
-                    strike_file = os.path.join(app_dir, "strikes.json")
-                    if os.path.exists(strike_file):
+                app_dir = _get_safe_swaparr_app_dir(state_dir, app_name)
+                if app_dir and app_dir.is_dir():
+                    strike_file = app_dir / "strikes.json"
+                    if strike_file.exists():
                         os.remove(strike_file)
 
             swaparr_logger.info("Reset all strikes")

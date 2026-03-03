@@ -231,7 +231,10 @@ const appsModule = {
                         this.addFormChangeListeners(formElement);
                     } else {
                         console.warn(`Form generation function not found for ${app}`);
-                        appPanel.innerHTML = `<div class="settings-message">Settings for ${app.charAt(0).toUpperCase() + app.slice(1)} are not available.</div>`;
+                        const message = document.createElement('div');
+                        message.className = 'settings-message';
+                        message.textContent = `Settings for ${app.charAt(0).toUpperCase() + app.slice(1)} are not available.`;
+                        appPanel.replaceChildren(message);
                     }
                 } else {
                     console.error('SettingsForms module not found');
@@ -240,7 +243,12 @@ const appsModule = {
             })
             .catch(error => {
                 console.error(`Error loading ${app} settings:`, error);
-                appPanel.innerHTML = `<div class="error-panel"><i class="fas fa-exclamation-triangle"></i> Error loading settings: ${error.message}</div>`;
+                const errorPanel = document.createElement('div');
+                const errorIcon = document.createElement('i');
+                errorPanel.className = 'error-panel';
+                errorIcon.className = 'fas fa-exclamation-triangle';
+                errorPanel.append(errorIcon, document.createTextNode(` Error loading settings: ${error.message}`));
+                appPanel.replaceChildren(errorPanel);
             });
     },
     
