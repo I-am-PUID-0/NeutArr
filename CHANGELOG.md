@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.2.0...1.3.0) (2026-03-03)
+
+
+### ✨ Features
+
+* **workflow:** add Docker Hub description update workflow ([6e472fb](https://github.com/I-am-PUID-0/NeutArr/commit/6e472fbc4f47b9a60f5d984f83ef2a5433482509))
+
 ## [1.2.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.1.0...1.2.0) (2026-03-03)
 
 
