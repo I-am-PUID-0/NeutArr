@@ -139,7 +139,8 @@ jobs:
             NEUTARR_VERSION=${{ needs.setup.outputs.is_release == 'true' && needs.setup.outputs.version || needs.setup.outputs.dev_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false
+          provenance: true
+          sbom: true
 
       - name: Job summary
         run: |
