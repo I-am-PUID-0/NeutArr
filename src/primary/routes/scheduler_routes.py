@@ -60,7 +60,7 @@ def load_schedules():
     except Exception as e:
         error_msg = f"Error loading schedules: {str(e)}"
         scheduler_logger.error(error_msg)
-        return jsonify({"error": error_msg}), 500
+        return jsonify({"error": "Error loading schedules"}), 500
 
 
 @scheduler_api.route("/api/scheduler/history", methods=["GET"])
@@ -79,7 +79,7 @@ def get_scheduler_history():
     except Exception as e:
         error_msg = f"Error getting scheduler history: {str(e)}"
         scheduler_logger.error(error_msg)
-        return jsonify({"error": error_msg}), 500
+        return jsonify({"error": "Error getting scheduler history"}), 500
 
 
 @scheduler_api.route("/api/scheduler/save", methods=["POST"])
@@ -117,4 +117,4 @@ def save_schedules():
     except Exception as e:
         error_msg = f"Error saving schedules: {str(e)}"
         scheduler_logger.error(error_msg)
-        return jsonify({"error": error_msg}), 500
+        return jsonify({"error": "Error saving schedules"}), 500

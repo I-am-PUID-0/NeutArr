@@ -47,13 +47,13 @@ def get_status():
         )
     except Exception as e:
         whisparr_logger.error(f"Error getting Whisparr status: {str(e)}")
-        return jsonify({"configured": False, "connected": False, "error": str(e)}), 500
+        return jsonify({"configured": False, "connected": False, "error": "Failed to get Whisparr status"}), 500
 
 
 @whisparr_bp.route("/test-connection", methods=["POST"])
 def test_connection():
     """Test connection to a Whisparr API instance"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     api_url = data.get("api_url")
     api_key = data.get("api_key")
     api_timeout = data.get("api_timeout", 30)  # Use longer timeout for connection test
@@ -61,7 +61,7 @@ def test_connection():
     if not api_url or not api_key:
         return jsonify({"success": False, "message": "API URL and API Key are required"}), 400
 
-    whisparr_logger.info(f"Testing connection to Whisparr API at {api_url}")
+    whisparr_logger.info("Testing connection to Whisparr API")
 
     # Validate URL format
     if not (api_url.startswith("http://") or api_url.startswith("https://")):
@@ -82,11 +82,13 @@ def test_connection():
         sock.close()
 
         if result != 0:
-            error_msg = f"Connection refused - Unable to connect to {hostname}:{port}. Please check if the server is running and the port is correct."
+            error_msg = (
+                "Connection refused - Unable to connect to the configured host. Please verify the server and port."
+            )
             whisparr_logger.error(error_msg)
             return jsonify({"success": False, "message": error_msg}), 404
     except socket.gaierror:
-        error_msg = f"DNS resolution failed - Cannot resolve hostname: {hostname}. Please check your URL."
+        error_msg = "DNS resolution failed - Unable to resolve the configured hostname. Please check the URL."
         whisparr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 404
     except Exception as e:
@@ -174,11 +176,11 @@ def test_connection():
             )
         elif version and version.startswith("3"):
             # Detected Eros API (V3)
-            error_msg = f"Incompatible Whisparr version {version} detected. NeutArr requires Whisparr V2."
+            error_msg = "Incompatible Whisparr version detected. NeutArr requires Whisparr V2."
             whisparr_logger.error(error_msg)
             return jsonify({"success": False, "message": error_msg}), 400
         else:
-            error_msg = f"Unexpected Whisparr version {version} detected. NeutArr requires Whisparr V2."
+            error_msg = "Unexpected Whisparr version detected. NeutArr requires Whisparr V2."
             whisparr_logger.error(error_msg)
             return jsonify({"success": False, "message": error_msg}), 400
     except ValueError:
@@ -189,11 +191,11 @@ def test_connection():
         # Handle different types of connection errors
         error_details = str(e)
         if "Connection refused" in error_details:
-            error_msg = f"Connection refused - Whisparr is not running on {api_url} or the port is incorrect"
+            error_msg = "Connection refused - Whisparr may not be running or the port may be incorrect."
         elif "Name or service not known" in error_details or "getaddrinfo failed" in error_details:
-            error_msg = f"DNS resolution failed - Cannot find host '{urlparse(api_url).hostname}'. Check your URL."
+            error_msg = "DNS resolution failed - Unable to resolve the configured hostname. Check the URL."
         else:
-            error_msg = f"Connection error - Check if Whisparr is running: {error_details}"
+            error_msg = "Connection error - Check if Whisparr is running and reachable."
 
         whisparr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 404
@@ -202,7 +204,7 @@ def test_connection():
         whisparr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 504
     except requests.exceptions.RequestException as e:
-        error_msg = f"Connection test failed: {str(e)}"
+        error_msg = "Connection test failed."
         whisparr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 500
 
@@ -264,7 +266,7 @@ def get_versions():
                             {
                                 "name": instance_name,
                                 "success": False,
-                                "message": f"Incompatible Whisparr version {version} detected. NeutArr requires Whisparr V2.",
+                                "message": "Incompatible Whisparr version detected. NeutArr requires Whisparr V2.",
                                 "version": version,
                             }
                         )
@@ -274,7 +276,7 @@ def get_versions():
                             {
                                 "name": instance_name,
                                 "success": False,
-                                "message": f"Unexpected Whisparr version {version} detected. NeutArr requires Whisparr V2.",
+                                "message": "Unexpected Whisparr version detected. NeutArr requires Whisparr V2.",
                                 "version": version,
                             }
                         )
@@ -287,13 +289,13 @@ def get_versions():
                             "message": f"Failed to get version information: HTTP {response.status_code}",
                         }
                     )
-            except requests.exceptions.RequestException as e:
-                results.append({"name": instance_name, "success": False, "message": f"Connection error: {str(e)}"})
+            except requests.exceptions.RequestException:
+                results.append({"name": instance_name, "success": False, "message": "Connection error"})
 
         return jsonify({"success": True, "results": results})
     except Exception as e:
         whisparr_logger.error(f"Error getting Whisparr versions: {str(e)}")
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"success": False, "message": "Failed to get Whisparr versions"}), 500
 
 
 @whisparr_bp.route("/logs", methods=["GET"])
@@ -316,7 +318,7 @@ def get_logs():
         error_message = f"Error fetching Whisparr logs: {str(e)}"
         whisparr_logger.error(error_message)
         traceback.print_exc()
-        return jsonify({"success": False, "message": error_message}), 500
+        return jsonify({"success": False, "message": "Failed to fetch Whisparr logs"}), 500
 
 
 @whisparr_bp.route("/clear-processed", methods=["POST"])
@@ -335,4 +337,4 @@ def clear_processed():
     except Exception as e:
         error_message = f"Error clearing Whisparr processed state: {str(e)}"
         whisparr_logger.error(error_message)
-        return jsonify({"success": False, "message": error_message}), 500
+        return jsonify({"success": False, "message": "Failed to clear Whisparr processed state"}), 500

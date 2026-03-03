@@ -28,7 +28,9 @@ DEFAULT_CONFIGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "d
 # Update or add this as a class attribute or constant
 KNOWN_APP_TYPES = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros", "general", "swaparr"]
 KNOWN_SETTINGS_FILES = {app_name: SETTINGS_DIR / f"{app_name}.json" for app_name in KNOWN_APP_TYPES}
-KNOWN_DEFAULT_CONFIG_FILES = {app_name: pathlib.Path(DEFAULT_CONFIGS_DIR) / f"{app_name}.json" for app_name in KNOWN_APP_TYPES}
+KNOWN_DEFAULT_CONFIG_FILES = {
+    app_name: pathlib.Path(DEFAULT_CONFIGS_DIR) / f"{app_name}.json" for app_name in KNOWN_APP_TYPES
+}
 
 # Add a settings cache with timestamps to avoid excessive disk reads
 settings_cache = {}  # Format: {app_name: {'timestamp': timestamp, 'data': settings_dict}}

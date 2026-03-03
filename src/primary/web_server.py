@@ -22,6 +22,7 @@ import sys
 import logging
 import threading
 import importlib  # Added import
+from pathlib import Path
 from flask import (
     Flask,
     render_template,
@@ -110,6 +111,17 @@ KNOWN_LOG_FILES = {
 }
 # Filter out None values if an app log file doesn't exist
 KNOWN_LOG_FILES = {k: v for k, v in KNOWN_LOG_FILES.items() if v}
+KNOWN_LOG_PATHS = {
+    "sonarr": Path(APP_LOG_FILES["sonarr"]) if APP_LOG_FILES.get("sonarr") else None,
+    "radarr": Path(APP_LOG_FILES["radarr"]) if APP_LOG_FILES.get("radarr") else None,
+    "lidarr": Path(APP_LOG_FILES["lidarr"]) if APP_LOG_FILES.get("lidarr") else None,
+    "readarr": Path(APP_LOG_FILES["readarr"]) if APP_LOG_FILES.get("readarr") else None,
+    "whisparr": Path(APP_LOG_FILES["whisparr"]) if APP_LOG_FILES.get("whisparr") else None,
+    "eros": Path(APP_LOG_FILES["eros"]) if APP_LOG_FILES.get("eros") else None,
+    "swaparr": Path(APP_LOG_FILES["swaparr"]) if APP_LOG_FILES.get("swaparr") else None,
+    "system": Path(MAIN_LOG_FILE) if MAIN_LOG_FILE else None,
+}
+KNOWN_LOG_PATHS = {k: v for k, v in KNOWN_LOG_PATHS.items() if v}
 
 ALL_APP_LOG_FILES = list(KNOWN_LOG_FILES.values())  # List of all individual log file paths
 
@@ -146,7 +158,6 @@ def logs_stream():
 
     # Import needed modules
     import time
-    from pathlib import Path
     import threading
     import datetime  # Added datetime import
     import time  # Add time module import
@@ -199,30 +210,43 @@ def logs_stream():
             # Initialize last activity time
             last_activity = time.time()
 
-            # Determine which log files to follow
+            # Determine which fixed log files to follow
             log_files_to_follow = []
+            system_log = KNOWN_LOG_PATHS.get("system")
             if app_type == "all":
-                # Follow all log files for 'all' type
-                log_files_to_follow = list(KNOWN_LOG_FILES.items())
-                web_logger.debug(f"Following all log files for 'all' type")
-            elif app_type == "system":
-                # For system, only follow main log
-                system_log = KNOWN_LOG_FILES.get("system")
-                if system_log:
-                    log_files_to_follow = [("system", system_log)]
-                    web_logger.debug(f"Following system log: {system_log}")
-            else:
-                # For specific app, follow that app's log
-                app_log = KNOWN_LOG_FILES.get(app_type)
-                if app_log:
-                    log_files_to_follow = [(app_type, app_log)]
-                    web_logger.debug(f"Following {app_type} log: {app_log}")
-
-                # Also include system log for related messages
-                system_log = KNOWN_LOG_FILES.get("system")
+                log_files_to_follow = list(KNOWN_LOG_PATHS.items())
+                web_logger.debug("Following all log files for 'all' type")
+            elif app_type == "system" and system_log:
+                log_files_to_follow = [("system", system_log)]
+                web_logger.debug(f"Following system log: {system_log}")
+            elif app_type == "sonarr" and KNOWN_LOG_PATHS.get("sonarr"):
+                log_files_to_follow = [("sonarr", KNOWN_LOG_PATHS["sonarr"])]
                 if system_log:
                     log_files_to_follow.append(("system", system_log))
-                    web_logger.debug(f"Also following system log for {app_type} messages")
+            elif app_type == "radarr" and KNOWN_LOG_PATHS.get("radarr"):
+                log_files_to_follow = [("radarr", KNOWN_LOG_PATHS["radarr"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
+            elif app_type == "lidarr" and KNOWN_LOG_PATHS.get("lidarr"):
+                log_files_to_follow = [("lidarr", KNOWN_LOG_PATHS["lidarr"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
+            elif app_type == "readarr" and KNOWN_LOG_PATHS.get("readarr"):
+                log_files_to_follow = [("readarr", KNOWN_LOG_PATHS["readarr"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
+            elif app_type == "whisparr" and KNOWN_LOG_PATHS.get("whisparr"):
+                log_files_to_follow = [("whisparr", KNOWN_LOG_PATHS["whisparr"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
+            elif app_type == "eros" and KNOWN_LOG_PATHS.get("eros"):
+                log_files_to_follow = [("eros", KNOWN_LOG_PATHS["eros"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
+            elif app_type == "swaparr" and KNOWN_LOG_PATHS.get("swaparr"):
+                log_files_to_follow = [("swaparr", KNOWN_LOG_PATHS["swaparr"])]
+                if system_log:
+                    log_files_to_follow.append(("system", system_log))
 
             if not log_files_to_follow:
                 web_logger.warning(f"No log files found for app type: {app_type}")
@@ -237,11 +261,6 @@ def logs_stream():
             positions = {}
             last_check = {}
             keep_alive_counter = 0
-
-            # Convert to Path objects
-            log_files_to_follow = [
-                (name, Path(path) if isinstance(path, str) else path) for name, path in log_files_to_follow if path
-            ]
 
             # Main streaming loop
             while True:
@@ -698,7 +717,7 @@ def api_get_stats():
     except Exception as e:
         web_logger = get_logger("web_server")
         web_logger.error(f"Error fetching statistics: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
 @app.route("/api/stats/reset", methods=["POST"])
@@ -729,7 +748,7 @@ def api_reset_stats():
     except Exception as e:
         web_logger = get_logger("web_server")
         web_logger.error(f"Error resetting statistics: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
 @app.route("/api/hourly-caps", methods=["GET"])
@@ -790,7 +809,7 @@ def api_reset_stats_public():
     except Exception as e:
         web_logger = get_logger("web_server")
         web_logger.error(f"Error resetting statistics (public): {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
 @app.route("/api/version")

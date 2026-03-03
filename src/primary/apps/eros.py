@@ -102,10 +102,10 @@ def test_connection():
         ), 503
 
     except requests.exceptions.HTTPError as e:
-        return jsonify({"success": False, "message": f"HTTP error: {str(e)}"}), 500
+        return jsonify({"success": False, "message": "HTTP error while checking Eros status"}), 500
 
     except Exception as e:
-        return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
+        return jsonify({"success": False, "message": "Unexpected error while checking Eros status"}), 500
 
 
 # Function to check if Eros is configured

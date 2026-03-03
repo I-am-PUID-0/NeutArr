@@ -20,7 +20,7 @@ PROCESSED_UPGRADES_FILE = get_state_file_path("radarr", "processed_upgrades")
 @radarr_bp.route("/test-connection", methods=["POST"])
 def test_connection():
     """Test connection to a Radarr API instance"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     api_url = data.get("api_url")
     api_key = data.get("api_key")
     api_timeout = data.get("api_timeout", 30)  # Use longer timeout for connection test
@@ -28,7 +28,7 @@ def test_connection():
     if not api_url or not api_key:
         return jsonify({"success": False, "message": "API URL and API Key are required"}), 400
 
-    radarr_logger.info(f"Testing connection to Radarr API at {api_url}")
+    radarr_logger.info("Testing connection to Radarr API")
 
     # Validate URL format
     if not (api_url.startswith("http://") or api_url.startswith("https://")):
@@ -49,11 +49,13 @@ def test_connection():
         sock.close()
 
         if result != 0:
-            error_msg = f"Connection refused - Unable to connect to {hostname}:{port}. Please check if the server is running and the port is correct."
+            error_msg = (
+                "Connection refused - Unable to connect to the configured host. Please verify the server and port."
+            )
             radarr_logger.error(error_msg)
             return jsonify({"success": False, "message": error_msg}), 404
     except socket.gaierror:
-        error_msg = f"DNS resolution failed - Cannot resolve hostname: {hostname}. Please check your URL."
+        error_msg = "DNS resolution failed - Unable to resolve the configured hostname. Please check the URL."
         radarr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 404
     except Exception as e:
@@ -109,11 +111,11 @@ def test_connection():
         # Handle different types of connection errors
         error_details = str(e)
         if "Connection refused" in error_details:
-            error_msg = f"Connection refused - Radarr is not running on {api_url} or the port is incorrect"
+            error_msg = "Connection refused - Radarr may not be running or the port may be incorrect."
         elif "Name or service not known" in error_details or "getaddrinfo failed" in error_details:
-            error_msg = f"DNS resolution failed - Cannot find host '{urlparse(api_url).hostname}'. Check your URL."
+            error_msg = "DNS resolution failed - Unable to resolve the configured hostname. Check the URL."
         else:
-            error_msg = f"Connection error - Check if Radarr is running: {error_details}"
+            error_msg = "Connection error - Check if Radarr is running and reachable."
 
         radarr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 404
@@ -122,6 +124,6 @@ def test_connection():
         radarr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 504
     except requests.exceptions.RequestException as e:
-        error_msg = f"Connection test failed: {str(e)}"
+        error_msg = "Connection test failed."
         radarr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 500

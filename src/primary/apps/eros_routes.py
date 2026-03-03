@@ -45,11 +45,13 @@ def test_connection(url, api_key):
         sock.close()
 
         if result != 0:
-            error_msg = f"Connection refused - Unable to connect to {hostname}:{port}. Please check if the server is running and the port is correct."
+            error_msg = (
+                "Connection refused - Unable to connect to the configured host. Please verify the server and port."
+            )
             eros_logger.error(error_msg)
             return {"success": False, "message": error_msg}
     except socket.gaierror:
-        error_msg = f"DNS resolution failed - Cannot resolve hostname: {hostname}. Please check your URL."
+        error_msg = "DNS resolution failed - Unable to resolve the configured hostname. Please check the URL."
         eros_logger.error(error_msg)
         return {"success": False, "message": error_msg}
     except Exception as e:
@@ -98,11 +100,11 @@ def test_connection(url, api_key):
                         "api_version": detected_version,
                     }
                 elif version.startswith("2"):
-                    error_msg = f"Incompatible version detected: {version}. This appears to be Whisparr V2, not Eros."
+                    error_msg = "Incompatible version detected. This appears to be Whisparr V2, not Eros."
                     eros_logger.error(error_msg)
                     return {"success": False, "message": error_msg}
                 else:
-                    error_msg = f"Unexpected version {version} detected. Eros requires API v3."
+                    error_msg = "Unexpected version detected. Eros requires API v3."
                     eros_logger.error(error_msg)
                     return {"success": False, "message": error_msg}
             except ValueError:
@@ -130,9 +132,9 @@ def test_connection(url, api_key):
         error_details = str(e)
 
         if "Connection refused" in error_details:
-            error_msg = f"Connection refused - Eros is not running on {url} or the port is incorrect"
+            error_msg = "Connection refused - Eros may not be running or the port may be incorrect."
         else:
-            error_msg = f"Connection error - Check if Eros is running: {error_details}"
+            error_msg = "Connection error - Check if Eros is running and reachable."
 
         eros_logger.error(error_msg)
         return {"success": False, "message": error_msg}
@@ -143,7 +145,7 @@ def test_connection(url, api_key):
         return {"success": False, "message": error_msg}
 
     except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
+        error_msg = "Unexpected error while testing Eros connection."
         eros_logger.error(f"{error_msg}\n{traceback.format_exc()}")
         return {"success": False, "message": error_msg}
 
@@ -153,7 +155,7 @@ def get_status():
     """Get the status of all configured Eros instances"""
     try:
         instances = get_configured_instances()
-        eros_logger.debug(f"Eros configured instances: {instances}")
+        eros_logger.debug(f"Eros configured instance count: {len(instances)}")
         if instances:
             connected_count = 0
             for instance in instances:
@@ -172,66 +174,28 @@ def get_status():
             return jsonify({"configured": False, "connected": False})
     except Exception as e:
         eros_logger.error(f"Error getting Eros status: {str(e)}")
-        return jsonify({"configured": False, "connected": False, "error": str(e)})
+        return jsonify({"configured": False, "connected": False, "error": "Failed to get Eros status"})
 
 
 @eros_bp.route("/test-connection", methods=["POST"])
 def test_connection_endpoint():
     """Test connection to an Eros API instance"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     api_url = data.get("api_url")
     api_key = data.get("api_key")
-    api_timeout = data.get("api_timeout", 30)  # Use longer timeout for connection test
 
     if not api_url or not api_key:
         return jsonify({"success": False, "message": "API URL and API Key are required"}), 400
 
-    eros_logger.info(f"Testing connection to Eros API at {api_url}")
+    eros_logger.info("Testing connection to Eros API")
 
     return test_connection(api_url, api_key)
 
 
 @eros_bp.route("/test-settings", methods=["GET"])
 def test_eros_settings():
-    """Debug endpoint to test Eros settings loading"""
-    try:
-        # Directly read the settings file to bypass any potential caching
-        import json
-        import os
-
-        # Check all possible settings locations
-        possible_locations = [
-            "/config/eros.json",  # Main Docker mount
-            "/app/config/eros.json",  # Alternate location
-            os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config", "eros.json"
-            ),  # Relative path
-        ]
-
-        results = {}
-
-        # Try all locations
-        for location in possible_locations:
-            results[location] = {"exists": os.path.exists(location)}
-            if os.path.exists(location):
-                try:
-                    with open(location, "r") as f:
-                        results[location]["content"] = json.load(f)
-                except Exception as e:
-                    results[location]["error"] = str(e)
-
-        # Also try loading via settings_manager
-        try:
-            from src.primary.settings_manager import load_settings
-
-            settings = load_settings("eros")
-            results["settings_manager"] = settings
-        except Exception as e:
-            results["settings_manager_error"] = str(e)
-
-        return jsonify(results)
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    """Deprecated debug endpoint retained only as a disabled stub."""
+    return jsonify({"success": False, "message": "Debug endpoint disabled"}), 404
 
 
 @eros_bp.route("/reset-processed", methods=["POST"])

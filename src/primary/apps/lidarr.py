@@ -112,7 +112,7 @@ def status():
             return jsonify({"connected": False, "message": "Failed to connect to Lidarr"}), 200
 
     except Exception as e:
-        error_message = f"Error checking Lidarr status: {str(e)}"
+        error_message = "Error checking Lidarr status"
         lidarr_logger.error(error_message)
         lidarr_logger.error(traceback.format_exc())
         return jsonify({"connected": False, "message": error_message}), 500
@@ -123,7 +123,7 @@ def test_connection():
     """Test connection to Lidarr with provided API settings."""
     try:
         # Extract API settings from request
-        data = request.json
+        data = request.get_json(silent=True) or {}
         api_url = data.get("api_url", "").rstrip("/")
         api_key = data.get("api_key", "")
         api_timeout = int(data.get("api_timeout", 30))
@@ -143,15 +143,23 @@ def test_connection():
             return jsonify({"success": False, "message": "Failed to connect to Lidarr. Check URL and API Key."}), 400
 
     except requests.exceptions.RequestException as e:
-        error_message = f"Connection error: {str(e)}"
-        if hasattr(e, "response"):
-            if e.response is not None:
-                error_message += f" - Status Code: {e.response.status_code}, Response: {e.response.text[:200]}"
+        error_message = "Connection error"
+        if hasattr(e, "response") and e.response is not None:
+            if e.response.status_code == 401:
+                error_message = "Authentication failed: Invalid API key"
+            elif e.response.status_code == 403:
+                error_message = "Access forbidden: Check API key permissions"
+            elif e.response.status_code == 404:
+                error_message = "API endpoint not found: Check API URL"
+            elif e.response.status_code >= 500:
+                error_message = (
+                    f"Lidarr server error (HTTP {e.response.status_code}): The Lidarr server is experiencing issues"
+                )
         lidarr_logger.error(f"Lidarr connection error: {error_message}")
         return jsonify({"success": False, "message": error_message}), 500
     except Exception as e:  # Catch any other unexpected errors
         lidarr_logger.error(f"An unexpected error occurred during Lidarr connection test: {str(e)}", exc_info=True)
-        return jsonify({"success": False, "message": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"success": False, "message": "An unexpected error occurred"}), 500
 
 
 @lidarr_bp.route("/stats", methods=["GET"])
@@ -201,7 +209,7 @@ def get_stats():
         ), 200
 
     except Exception as e:
-        error_message = f"Error getting Lidarr stats: {str(e)}"
+        error_message = "Error getting Lidarr stats"
         lidarr_logger.error(error_message)
         lidarr_logger.error(traceback.format_exc())
         return jsonify({"error": error_message}), 500
@@ -229,7 +237,7 @@ def reset_state():
         return jsonify({"success": True, "message": "Lidarr state reset successfully"}), 200
 
     except Exception as e:
-        error_message = f"Error resetting Lidarr state: {str(e)}"
+        error_message = "Error resetting Lidarr state"
         lidarr_logger.error(error_message)
         lidarr_logger.error(traceback.format_exc())
         return jsonify({"error": error_message}), 500

@@ -193,7 +193,7 @@ def app_specific_loop(app_type: str) -> None:
             instance_name = app_settings.get("name", f"{app_type.capitalize()} Default")  # Use 'name' or default
 
             if api_url and api_key:
-                app_logger.info(f"Processing {app_type} as single instance: {instance_name}")
+                app_logger.info(f"Processing {app_type} in single-instance mode")
                 # Create a list with a single dict matching the multi-instance structure
                 instances_to_process = [{"instance_name": instance_name, "api_url": api_url, "api_key": api_key}]
             else:
@@ -211,14 +211,15 @@ def app_specific_loop(app_type: str) -> None:
 
         # Process each instance dictionary returned by get_configured_instances
         processed_any_items = False
-        for instance_details in instances_to_process:
+        for instance_index, instance_details in enumerate(instances_to_process, start=1):
             if stop_event.is_set():
                 break
 
             instance_name = instance_details.get(
                 "instance_name", "Default"
             )  # Use the dict from get_configured_instances
-            app_logger.info(f"Processing {app_type} instance: {instance_name}")
+            instance_label = f"{app_type} instance #{instance_index}"
+            app_logger.info(f"Processing {instance_label}")
 
             # Get instance-specific settings from the instance_details dict
             api_url = instance_details.get("api_url", "")
@@ -229,22 +230,18 @@ def app_specific_loop(app_type: str) -> None:
 
             # --- Connection Check --- #
             if not api_url or not api_key:
-                app_logger.warning(f"Missing API URL or Key for instance '{instance_name}'. Skipping.")
+                app_logger.warning(f"Missing API URL or key for {instance_label}. Skipping.")
                 continue
             try:
                 # Use instance details for connection check
-                app_logger.debug(
-                    f"Checking connection to {app_type} instance '{instance_name}' at {api_url} with timeout {api_timeout}s"
-                )
+                app_logger.debug(f"Checking connection to {instance_label} with timeout {api_timeout}s")
                 connected = check_connection(api_url, api_key, api_timeout=api_timeout)
                 if not connected:
-                    app_logger.warning(
-                        f"Failed to connect to {app_type} instance '{instance_name}' at {api_url}. Skipping."
-                    )
+                    app_logger.warning(f"Failed to connect to {instance_label}. Skipping.")
                     continue
-                app_logger.info(f"Successfully connected to {app_type} instance: {instance_name}")
+                app_logger.info(f"Successfully connected to {instance_label}")
             except Exception as e:
-                app_logger.error(f"Error connecting to {app_type} instance '{instance_name}': {e}", exc_info=True)
+                app_logger.error(f"Error connecting to {instance_label}: {e}", exc_info=True)
                 continue  # Skip this instance if connection fails
 
             # --- API Cap Check --- #
@@ -284,7 +281,7 @@ def app_specific_loop(app_type: str) -> None:
                     current_queue_size = get_queue_size(api_url, api_key, api_timeout)
                     if current_queue_size >= max_queue_size:
                         app_logger.info(
-                            f"Download queue size ({current_queue_size}) meets or exceeds maximum ({max_queue_size}) for {instance_name}. Skipping cycle for this instance."
+                            f"Download queue size ({current_queue_size}) meets or exceeds maximum ({max_queue_size}) for {instance_label}. Skipping cycle for this instance."
                         )
                         continue  # Skip processing for this instance
                     else:
@@ -293,7 +290,7 @@ def app_specific_loop(app_type: str) -> None:
                         )
                 except Exception as e:
                     app_logger.warning(
-                        f"Could not get download queue size for {instance_name}. Proceeding anyway. Error: {e}",
+                        f"Could not get download queue size for {instance_label}. Proceeding anyway. Error: {e}",
                         exc_info=False,
                     )  # Log less verbosely
 
@@ -348,7 +345,7 @@ def app_specific_loop(app_type: str) -> None:
                     if processed_missing:
                         processed_any_items = True
                 except Exception as e:
-                    app_logger.error(f"Error during missing processing for {instance_name}: {e}", exc_info=True)
+                    app_logger.error(f"Error during missing processing for {instance_label}: {e}", exc_info=True)
 
             # --- Process Upgrades --- #
             if hunt_upgrade_enabled and process_upgrades:
@@ -385,7 +382,7 @@ def app_specific_loop(app_type: str) -> None:
                     if processed_upgrades:
                         processed_any_items = True
                 except Exception as e:
-                    app_logger.error(f"Error during upgrade processing for {instance_name}: {e}", exc_info=True)
+                    app_logger.error(f"Error during upgrade processing for {instance_label}: {e}", exc_info=True)
 
             # Small delay between instances if needed (optional)
             if not stop_event.is_set():
@@ -408,11 +405,11 @@ def app_specific_loop(app_type: str) -> None:
                 # Check if Swaparr is enabled
                 swaparr_settings = settings_manager.load_settings("swaparr")
                 if swaparr_settings and swaparr_settings.get("enabled", False) and process_stalled_downloads:
-                    app_logger.info(f"Running Swaparr on {app_type} instance: {instance_name}")
+                    app_logger.info(f"Running Swaparr on {instance_label}")
                     process_stalled_downloads(app_type, combined_settings, swaparr_settings)
-                    app_logger.info(f"Completed Swaparr processing for {app_type} instance: {instance_name}")
+                    app_logger.info(f"Completed Swaparr processing for {instance_label}")
             except Exception as e:
-                app_logger.error(f"Error during Swaparr processing for {instance_name}: {e}", exc_info=True)
+                app_logger.error(f"Error during Swaparr processing for {instance_label}: {e}", exc_info=True)
 
         # --- Cycle End & Sleep --- #
         calculate_reset_time(app_type)  # Pass app_type here if needed by the function

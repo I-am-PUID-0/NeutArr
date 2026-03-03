@@ -98,7 +98,7 @@ def get_stats_api():
         return jsonify({"success": True, "stats": stats})
     except Exception as e:
         logger.error(f"Error retrieving stats: {e}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
 @common_bp.route("/api/stats/reset", methods=["POST"])
@@ -124,4 +124,4 @@ def reset_stats_api():
         return jsonify({"success": False, "error": error_msg}), 500
     except Exception as e:
         logger.error(f"Error resetting stats: {e}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500

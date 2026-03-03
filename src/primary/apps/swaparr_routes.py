@@ -63,7 +63,7 @@ def get_status():
                         }
                     except (json.JSONDecodeError, IOError) as e:
                         swaparr_logger.error(f"Error reading strike data for {app_name}: {str(e)}")
-                        statistics[app_name] = {"error": str(e)}
+                        statistics[app_name] = {"error": "Failed to read strike data"}
 
     return jsonify(
         {
@@ -138,9 +138,7 @@ def reset_strikes():
                     return jsonify({"success": True, "message": f"Strikes reset for {app_name}"})
                 except IOError as e:
                     swaparr_logger.error(f"Error resetting strikes for {app_name}: {str(e)}")
-                    return jsonify(
-                        {"success": False, "message": f"Failed to reset strikes for {app_name}: {str(e)}"}
-                    ), 500
+                    return jsonify({"success": False, "message": f"Failed to reset strikes for {app_name}"}), 500
         return jsonify({"success": False, "message": f"No strike data found for {app_name}"}), 404
     else:
         # Reset strikes for all apps
@@ -155,7 +153,7 @@ def reset_strikes():
             return jsonify({"success": True, "message": "All strikes reset"})
         except IOError as e:
             swaparr_logger.error(f"Error resetting all strikes: {str(e)}")
-            return jsonify({"success": False, "message": f"Failed to reset all strikes: {str(e)}"}), 500
+            return jsonify({"success": False, "message": "Failed to reset all strikes"}), 500
 
 
 def register_routes(app):

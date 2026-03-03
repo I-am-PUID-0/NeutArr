@@ -15,7 +15,7 @@ PROCESSED_UPGRADES_FILE = get_state_file_path("readarr", "processed_upgrades")
 @readarr_bp.route("/test-connection", methods=["POST"])
 def test_connection():
     """Test connection to a Readarr API instance with comprehensive diagnostics"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     api_url = data.get("api_url")
     api_key = data.get("api_key")
     api_timeout = data.get("api_timeout", 30)  # Use longer timeout for connection test
@@ -24,7 +24,7 @@ def test_connection():
         return jsonify({"success": False, "message": "API URL and API Key are required"}), 400
 
     # Log the test attempt
-    readarr_logger.info(f"Testing connection to Readarr API at {api_url}")
+    readarr_logger.info("Testing connection to Readarr API")
 
     # First check if URL is properly formatted
     if not (api_url.startswith("http://") or api_url.startswith("https://")):
@@ -89,11 +89,11 @@ def test_connection():
         elif "Connection refused" in details:
             error_msg = "Connection refused - check if Readarr is running and the port is correct"
 
-        readarr_logger.error(f"{error_msg}: {details}")
-        return jsonify({"success": False, "message": f"{error_msg}: {details}"}), 502
+        readarr_logger.error(error_msg)
+        return jsonify({"success": False, "message": error_msg}), 502
 
     except requests.exceptions.RequestException as e:
-        error_message = f"Connection failed: {str(e)}"
+        error_message = "Connection failed."
 
         if hasattr(e, "response") and e.response is not None:
             status_code = e.response.status_code
@@ -108,19 +108,11 @@ def test_connection():
             elif status_code >= 500:
                 error_message = f"Readarr server error (HTTP {status_code}): The Readarr server is experiencing issues"
 
-            # Try to extract more error details if available
-            try:
-                error_details = e.response.json()
-                error_message += f" - {error_details.get('message', 'No details')}"
-            except ValueError:
-                if e.response.text:
-                    error_message += f" - Response: {e.response.text[:200]}"
-
         readarr_logger.error(error_message)
         return jsonify({"success": False, "message": error_message}), 500
 
     except Exception as e:
-        error_msg = f"An unexpected error occurred: {str(e)}"
+        error_msg = "An unexpected error occurred"
         readarr_logger.error(error_msg)
         return jsonify({"success": False, "message": error_msg}), 500
 

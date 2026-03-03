@@ -30,7 +30,7 @@ def get_app_history(app_type):
 
     except Exception as e:
         logger.error(f"Error getting history for {app_type}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @history_blueprint.route("/<app_type>", methods=["DELETE"])
@@ -50,4 +50,4 @@ def clear_app_history(app_type):
 
     except Exception as e:
         logger.error(f"Error clearing history for {app_type}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
