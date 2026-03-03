@@ -1055,7 +1055,6 @@ const SettingsForms = {
         if (appType === 'general') {
             settings.check_for_updates = getInputValue('#check_for_updates', true);
             settings.debug_mode = getInputValue('#debug_mode', false);
-            settings.display_community_resources = getInputValue('#display_community_resources', true);
             settings.api_timeout = getInputValue('#api_timeout', 120);
             settings.command_wait_delay = getInputValue('#command_wait_delay', 1);
             settings.command_wait_attempts = getInputValue('#command_wait_attempts', 600);
@@ -1231,15 +1230,6 @@ const SettingsForms = {
                     </label>
                     <p class="setting-help" style="margin-left: -3ch !important;">Enable verbose logging for troubleshooting (applies to all apps)</p>
                 </div>
-                <div class="setting-item">
-                    <label for="display_community_resources"><span class="info-icon" title="Show community resources section in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Display Resources:</label>
-                    <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
-                        <input type="checkbox" id="display_community_resources" ${settings.display_community_resources !== false ? 'checked' : ''}>
-                        <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
-                    </label>
-                    <p class="setting-help" style="margin-left: -3ch !important;">Show or hide the Resources section on the home page</p>
-                </div>
-
             </div>
             
             <div class="settings-group">

@@ -120,7 +120,6 @@ let neutarrUI = {
         this.elements.logsNav = document.getElementById('logsNav');
         this.elements.historyNav = document.getElementById('historyNav');
         this.elements.settingsNav = document.getElementById('settingsNav');
-        this.elements.userNav = document.getElementById('userNav');
         
         // Sections
         this.elements.sections = document.querySelectorAll('.content-section');
@@ -1323,7 +1322,7 @@ let neutarrUI = {
                     this.loadStatefulInfo();
                 }
                 
-                // Dispatch a custom event that community-resources.js can listen for
+                // Dispatch a custom event for any listeners that react to saved settings
                 window.dispatchEvent(new CustomEvent('settings-saved', {
                     detail: { appType: app, settings: settings }
                 }));
@@ -1900,53 +1899,13 @@ let neutarrUI = {
     
     // Update UI elements visibility based on local access bypass status
     updateUIForLocalAccessBypass: function(isEnabled) {
-        console.log("Updating UI for local access bypass:", isEnabled);
-        
-        // Get the user info container in topbar (username and logout button)
+        // When bypass is active there is no login session, so hide the topbar
+        // username/logout widget. The User settings nav item stays visible in all
+        // modes — password management and API key rotation are still relevant
+        // (e.g. to manage credentials used by remote/non-bypass connections).
         const userInfoContainer = document.getElementById('userInfoContainer');
-        
-        // Get the user nav item in sidebar
-        const userNav = document.getElementById('userNav');
-        
-        // Set display style explicitly based on local access bypass setting
-        if (isEnabled === true) {
-            console.log("Local access bypass is ENABLED - hiding user elements");
-            
-            // Hide user info in topbar
-            if (userInfoContainer) {
-                userInfoContainer.style.display = 'none';
-                console.log("  • Hidden userInfoContainer");
-            } else {
-                console.warn("  ⚠ userInfoContainer not found");
-            }
-            
-            // Hide user nav in sidebar
-            if (userNav) {
-                userNav.style.display = 'none';
-                // Add !important inline style to ensure mobile view respects this
-                userNav.style.setProperty('display', 'none', 'important');
-                console.log("  • Hidden userNav");
-            } else {
-                console.warn("  ⚠ userNav not found");
-            }
-        } else {
-            console.log("Local access bypass is DISABLED - showing user elements");
-            
-            // Show user info in topbar
-            if (userInfoContainer) {
-                userInfoContainer.style.display = '';
-                console.log("  • Showing userInfoContainer");
-            } else {
-                console.warn("  ⚠ userInfoContainer not found");
-            }
-            
-            // Show user nav in sidebar
-            if (userNav) {
-                userNav.style.display = '';
-                console.log("  • Showing userNav");
-            } else {
-                console.warn("  ⚠ userNav not found");
-            }
+        if (userInfoContainer) {
+            userInfoContainer.style.display = isEnabled ? 'none' : '';
         }
     },
     
@@ -2130,12 +2089,12 @@ let neutarrUI = {
         return string.charAt(0).toUpperCase() + string.slice(1);
     },
 
-    // Load current version from version.txt
+    // Load current version from /api/version
     loadCurrentVersion: function() {
-        NeutArrUtils.fetchWithTimeout('/version.txt')
+        NeutArrUtils.fetchWithTimeout('/api/version')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Failed to load version.txt');
+                    throw new Error('Failed to load version');
                 }
                 return response.text();
             })

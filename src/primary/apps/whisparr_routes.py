@@ -2,10 +2,9 @@
 
 from flask import Blueprint, request, jsonify
 import datetime, os, requests
-from src.primary import keys_manager
 from src.primary.state import get_state_file_path, reset_state_file
 from src.primary.utils.logger import get_logger, APP_LOG_FILES
-from src.primary.settings_manager import get_ssl_verify_setting
+from src.primary.settings_manager import load_settings, get_ssl_verify_setting
 import traceback
 import socket
 from urllib.parse import urlparse
@@ -24,7 +23,7 @@ def get_status():
     """Get the status of all configured Whisparr instances"""
     try:
         # Get all configured instances
-        api_keys = keys_manager.load_api_keys("whisparr")
+        api_keys = load_settings("whisparr")
         instances = api_keys.get("instances", [])
 
         connected_count = 0
@@ -211,8 +210,8 @@ def test_connection():
 # Function to check if Whisparr is configured
 def is_configured():
     """Check if Whisparr API credentials are configured"""
-    api_keys = keys_manager.load_api_keys("whisparr")
-    return api_keys.get("api_url") and api_keys.get("api_key")
+    instances = load_settings("whisparr").get("instances", [])
+    return any(inst.get("enabled", True) and inst.get("api_url") and inst.get("api_key") for inst in instances)
 
 
 @whisparr_bp.route("/versions", methods=["GET"])
@@ -220,7 +219,7 @@ def get_versions():
     """Get the version information from the Whisparr API"""
     try:
         # Get all configured instances
-        api_keys = keys_manager.load_api_keys("whisparr")
+        api_keys = load_settings("whisparr")
         instances = api_keys.get("instances", [])
 
         if not instances:

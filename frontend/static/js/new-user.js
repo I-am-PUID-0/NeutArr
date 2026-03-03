@@ -1,28 +1,19 @@
 /**
- * NeutArr - User Settings Page
- * Handles user profile management functionality
+ * NeutArr - Account Settings
+ * Handles account and API management inside the Settings section
  */
 
 (function() {
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('User settings page loaded');
-        initUserPage();
+        if (!document.getElementById('accountSettingsPanel')) {
+            return;
+        }
+
+        initAccountSettings();
         setupEventHandlers();
     });
 
-    function initUserPage() {
-        // Set active nav item
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        const userNav = document.getElementById('userNav');
-        if (userNav) userNav.classList.add('active');
-
-        const pageTitleElement = document.getElementById('currentPageTitle');
-        if (pageTitleElement) pageTitleElement.textContent = 'User Settings';
-
-        document.body.classList.add('dark-theme');
-        localStorage.setItem('neutarr-dark-mode', 'true');
-
+    function initAccountSettings() {
         fetchUserInfo();
         fetchApiKey();
     }
@@ -60,6 +51,7 @@
         if (rotateApiKeyBtn) {
             rotateApiKeyBtn.addEventListener('click', handleRotateApiKey);
         }
+
     }
 
     async function handleUsernameChange() {
@@ -222,4 +214,5 @@
             showStatus(statusElement, 'Error rotating API key: ' + err.message, 'error');
         }
     }
+
 })();

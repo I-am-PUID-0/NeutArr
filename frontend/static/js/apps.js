@@ -421,26 +421,6 @@ const appsModule = {
         }
         if (!selectedApp || selectedApp === this.currentApp) return;
         
-        // Special case for Cleanuperr - it's an information page, not a settings page
-        if (selectedApp === 'cleanuperr') {
-            // Hide apps section and show Cleanuperr section
-            document.getElementById('appsSection').classList.remove('active');
-            document.getElementById('cleanuperrSection').classList.add('active');
-            
-            // Update the page title
-            if (neutarrUI && typeof neutarrUI.switchSection === 'function') {
-                neutarrUI.currentSection = 'cleanuparr';
-                // We're not calling the full switchSection as that would alter navigation
-                // Just update the title
-                const pageTitleElement = document.getElementById('currentPageTitle');
-                if (pageTitleElement) {
-                    pageTitleElement.textContent = 'Cleanuperr';
-                }
-            }
-            
-            return;
-        }
-        
         // Check for unsaved changes
         if (this.settingsChanged) {
             const confirmSwitch = confirm('You have unsaved changes. Do you want to continue without saving?');

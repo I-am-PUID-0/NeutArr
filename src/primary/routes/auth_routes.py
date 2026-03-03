@@ -15,6 +15,8 @@ Endpoints:
   POST /api/auth/change-username — changes username (requires auth)
   GET  /api/auth/apikey          — returns current API key (requires auth or API key)
   POST /api/auth/apikey/rotate   — rotates API key (requires auth or API key)
+  GET  /api/auth/mode            — returns current auth mode (requires auth)
+  POST /api/auth/mode            — updates auth mode (requires auth)
 """
 
 import logging
@@ -315,6 +317,34 @@ def auth_rotate_apikey():
     new_key = auth_config.rotate_api_key()
     logger.info("API key rotated.")
     return jsonify({"api_key": new_key})
+
+
+@auth_bp.route("/api/auth/mode", methods=["GET", "POST"])
+def auth_mode():
+    """Read or update the authentication mode. Requires JWT or API key auth."""
+    if not _is_privileged():
+        return jsonify({"error": "Authentication required"}), 401
+
+    if request.method == "GET":
+        settings = settings_manager.load_settings("general")
+        return jsonify({"auth_mode": settings.get("auth_mode", "login")})
+
+    # POST — update mode
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Expected JSON data"}), 400
+    mode = request.json.get("auth_mode")
+    if mode not in ("login", "local_bypass", "no_login"):
+        return jsonify({"success": False, "error": "Invalid auth_mode value"}), 400
+
+    current = settings_manager.load_settings("general")
+    current["auth_mode"] = mode
+    current["local_access_bypass"] = mode == "local_bypass"
+    current["proxy_auth_bypass"] = mode == "no_login"
+
+    if settings_manager.save_settings("general", current):
+        logger.info(f"Auth mode changed to '{mode}'.")
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Failed to save auth mode"}), 500
 
 
 # ---------------------------------------------------------------------------

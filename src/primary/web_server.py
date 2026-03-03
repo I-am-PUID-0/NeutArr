@@ -121,8 +121,7 @@ def home():
 
 @app.route("/user")
 def user():
-    # User account screen
-    return render_template("user.html")
+    return redirect(url_for("home", _anchor="settings"))
 
 
 # Removed /settings and /logs routes if handled by index.html and JS routing
@@ -672,68 +671,14 @@ def api_app_status(app_name):
         return jsonify({"configured": False, "connected": False, "error": "Internal error"}), 200
 
 
-# --- Add Hunt Control Endpoints --- #
-# These might need adjustment depending on how start/stop is managed now
-# If main.py handles threads based on config, these might not be needed,
-# or they could modify a global 'enabled' setting per app.
-# For now, keep them simple placeholders.
-
-
 @app.route("/api/hunt/start", methods=["POST"])
 def api_start_hunt():
-    # Placeholder: In the new model, threads start based on config.
-    # This might enable all configured apps or toggle a global flag.
-    # Or it could modify an 'enabled' setting per app.
-    # settings_manager.update_setting('global', 'hunt_enabled', True)
     return jsonify({"success": True, "message": "Hunt control endpoint (start) - functionality may change."})
 
 
 @app.route("/api/hunt/stop", methods=["POST"])
 def api_stop_hunt():
-    # Placeholder: Signal main thread to stop?
-    # Or disable all apps?
-    # settings_manager.update_setting('global', 'hunt_enabled', False)
-    # Or send SIGTERM/SIGINT to the main process?
-    # pid = get_main_process_pid() # Need a way to get PID if not self
-    # if pid: os.kill(pid, signal.SIGTERM)
     return jsonify({"success": True, "message": "Hunt control endpoint (stop) - functionality may change."})
-
-
-@app.route("/api/settings/apply-timezone", methods=["POST"])
-def apply_timezone_setting():
-    """Apply timezone setting to the container."""
-    # This functionality has been disabled as per user request
-    return jsonify(
-        {
-            "success": False,
-            "message": "Timezone settings have been disabled. This feature may be available in future updates.",
-        }
-    )
-
-    # Original implementation commented out
-    """
-    data = request.json
-    timezone = data.get('timezone')
-    web_logger = get_logger("web_server")
-    
-    if not timezone:
-        return jsonify({"success": False, "error": "No timezone specified"}), 400
-        
-    web_logger.info(f"Applying timezone setting: {timezone}")
-    
-    # Save the timezone to general settings
-    general_settings = settings_manager.load_settings("general")
-    general_settings["timezone"] = timezone
-    settings_manager.save_settings("general", general_settings)
-    
-    # Apply the timezone to the container
-    success = settings_manager.apply_timezone(timezone)
-    
-    if success:
-        return jsonify({"success": True, "message": f"Timezone set to {timezone}. Container restart may be required for full effect."})
-    else:
-        return jsonify({"success": False, "error": f"Failed to apply timezone {timezone}"}), 500
-    """
 
 
 @app.route("/api/stats", methods=["GET"])
@@ -848,8 +793,8 @@ def api_reset_stats_public():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/version.txt")
-def version_txt():
+@app.route("/api/version")
+def api_version():
     """Serve the application version.
 
     Priority:

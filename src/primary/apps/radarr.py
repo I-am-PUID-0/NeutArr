@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 import datetime, os, requests
-from src.primary import keys_manager
 from src.primary.utils.logger import get_logger
 from src.primary.state import get_state_file_path
 from src.primary.settings_manager import load_settings, get_ssl_verify_setting
@@ -58,8 +57,6 @@ def test_connection():
         try:
             response_data = response.json()
 
-            # We no longer save keys here since we use instances
-            # keys_manager.save_api_keys("radarr", api_url, api_key)
 
             radarr_logger.info(
                 f"Successfully connected to Radarr API version: {response_data.get('version', 'unknown')}"

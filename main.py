@@ -117,9 +117,14 @@ def main_shutdown_handler(signum, frame):
     neutarr_logger.warning(f"Received signal {signal.Signals(signum).name}. Initiating shutdown...")
     if not stop_event.is_set():
         stop_event.set()
-    # Close Waitress so serve()/run() unblocks and the finally block can execute
     if _waitress_server is not None:
+        # Production: close Waitress so run() unblocks and the finally block can execute
         _waitress_server.close()
+    else:
+        # Debug mode: Flask dev server is blocked in a socket loop. Raising KeyboardInterrupt
+        # here (in the main thread) propagates through app.run() and lands in the
+        # except KeyboardInterrupt handler below, triggering normal cleanup.
+        raise KeyboardInterrupt
 
 
 if __name__ == "__main__":

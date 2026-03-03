@@ -1,13 +1,13 @@
 <section id="homeSection" class="content-section">
     <style>
-        /* Make support-link and community-link buttons 20% shorter in height */
-        .support-link, .community-link {
+        /* Make support-link buttons 20% shorter in height */
+        .support-link {
             padding: 5px !important; /* Further reduced padding */
             min-height: 0 !important; /* Allow height to be determined by content + padding */
         }
         
         /* Keep icon containers perfectly circular but smaller */
-        .support-links-grid .icon-container, .community-links-grid .icon-container {
+        .support-links-grid .icon-container {
             aspect-ratio: 1/1 !important; /* Maintain perfect circle */
             border-radius: 50% !important; /* Ensure circular shape */
             display: flex !important;
@@ -17,7 +17,7 @@
         }
         
         /* Maintain proper spacing with reduced padding */
-        .support-links-grid, .community-links-grid {
+        .support-links-grid {
             padding: 4px !important; /* Reduced padding further */
             gap: 6px !important; /* Smaller gap between items */
         }
@@ -32,26 +32,13 @@
             font-size: 0.8em !important;
         }
         
-        /* Reduce Community & Resources header height */
-        .community-hub-card .card-header {
-            padding: 4px 15px !important; /* Reduced padding further */
-            min-height: 0 !important;
-            height: auto !important;
-        }
-        
-        .community-hub-card .card-header h3 {
-            margin: 0 !important;
-            font-size: 15px !important; /* Slightly smaller font size */
-            line-height: 1.3 !important; /* Tighter line height */
-        }
-        
-        /* Reduce height of both container cards by 35% */
-        .support-links-card, .community-hub-card {
+        /* Reduce support card height by 35% */
+        .support-links-card {
             padding: 8px !important; /* Reduced padding from default */
             margin-bottom: 8px !important;
         }
         
-        .support-links-container, .community-resources-container {
+        .support-links-container {
             padding: 2px !important;
         }
         
@@ -61,7 +48,7 @@
         }
         
         /* Add slight negative margin to buttons to tighten layout */
-        .support-link .link-details, .community-link .link-details {
+        .support-link .link-details {
             margin-top: -3px !important;
         }
         
@@ -1030,155 +1017,6 @@
     
     .developer-credit a:hover {
         text-decoration: underline;
-    }
-    
-    /* Community & Resources Hub styling */
-    .community-hub-card {
-        width: 100%;
-        background-color: rgba(24, 28, 37, 0.6);
-        border: 1px solid rgba(90, 109, 137, 0.2);
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    
-    .community-hub-card .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px 20px;
-        background-color: rgba(32, 38, 50, 0.6);
-        border-bottom: 1px solid rgba(90, 109, 137, 0.2);
-    }
-    
-    .community-hub-card .card-header h3 {
-        margin: 0;
-        color: #e0e6ed;
-        font-size: 18px;
-        font-weight: 600;
-    }
-    
-    /* Enhanced Community Hub Card with Glass Effect */
-    .community-hub-card {
-        margin-bottom: 20px;
-        background: rgba(15, 20, 30, 0.5);
-        border: 1px solid rgba(79, 93, 115, 0.2);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        overflow: hidden;
-    }
-    
-    .community-resources-container {
-        padding: 15px;
-    }
-    
-    .community-links-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-        gap: 12px;
-    }
-    
-    .community-link {
-        display: flex;
-        align-items: center;
-        background: linear-gradient(145deg, rgba(25, 30, 40, 0.4), rgba(20, 25, 35, 0.7));
-        border-radius: 10px;
-        padding: 15px;
-        transition: all 0.3s ease;
-        text-decoration: none;
-        color: #ffffff;
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(5px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        border: 1px solid rgba(70, 90, 120, 0.15);
-        z-index: 1;
-    }
-    
-    .community-link::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
-        z-index: -1;
-        opacity: 0.3;
-        transition: opacity 0.3s ease;
-    }
-    
-    .community-link:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-    }
-    
-    .community-link:hover::before {
-        opacity: 0.5;
-    }
-    
-    .community-link .icon-container {
-        width: 42px;
-        height: 42px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        margin-right: 15px;
-        flex-shrink: 0;
-        font-size: 20px;
-        color: white;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        position: relative;
-    }
-    
-    .community-link .link-details {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .community-link .link-title {
-        font-weight: 600;
-        font-size: 15px;
-        color: #ffffff;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Icon styles for each link type with glass effect */
-    .icon-container.discord-icon {
-        background: linear-gradient(135deg, #5865F2, #404EED);
-        box-shadow: 0 0 10px rgba(88, 101, 242, 0.5);
-    }
-    
-    .icon-container.reddit-icon {
-        background: linear-gradient(135deg, #FF4500, #FF6A33);
-        box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-    }
-    
-    .icon-container.issues-icon {
-        background: linear-gradient(135deg, #2D3436, #636E72);
-        box-shadow: 0 0 10px rgba(45, 52, 54, 0.5);
-    }
-    
-    .icon-container.wiki-icon {
-        background: linear-gradient(135deg, #00B894, #00A087);
-        box-shadow: 0 0 10px rgba(0, 184, 148, 0.5);
-    }
-    
-    .icon-container.changelog-icon {
-        background: linear-gradient(135deg, #0984E3, #0570C2);
-        box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
-    }
-    
-    /* Media queries for responsiveness */
-    @media (max-width: 768px) {
-        .community-links-grid {
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        }
-    }
-    
-    @media (max-width: 500px) {
-        .community-links-grid {
-            grid-template-columns: 1fr;
-        }
     }
     
     /* Mobile scrolling fix */

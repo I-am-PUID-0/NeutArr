@@ -31,7 +31,3 @@ If private reporting is unavailable, contact a maintainer directly and share det
 ## Scope
 
 This policy covers the NeutArr application codebase and repository workflows.
-
-## Security Audit
-
-A full audit of the inherited Huntarr v6.6.3 codebase was performed prior to the first NeutArr release. See [SECURITY-AUDIT.md](SECURITY-AUDIT.md) for findings and remediation status.

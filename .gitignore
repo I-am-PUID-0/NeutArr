@@ -21,7 +21,7 @@ yarn-debug.log*
 yarn-error.log*
 /.changelog
 .npm/
-
+.VS*
 .DS_STORE
 node_modules
 scripts/flow/*/.flowconfig

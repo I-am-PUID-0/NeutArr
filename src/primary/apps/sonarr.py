@@ -2,7 +2,6 @@
 
 from flask import Blueprint, request, jsonify
 import datetime, os, requests
-from src.primary import keys_manager
 from src.primary.state import get_state_file_path
 from src.primary.settings_manager import load_settings, get_ssl_verify_setting
 import logging
@@ -60,8 +59,6 @@ def test_connection():
         try:
             response_data = response.json()
 
-            # Save keys if connection is successful - Not saving here anymore since we use instances
-            # keys_manager.save_api_keys("sonarr", api_url, api_key)
 
             sonarr_logger.debug(
                 f"Successfully connected to Sonarr API version: {response_data.get('version', 'unknown')}"

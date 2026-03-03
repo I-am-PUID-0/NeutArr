@@ -1046,14 +1046,6 @@ input:checked + .toggle-slider:before {
 }
 
 @media (max-width: 480px) {
-    .community-links {
-        flex-direction: column;
-    }
-    
-    .community-link-card {
-        width: 100%;
-    }
-    
     .app-stats-grid {
         grid-template-columns: 1fr;
     }

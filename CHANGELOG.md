@@ -16,9 +16,3 @@
 
 * **ci:** add poetry-plugin-export, F541 ignore, remove dead code, update actions ([2d58caa](https://github.com/I-am-PUID-0/NeutArr/commit/2d58caa3bd2c22bc102bf26f138d930317b9013f))
 * update content-hash in poetry.lock for dependency resolution ([9759810](https://github.com/I-am-PUID-0/NeutArr/commit/97598106fb60fc7485113fbaee592f0fcb855fa0))
-
-## Changelog
-
-All notable changes to NeutArr will be documented in this file.
-
-Maintained by [release-please](https://github.com/googleapis/release-please).

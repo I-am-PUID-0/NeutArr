@@ -11,10 +11,198 @@
     
     <div class="settings-form">
         <div id="generalSettings" class="app-settings-panel active" style="display: block;"></div>
+
+        <div id="accountSettingsPanel" class="settings-group settings-account-panel">
+            <h3>Account & API</h3>
+            <p class="settings-account-intro">Authentication mode stays in Security above. Username, password, and API key management live here.</p>
+
+            <div class="settings-account-subsection">
+                <h4><i class="fas fa-user-edit"></i> Change Username</h4>
+                <div class="setting-item">
+                    <label for="currentUsername">Current Username:</label>
+                    <span id="currentUsername" class="current-value">Loading...</span>
+                </div>
+                <div class="setting-item">
+                    <label for="newUsername">New Username:</label>
+                    <input type="text" id="newUsername" class="form-control">
+                </div>
+                <div class="setting-item">
+                    <label for="currentPasswordForUsernameChange">Current Password:</label>
+                    <input type="password" id="currentPasswordForUsernameChange" class="form-control">
+                </div>
+                <div class="settings-account-actions">
+                    <button id="saveUsername" class="action-button primary-button">Save Username</button>
+                </div>
+                <div id="usernameStatus" class="status-message" style="display: none;"></div>
+            </div>
+
+            <div class="settings-account-subsection">
+                <h4><i class="fas fa-key"></i> Change Password</h4>
+                <div class="setting-item">
+                    <label for="currentPassword">Current Password:</label>
+                    <input type="password" id="currentPassword" class="form-control">
+                </div>
+                <div class="setting-item">
+                    <label for="newPassword">New Password:</label>
+                    <input type="password" id="newPassword" class="form-control">
+                </div>
+                <div class="setting-item">
+                    <label for="confirmPassword">Confirm Password:</label>
+                    <input type="password" id="confirmPassword" class="form-control">
+                </div>
+                <div class="settings-account-actions">
+                    <button id="savePassword" class="action-button primary-button">Save Password</button>
+                </div>
+                <div id="passwordStatus" class="status-message" style="display: none;"></div>
+            </div>
+
+            <div class="settings-account-subsection">
+                <h4><i class="fas fa-plug"></i> API Access</h4>
+                <div class="setting-item">
+                    <label for="apiKeyDisplay">API Key:</label>
+                    <div class="settings-account-inline-controls">
+                        <input type="password" id="apiKeyDisplay" class="form-control" readonly placeholder="Loading...">
+                        <button id="toggleApiKey" class="action-button secondary-button">
+                            <i class="fas fa-eye"></i> Show
+                        </button>
+                    </div>
+                    <p class="setting-help settings-account-help">Send as <code>X-Api-Key</code> header or <code>?apikey=</code> query param.</p>
+                </div>
+                <div class="settings-account-actions">
+                    <button id="copyApiKey" class="action-button secondary-button">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <button id="rotateApiKey" class="action-button danger-button">
+                        <i class="fas fa-sync-alt"></i> Rotate Key
+                    </button>
+                </div>
+                <div id="apiKeyStatus" class="status-message" style="display: none;"></div>
+            </div>
+        </div>
     </div>
 </section>
 
 <style>
+    .settings-account-panel {
+        margin-top: 24px;
+        padding-bottom: 24px;
+    }
+
+    #accountSettingsPanel .action-button {
+        padding: 8px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: none;
+        transition: all 0.2s ease;
+    }
+
+    #accountSettingsPanel .primary-button {
+        background: linear-gradient(135deg, #6366F1 0%, #7577f3 100%);
+        color: white;
+    }
+
+    #accountSettingsPanel .secondary-button {
+        background: linear-gradient(135deg, #38495a 0%, #465b70 100%);
+        color: white;
+    }
+
+    #accountSettingsPanel .danger-button {
+        background: linear-gradient(135deg, #e74c3c 0%, #f15846 100%);
+        color: white;
+    }
+
+    .settings-account-intro {
+        margin: -4px 0 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
+    .settings-account-subsection + .settings-account-subsection {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .settings-account-subsection h4 {
+        margin: 0 0 14px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+    }
+
+    .settings-account-subsection h4 i {
+        color: var(--accent-color);
+        font-size: 0.9rem;
+    }
+
+    .settings-account-inline-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .settings-account-inline-controls .form-control {
+        font-family: monospace;
+    }
+
+    #accountSettingsPanel .current-value {
+        width: 300px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        display: inline-flex;
+        align-items: center;
+        min-height: 38px;
+    }
+
+    .settings-account-help {
+        margin-left: 215px;
+    }
+
+    .settings-account-help code {
+        font-family: monospace;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 1px 4px;
+        border-radius: 3px;
+    }
+
+    .settings-account-actions {
+        margin: -4px 0 0 215px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    #accountSettingsPanel .status-message {
+        margin: 12px 0 0 215px;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        max-width: 500px;
+    }
+
+    #accountSettingsPanel .status-message.success {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #2ecc71;
+        border-left: 3px solid #28a745;
+    }
+
+    #accountSettingsPanel .status-message.error {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: #ff6b6b;
+        border-left: 3px solid #dc3545;
+    }
+
     /* Mobile-specific settings adjustments */
     @media (max-width: 768px) {
         #settingsSection .section-header {
@@ -36,6 +224,35 @@
             width: auto !important;
             text-align: center;
             justify-content: center;
+        }
+
+        .settings-account-inline-controls {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .settings-account-actions {
+            margin-left: 0;
+            flex-direction: column;
+        }
+
+        #accountSettingsPanel .action-button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        #accountSettingsPanel .current-value {
+            width: 100%;
+        }
+
+        .settings-account-help {
+            margin-left: 0;
+        }
+
+        #accountSettingsPanel .status-message {
+            margin-left: 0;
+            max-width: none;
         }
     }
     
