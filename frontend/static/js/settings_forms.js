@@ -842,7 +842,7 @@ const SettingsForms = {
             <div class="settings-group">
                 <h3>Swaparr (Beta) - Only For Torrent Users</h3>
                 <div class="setting-item">
-                    <p>Swaparr addresses the issue of stalled downloads and I rewrote it to support NeutArr. Visit Swaparr's <a href="https://github.com/ThijmenGThN/swaparr" target="_blank">GitHub</a> for more information and support the developer!</p>
+                    <p>Swaparr addresses the issue of stalled downloads. Visit Swaparr's <a href="https://github.com/ThijmenGThN/swaparr" target="_blank">GitHub</a> for more information and support the developer!</p>
                 </div>
             </div>
 
