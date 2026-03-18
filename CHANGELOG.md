@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.5.0...1.5.1) (2026-03-18)
+
+
+### 🤡 Other Changes
+
+* **ci:** add Code of Conduct and Pull Request Template ([fae6adf](https://github.com/I-am-PUID-0/NeutArr/commit/fae6adf1e0158287a6cc36b291cc65b7da8f0dd2))
+* **docs:** adjust logo size in README for better display ([2a5cde1](https://github.com/I-am-PUID-0/NeutArr/commit/2a5cde12c791bf457580950967ea8c7fea241427))
+* **docs:** enhance README and issue templates with community links and improved guidance ([be9992a](https://github.com/I-am-PUID-0/NeutArr/commit/be9992a8dba9834dc4391747011ec1f9ba7fead2))
+
+
+### 🛠️ Build System
+
+* **deps-dev:** Bump ruff from 0.15.4 to 0.15.5 ([#19](https://github.com/I-am-PUID-0/NeutArr/issues/19)) ([0644406](https://github.com/I-am-PUID-0/NeutArr/commit/064440698e7383cd7de512432e36bf0955694a59))
+* **deps-dev:** Bump ruff from 0.15.5 to 0.15.6 ([#20](https://github.com/I-am-PUID-0/NeutArr/issues/20)) ([d783bf6](https://github.com/I-am-PUID-0/NeutArr/commit/d783bf6060cc96183ef2b34788ae45e4bc9ba4ad))
+* **deps:** Bump docker/build-push-action from 6.19.2 to 7.0.0 ([#15](https://github.com/I-am-PUID-0/NeutArr/issues/15)) ([a2b2b7a](https://github.com/I-am-PUID-0/NeutArr/commit/a2b2b7a57ef4b1637d0a27df0cbea134d6f16027))
+* **deps:** Bump docker/login-action from 3.7.0 to 4.0.0 ([#16](https://github.com/I-am-PUID-0/NeutArr/issues/16)) ([c9e1feb](https://github.com/I-am-PUID-0/NeutArr/commit/c9e1feb059aaebf41c495850c2c3b808f160df60))
+* **deps:** Bump docker/setup-buildx-action from 3.12.0 to 4.0.0 ([#17](https://github.com/I-am-PUID-0/NeutArr/issues/17)) ([c9cada1](https://github.com/I-am-PUID-0/NeutArr/commit/c9cada1e4b8f4c5382613a50b677947d290f1d37))
+* **deps:** Bump docker/setup-qemu-action from 3.7.0 to 4.0.0 ([#18](https://github.com/I-am-PUID-0/NeutArr/issues/18)) ([e6af1ce](https://github.com/I-am-PUID-0/NeutArr/commit/e6af1ce99004c03d8ee7eaeffd1027dfd971c54e))
+* **deps:** Bump pyjwt from 2.11.0 to 2.12.1 ([#21](https://github.com/I-am-PUID-0/NeutArr/issues/21)) ([634cb48](https://github.com/I-am-PUID-0/NeutArr/commit/634cb48e5f5ae0c163eeef0c9b92881366af84e6))
+
 ## [1.5.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.4.0...1.5.0) (2026-03-03)
 
 
