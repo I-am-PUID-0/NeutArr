@@ -44,13 +44,13 @@ LEGACY_REFRESH_COOKIE = "neutarr_refresh"
 
 def get_instance_storage_key() -> str:
     """Return a stable per-instance key for cookie and browser storage namespacing."""
-    raw_id = (
-        os.environ.get("NEUTARR_INSTANCE_ID")
-        or os.environ.get("NEUTARR_CONFIG_DIR")
-        or os.environ.get("PORT")
-        or "default"
-    )
-    digest = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:12]
+    parts = [
+        os.environ.get("NEUTARR_INSTANCE_ID", "").strip(),
+        os.environ.get("NEUTARR_CONFIG_DIR", "").strip(),
+        os.environ.get("PORT", "").strip(),
+    ]
+    combined_id = "|".join(part for part in parts if part) or "default"
+    digest = hashlib.sha256(combined_id.encode("utf-8")).hexdigest()[:12]
     return f"inst_{digest}"
 
 
