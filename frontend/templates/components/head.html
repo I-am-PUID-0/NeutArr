@@ -1,7 +1,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
-    window.NEUTARR_INSTANCE_STORAGE_KEY = "{{ instance_storage_key }}";
+    window.NEUTARR_INSTANCE_STORAGE_KEY = {{ instance_storage_key|tojson }};
 </script>
 <!-- Preload theme script to prevent flashing -->
 <script src="/static/js/theme-preload.js"></script>

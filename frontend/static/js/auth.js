@@ -28,7 +28,6 @@ const AuthManager = (() => {
   const ACCESS_KEY = scopedStorageKey('neutarr_access_token');
   const REFRESH_KEY = scopedStorageKey('neutarr_refresh_token');
   const USERNAME_KEY = scopedStorageKey('neutarr_username');
-  const API_KEY = scopedStorageKey('neutarr_api_key');
 
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
   let _bootstrapPromise = null;
@@ -60,7 +59,6 @@ const AuthManager = (() => {
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USERNAME_KEY);
-    localStorage.removeItem(API_KEY);
     _apiKey = null;
   }
 
@@ -68,13 +66,12 @@ const AuthManager = (() => {
     if (apiKey) {
       _apiKey = apiKey;
     } else {
-      localStorage.removeItem(API_KEY);
       _apiKey = null;
     }
   }
 
   async function bootstrap() {
-    if (_bootstrapPromise) return _bootstrapPromise;
+    if (_bootstrapPromise) return _bootstrapPromise; // In-flight request
 
     _bootstrapPromise = (async () => {
       try {
