@@ -18,6 +18,7 @@ import ipaddress
 import os
 import secrets
 import time
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -37,8 +38,25 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 JWT_ALGORITHM = "HS256"
 
-ACCESS_COOKIE = "neutarr_token"  # non-httponly; JS-readable for AJAX
-REFRESH_COOKIE = "neutarr_refresh"  # httponly; auto-sent to refresh endpoint
+LEGACY_ACCESS_COOKIE = "neutarr_token"
+LEGACY_REFRESH_COOKIE = "neutarr_refresh"
+
+
+def get_instance_storage_key() -> str:
+    """Return a stable per-instance key for cookie and browser storage namespacing."""
+    raw_id = (
+        os.environ.get("NEUTARR_INSTANCE_ID")
+        or os.environ.get("NEUTARR_CONFIG_DIR")
+        or os.environ.get("PORT")
+        or "default"
+    )
+    digest = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()[:12]
+    return f"inst_{digest}"
+
+
+INSTANCE_STORAGE_KEY = get_instance_storage_key()
+ACCESS_COOKIE = f"neutarr_token_{INSTANCE_STORAGE_KEY}"  # non-httponly; JS-readable for AJAX
+REFRESH_COOKIE = f"neutarr_refresh_{INSTANCE_STORAGE_KEY}"  # httponly; auto-sent to refresh endpoint
 
 # Private RFC-1918 + loopback CIDR ranges for local access bypass
 _LOCAL_NETWORKS = [
@@ -56,6 +74,7 @@ ALWAYS_PUBLIC_PATHS = frozenset(
         "/favicon.ico",
         "/api/health",
         "/api/version",
+        "/api/get_local_access_bypass_status",
         "/ping",
         "/login",
         "/setup",
@@ -282,6 +301,8 @@ def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
 def clear_auth_cookies(response) -> None:
     response.delete_cookie(ACCESS_COOKIE, path="/")
     response.delete_cookie(REFRESH_COOKIE, path="/api/auth/refresh")
+    response.delete_cookie(LEGACY_ACCESS_COOKIE, path="/")
+    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/api/auth/refresh")
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +315,7 @@ def get_token_from_request() -> Optional[str]:
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
-    return request.cookies.get(ACCESS_COOKIE)
+    return request.cookies.get(ACCESS_COOKIE) or request.cookies.get(LEGACY_ACCESS_COOKIE)
 
 
 def get_api_key_from_request() -> Optional[str]:
@@ -418,7 +439,7 @@ def authenticate_request():
       1. Always-public paths (static, /login, /setup, /api/auth/*)
       2. Valid JWT access token OR valid API key (explicit credentials always win)
       3. No users and setup not skipped → force setup flow
-      4. API requests: always require credentials — neither bypass mode exempts
+      4. API requests: always require credentials — bypass modes do not exempt
          API calls. The only exception is no-user proxy mode (setup_skipped=True,
          has_users=False) where no API key has been issued to anyone.
       5. Page requests: proxy_auth_bypass OR (local_access_bypass + LAN IP)

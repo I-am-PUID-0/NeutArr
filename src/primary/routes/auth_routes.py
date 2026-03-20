@@ -23,6 +23,12 @@ import logging
 from flask import Blueprint, request, jsonify, make_response, redirect, render_template
 
 from ..auth import (
+    _get_client_ip,
+    _get_local_bypass,
+    _is_local_ip,
+    LEGACY_REFRESH_COOKIE,
+    REFRESH_COOKIE,
+    INSTANCE_STORAGE_KEY,
     auth_config,
     verify_login,
     verify_password,
@@ -59,6 +65,22 @@ def _is_privileged() -> bool:
     return bool(api_key and validate_api_key(api_key))
 
 
+def _get_authenticated_username() -> str | None:
+    """Return the acting username for JWT auth or valid instance API key auth."""
+    username = get_current_user()
+    if username:
+        return username
+
+    api_key = get_api_key_from_request()
+    if not api_key or not validate_api_key(api_key):
+        return None
+
+    for user in auth_config.config.get("users", []):
+        if not user.get("disabled", False) and user.get("username"):
+            return user["username"]
+    return None
+
+
 def _token_response(username: str, status: int = 200):
     """Build a JSON response with token pair + auth cookies set."""
     access_token, refresh_token = create_token_pair(username)
@@ -85,15 +107,30 @@ def auth_status():
         proxy_bypass = settings_manager.get_setting("general", "proxy_auth_bypass", False)
     except Exception:
         proxy_bypass = False
+    try:
+        local_bypass = _get_local_bypass()
+    except Exception:
+        local_bypass = False
 
-    return jsonify(
-        {
-            "has_users": auth_config.has_users(),
-            "proxy_auth_bypass": proxy_bypass,
-            "setup_skipped": auth_config.is_setup_skipped(),
-            "auth_enabled": auth_config.has_users() and not proxy_bypass,
-        }
-    )
+    client_ip = _get_client_ip()
+    local_client = bool(client_ip and _is_local_ip(client_ip))
+
+    data = {
+        "has_users": auth_config.has_users(),
+        "instance_storage_key": INSTANCE_STORAGE_KEY,
+        "proxy_auth_bypass": proxy_bypass,
+        "local_access_bypass": local_bypass,
+        "setup_skipped": auth_config.is_setup_skipped(),
+        "auth_enabled": auth_config.has_users() and not proxy_bypass,
+    }
+
+    # Frontend-bypass modes still authenticate API calls using the instance API
+    # key instead of JWT. Only expose the key when this request is currently
+    # eligible to bypass the web login page.
+    if auth_config.has_users() and (proxy_bypass or (local_bypass and local_client)):
+        data["frontend_api_key"] = auth_config.get_api_key()
+
+    return jsonify(data)
 
 
 @auth_bp.route("/api/auth/setup", methods=["POST"])
@@ -170,11 +207,11 @@ def auth_logout():
 def auth_refresh():
     """
     Issue a new token pair using the refresh token.
-    The httponly neutarr_refresh cookie is sent automatically by the browser.
+    The instance-scoped httponly refresh cookie is sent automatically by the browser.
     JS clients can also send the refresh token in the request body.
     """
     # Try httponly cookie first (browser), then JSON body (API clients)
-    refresh_token = request.cookies.get("neutarr_refresh")
+    refresh_token = request.cookies.get(REFRESH_COOKIE) or request.cookies.get(LEGACY_REFRESH_COOKIE)
     if not refresh_token:
         data = request.get_json(silent=True) or {}
         refresh_token = data.get("refresh_token")
@@ -233,7 +270,7 @@ def auth_verify():
 @auth_bp.route("/api/auth/user", methods=["GET"])
 def auth_user():
     """Return current user info. Requires authentication."""
-    username = get_current_user()
+    username = _get_authenticated_username()
     if not username:
         return jsonify({"error": "Not authenticated"}), 401
     return jsonify({"username": username})
@@ -242,7 +279,7 @@ def auth_user():
 @auth_bp.route("/api/auth/change-password", methods=["POST"])
 def auth_change_password():
     """Change the current user's password."""
-    username = get_current_user()
+    username = _get_authenticated_username()
     if not username:
         return jsonify({"error": "Not authenticated"}), 401
 
@@ -271,7 +308,7 @@ def auth_change_password():
 @auth_bp.route("/api/auth/change-username", methods=["POST"])
 def auth_change_username():
     """Change the current user's username."""
-    username = get_current_user()
+    username = _get_authenticated_username()
     if not username:
         return jsonify({"error": "Not authenticated"}), 401
 
@@ -292,8 +329,12 @@ def auth_change_username():
         return jsonify({"error": "Username already taken or update failed"}), 400
 
     logger.info(f"Username changed from '{username}' to '{new_username}'.")
-    # Issue fresh tokens with the new username
-    return _token_response(new_username)
+
+    if get_current_user():
+        # JWT-backed sessions need fresh tokens when the subject changes.
+        return _token_response(new_username)
+
+    return jsonify({"success": True, "username": new_username})
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +397,11 @@ def auth_mode():
 def login_page():
     if not auth_config.has_users() and not auth_config.is_setup_skipped():
         return redirect("/setup")
+    try:
+        if settings_manager.get_setting("general", "proxy_auth_bypass", False):
+            return redirect("/")
+    except Exception:
+        pass
     return render_template("login.html")
 
 
