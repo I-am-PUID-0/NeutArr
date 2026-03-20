@@ -79,6 +79,7 @@ ALWAYS_PUBLIC_PATHS = frozenset(
         "/login",
         "/setup",
         "/api/auth/login",
+        "/api/auth/logout",
         "/api/auth/refresh",
         "/api/auth/status",
         "/api/auth/setup",
