@@ -45,7 +45,7 @@ from src.primary.utils.logger import (
     update_logging_levels,
 )  # Import get_logger, LOG_DIR, and update_logging_levels
 from src.primary.utils.version import get_runtime_version
-from src.primary.auth import authenticate_request
+from src.primary.auth import authenticate_request, INSTANCE_STORAGE_KEY
 
 # Import blueprints for routes
 from src.primary.routes.common import common_bp
@@ -93,6 +93,11 @@ app.register_blueprint(scheduler_api)
 
 # Register the authentication check to run before requests
 app.before_request(authenticate_request)
+
+
+@app.context_processor
+def inject_template_globals():
+    return {"instance_storage_key": INSTANCE_STORAGE_KEY}
 
 # Removed MAIN_PID and signal-related code
 

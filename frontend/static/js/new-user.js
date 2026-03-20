@@ -205,6 +205,9 @@
             if (response.ok) {
                 const display = document.getElementById('apiKeyDisplay');
                 if (display) display.value = data.api_key;
+                if (typeof AuthManager !== 'undefined' && typeof AuthManager.setApiKey === 'function') {
+                    AuthManager.setApiKey(data.api_key);
+                }
                 showStatus(statusElement, 'API key rotated — update any scripts using the old key', 'success');
             } else {
                 showStatus(statusElement, data.error || 'Failed to rotate API key', 'error');

@@ -17,12 +17,21 @@
  *   AuthManager.getUsername()
  */
 
+const nativeFetch = window.fetch.bind(window);
+const storageNamespace = window.NEUTARR_INSTANCE_STORAGE_KEY || 'inst_default';
+
+function scopedStorageKey(baseKey) {
+  return `${baseKey}_${storageNamespace}`;
+}
+
 const AuthManager = (() => {
-  const ACCESS_KEY = 'neutarr_access_token';
-  const REFRESH_KEY = 'neutarr_refresh_token';
-  const USERNAME_KEY = 'neutarr_username';
+  const ACCESS_KEY = scopedStorageKey('neutarr_access_token');
+  const REFRESH_KEY = scopedStorageKey('neutarr_refresh_token');
+  const USERNAME_KEY = scopedStorageKey('neutarr_username');
+  const API_KEY = scopedStorageKey('neutarr_api_key');
 
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
+  let _bootstrapPromise = null;
 
   function getAccessToken() {
     return localStorage.getItem(ACCESS_KEY);
@@ -34,6 +43,10 @@ const AuthManager = (() => {
 
   function getUsername() {
     return localStorage.getItem(USERNAME_KEY);
+  }
+
+  function getApiKey() {
+    return localStorage.getItem(API_KEY);
   }
 
   function setTokens(accessToken, refreshToken, username) {
@@ -48,6 +61,43 @@ const AuthManager = (() => {
     localStorage.removeItem(USERNAME_KEY);
   }
 
+  function setApiKey(apiKey) {
+    if (apiKey) {
+      localStorage.setItem(API_KEY, apiKey);
+    } else {
+      localStorage.removeItem(API_KEY);
+    }
+  }
+
+  async function bootstrap() {
+    if (_bootstrapPromise) return _bootstrapPromise;
+
+    _bootstrapPromise = (async () => {
+      try {
+        const response = await nativeFetch('/api/auth/status');
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        if (data.instance_storage_key && data.instance_storage_key !== storageNamespace) {
+          return false;
+        }
+        if (data.frontend_api_key) {
+          setApiKey(data.frontend_api_key);
+          return true;
+        }
+
+        setApiKey(null);
+        return false;
+      } catch {
+        return false;
+      } finally {
+        _bootstrapPromise = null;
+      }
+    })();
+
+    return _bootstrapPromise;
+  }
+
   async function refresh() {
     // Deduplicate: if a refresh is already in flight, return the same promise
     if (_refreshPromise) return _refreshPromise;
@@ -57,7 +107,7 @@ const AuthManager = (() => {
 
     _refreshPromise = (async () => {
       try {
-        const response = await fetch('/api/auth/refresh', {
+      const response = await nativeFetch('/api/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: refreshToken }),
@@ -82,14 +132,24 @@ const AuthManager = (() => {
   }
 
   async function logout() {
+    const bootstrapped = await bootstrap();
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      const headers = {};
+      if (bootstrapped) {
+        const apiKey = getApiKey();
+        if (apiKey) headers['X-Api-Key'] = apiKey;
+      }
+      await nativeFetch('/api/auth/logout', { method: 'POST', headers });
     } catch { /* ignore network errors on logout */ }
     clearTokens();
+    if (bootstrapped) {
+      window.location.href = '/';
+      return;
+    }
     window.location.href = '/login';
   }
 
-  return { getAccessToken, getRefreshToken, getUsername, setTokens, clearTokens, refresh, logout };
+  return { getAccessToken, getRefreshToken, getUsername, getApiKey, setTokens, clearTokens, setApiKey, bootstrap, refresh, logout };
 })();
 
 
@@ -104,7 +164,10 @@ const AuthManager = (() => {
  * @returns {Promise<Response>}
  */
 async function authFetch(url, options = {}) {
+  await AuthManager.bootstrap();
+
   const token = AuthManager.getAccessToken();
+  const apiKey = AuthManager.getApiKey();
 
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -112,17 +175,19 @@ async function authFetch(url, options = {}) {
   }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  } else if (apiKey) {
+    headers.set('X-Api-Key', apiKey);
   }
 
-  let response = await fetch(url, { ...options, headers });
+  let response = await nativeFetch(url, { ...options, headers });
 
   // On 401, attempt token refresh then retry once
-  if (response.status === 401) {
+  if (response.status === 401 && token) {
     const refreshed = await AuthManager.refresh();
     if (refreshed) {
       const newToken = AuthManager.getAccessToken();
       if (newToken) headers.set('Authorization', `Bearer ${newToken}`);
-      response = await fetch(url, { ...options, headers });
+      response = await nativeFetch(url, { ...options, headers });
     }
 
     // Still 401 after refresh — redirect to login
@@ -134,3 +199,50 @@ async function authFetch(url, options = {}) {
 
   return response;
 }
+
+function shouldAttachApiAuth(input) {
+  const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.origin !== window.location.origin) return false;
+      return parsed.pathname.startsWith('/api/');
+    } catch {
+      return false;
+    }
+  }
+
+  return url.startsWith('/api/');
+}
+
+window.fetch = async function(input, init = undefined) {
+  if (!shouldAttachApiAuth(input)) {
+    return nativeFetch(input, init);
+  }
+
+  await AuthManager.bootstrap();
+
+  const originalRequest = input instanceof Request ? input : null;
+  const requestInit = init ? { ...init } : {};
+  const headers = new Headers(
+    requestInit.headers || (originalRequest ? originalRequest.headers : undefined) || undefined
+  );
+
+  const token = AuthManager.getAccessToken();
+  const apiKey = AuthManager.getApiKey();
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  } else if (apiKey && !headers.has('X-Api-Key')) {
+    headers.set('X-Api-Key', apiKey);
+  }
+
+  requestInit.headers = headers;
+
+  if (originalRequest) {
+    return nativeFetch(new Request(originalRequest, requestInit));
+  }
+
+  return nativeFetch(input, requestInit);
+};
