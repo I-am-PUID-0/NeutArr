@@ -1912,7 +1912,13 @@ let neutarrUI = {
     logout: function(e) { // Added logout function
         e.preventDefault(); // Prevent default link behavior
         console.log('[neutarrUI] Logging out...');
-        NeutArrUtils.fetchWithTimeout('/logout', { // Use the correct endpoint defined in Flask
+
+        if (typeof AuthManager !== 'undefined' && typeof AuthManager.logout === 'function') {
+            AuthManager.logout();
+            return;
+        }
+
+        NeutArrUtils.fetchWithTimeout('/api/auth/logout', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
