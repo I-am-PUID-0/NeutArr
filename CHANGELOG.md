@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.5.1...1.6.0) (2026-03-20)
+
+
+### ✨ Features
+
+* **auth:** Enhance multi-instance support and API key handling ([59f7b8e](https://github.com/I-am-PUID-0/NeutArr/commit/59f7b8e073ddaf160a9b8a79657d041116dddb70))
+
+
+### 🐛 Bug Fixes
+
+* **auth:** add logout endpoint to always public paths ([d76ebd8](https://github.com/I-am-PUID-0/NeutArr/commit/d76ebd85ac459c471709f52c98eea56b82b8b5f8))
+* **auth:** Invalidate bypass caches; refine username update ([d2d8b00](https://github.com/I-am-PUID-0/NeutArr/commit/d2d8b00ab043f84196ecc167175bfab56a4796ef))
+* **logout:** update logout function to use AuthManager and correct API endpoint ([9756c25](https://github.com/I-am-PUID-0/NeutArr/commit/9756c25ac00b9d775d83fb8f72c6df8ed74088f1)), closes [#23](https://github.com/I-am-PUID-0/NeutArr/issues/23)
+
+
+### 🛠️ Refactors
+
+* **auth:** Encapsulates API key in AuthManager ([fe340bf](https://github.com/I-am-PUID-0/NeutArr/commit/fe340bf9688898a9f73ec767c8426e7cea8cac74))
+* **auth:** Improve instance storage key generation ([d6fc7d9](https://github.com/I-am-PUID-0/NeutArr/commit/d6fc7d9f74e487edf715a78a843719a42664c216))
+* Improve client-side config and auth handling ([e75147d](https://github.com/I-am-PUID-0/NeutArr/commit/e75147d330510beb79f18cdf206fa0477c32ef89))
+
 ## [1.5.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.5.0...1.5.1) (2026-03-18)
 
 
