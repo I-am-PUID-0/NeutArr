@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeutArr Login</title>
     <script>
-        window.NEUTARR_INSTANCE_STORAGE_KEY = "{{ instance_storage_key }}";
+        window.NEUTARR_INSTANCE_STORAGE_KEY = {{ instance_storage_key|tojson }};
     </script>
     <!-- Inline script to prevent theme flashing -->
     <script>
