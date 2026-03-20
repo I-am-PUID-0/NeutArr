@@ -32,6 +32,7 @@ const AuthManager = (() => {
 
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
   let _bootstrapPromise = null;
+  let _apiKey = null;
 
   function getAccessToken() {
     return localStorage.getItem(ACCESS_KEY);
@@ -46,7 +47,7 @@ const AuthManager = (() => {
   }
 
   function getApiKey() {
-    return localStorage.getItem(API_KEY);
+    return _apiKey;
   }
 
   function setTokens(accessToken, refreshToken, username) {
@@ -59,13 +60,16 @@ const AuthManager = (() => {
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USERNAME_KEY);
+    localStorage.removeItem(API_KEY);
+    _apiKey = null;
   }
 
   function setApiKey(apiKey) {
     if (apiKey) {
-      localStorage.setItem(API_KEY, apiKey);
+      _apiKey = apiKey;
     } else {
       localStorage.removeItem(API_KEY);
+      _apiKey = null;
     }
   }
 
