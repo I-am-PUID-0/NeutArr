@@ -26,6 +26,7 @@ from ..auth import (
     _get_client_ip,
     _get_local_bypass,
     _is_local_ip,
+    reset_bypass_caches,
     LEGACY_REFRESH_COOKIE,
     REFRESH_COOKIE,
     INSTANCE_STORAGE_KEY,
@@ -311,6 +312,7 @@ def auth_change_username():
     username = _get_authenticated_username()
     if not username:
         return jsonify({"error": "Not authenticated"}), 401
+    was_jwt_authenticated = bool(get_current_user())
 
     data = request.get_json(silent=True) or {}
     new_username = (data.get("username") or "").strip()
@@ -330,7 +332,7 @@ def auth_change_username():
 
     logger.info(f"Username changed from '{username}' to '{new_username}'.")
 
-    if get_current_user():
+    if was_jwt_authenticated:
         # JWT-backed sessions need fresh tokens when the subject changes.
         return _token_response(new_username)
 
@@ -383,6 +385,7 @@ def auth_mode():
     current["proxy_auth_bypass"] = mode == "no_login"
 
     if settings_manager.save_settings("general", current):
+        reset_bypass_caches()
         logger.info(f"Auth mode changed to '{mode}'.")
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "Failed to save auth mode"}), 500

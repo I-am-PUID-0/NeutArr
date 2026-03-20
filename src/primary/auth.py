@@ -428,6 +428,14 @@ def _get_local_bypass() -> bool:
     return value
 
 
+def reset_bypass_caches() -> None:
+    """Clear cached bypass mode values after auth settings change."""
+    _proxy_bypass_cache["value"] = None
+    _proxy_bypass_cache["expires"] = 0.0
+    _local_bypass_cache["value"] = None
+    _local_bypass_cache["expires"] = 0.0
+
+
 # ---------------------------------------------------------------------------
 # Flask before_request handler
 # ---------------------------------------------------------------------------
