@@ -99,6 +99,7 @@ app.before_request(authenticate_request)
 def inject_template_globals():
     return {"instance_storage_key": INSTANCE_STORAGE_KEY}
 
+
 # Removed MAIN_PID and signal-related code
 
 # Lock for accessing the log files
