@@ -27,7 +27,7 @@ logger = setup_main_logger()
 from src.primary import config, settings_manager
 
 from src.primary.state import check_state_reset, calculate_reset_time
-from src.primary.stats_manager import check_hourly_cap_exceeded
+from src.primary.stats_manager import check_hourly_cap_exceeded, get_hourly_cap_status
 from src.primary.utils.instance_list_generator import generate_instance_list
 from src.primary.scheduler_engine import start_scheduler, stop_scheduler
 # from src.primary.utils.app_utils import get_ip_address # No longer used here
@@ -246,9 +246,6 @@ def app_specific_loop(app_type: str) -> None:
             try:
                 # Check if hourly API cap is exceeded
                 if check_hourly_cap_exceeded(app_type):
-                    # Get the current cap status for logging
-                    from src.primary.stats_manager import get_hourly_cap_status
-
                     cap_status = get_hourly_cap_status(app_type)
                     app_logger.warning(
                         f"{app_type.upper()} hourly cap reached {cap_status['current_usage']} of {cap_status['limit']} (app-specific limit). Skipping cycle!"
@@ -258,14 +255,12 @@ def app_specific_loop(app_type: str) -> None:
                 app_logger.error(f"Error checking hourly API cap for {app_type}: {e}", exc_info=True)
                 # Continue with the cycle even if cap check fails - safer than skipping
 
-            # --- Check if Hunt Modes are Enabled --- #
-            # These checks use the hunt_missing_setting/hunt_upgrade_setting defined earlier
-            # which correspond to keys in the main app_settings dict (e.g., 'hunt_missing_items')
-            hunt_missing_value = app_settings.get(hunt_missing_setting, 0)
-            hunt_upgrade_value = app_settings.get(hunt_upgrade_setting, 0)
-
-            hunt_missing_enabled = hunt_missing_value > 0
-            hunt_upgrade_enabled = hunt_upgrade_value > 0
+            # --- Stateful Reset Check --- #
+            try:
+                if check_state_reset(app_type):
+                    app_logger.info(f"Stateful processing history reset for {app_type} at the start of this cycle.")
+            except Exception as e:
+                app_logger.error(f"Error checking state reset for {app_type}: {e}", exc_info=True)
 
             # --- Queue Size Check --- # Moved inside loop
             # Get maximum_download_queue_size from general settings (still using minimum_download_queue_size key for backward compatibility)
@@ -304,6 +299,24 @@ def app_specific_loop(app_type: str) -> None:
             combined_settings["command_wait_attempts"] = settings_manager.get_advanced_setting(
                 "command_wait_attempts", 600
             )
+
+            try:
+                cap_status = get_hourly_cap_status(app_type)
+                remaining_cap = max(0, int(cap_status.get("remaining", 0)))
+
+                for setting_name in (hunt_missing_setting, hunt_upgrade_setting):
+                    configured_value = int(combined_settings.get(setting_name, 0) or 0)
+                    if configured_value > remaining_cap:
+                        app_logger.info(
+                            f"Clamping {setting_name} for {instance_label} from {configured_value} to {remaining_cap} due to hourly cap"
+                        )
+                        combined_settings[setting_name] = remaining_cap
+            except Exception as e:
+                app_logger.error(f"Error clamping hunt limits for {app_type}: {e}", exc_info=True)
+
+            # --- Check if Hunt Modes are Enabled --- #
+            hunt_missing_enabled = int(combined_settings.get(hunt_missing_setting, 0) or 0) > 0
+            hunt_upgrade_enabled = int(combined_settings.get(hunt_upgrade_setting, 0) or 0) > 0
 
             # Define the stop check function
             stop_check_func = stop_event.is_set

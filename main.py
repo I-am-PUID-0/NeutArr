@@ -24,6 +24,21 @@ root_logger = logging.getLogger("NeutArrRoot")  # Specific logger for this entry
 root_logger.info("--- NeutArr Main Process Starting ---")
 root_logger.info(f"Python sys.path: {sys.path}")
 
+tz_name = os.environ.get("TZ")
+try:
+    from primary.settings_manager import apply_timezone
+
+    requested_tz = tz_name or "UTC"
+    if apply_timezone(requested_tz):
+        root_logger.info(f"Applied timezone from TZ={requested_tz}")
+    else:
+        root_logger.warning(f"Failed to apply timezone from TZ={requested_tz}; forcing UTC fallback")
+        os.environ["TZ"] = "UTC"
+        apply_timezone("UTC")
+except Exception as e:
+    root_logger.warning(f"Unable to apply timezone from TZ={tz_name or 'UTC'}: {e}. Forcing UTC fallback")
+    os.environ["TZ"] = "UTC"
+
 try:
     # Import the Flask app instance
     from primary.web_server import app
