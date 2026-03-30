@@ -50,6 +50,23 @@ mkdir -p \
 
 chown -R "${target_uid}:${target_gid}" /config
 
+if [[ -n "${TZ:-}" ]]; then
+    zoneinfo_path="/usr/share/zoneinfo/${TZ}"
+    if [[ -e "${zoneinfo_path}" ]]; then
+        ln -snf "${zoneinfo_path}" /etc/localtime
+        printf '%s\n' "${TZ}" > /etc/timezone
+    else
+        echo "Warning: timezone '${TZ}' not found at ${zoneinfo_path}; falling back to UTC" >&2
+        export TZ="UTC"
+        ln -snf "/usr/share/zoneinfo/UTC" /etc/localtime
+        printf '%s\n' "UTC" > /etc/timezone
+    fi
+else
+    export TZ="UTC"
+    ln -snf "/usr/share/zoneinfo/UTC" /etc/localtime
+    printf '%s\n' "UTC" > /etc/timezone
+fi
+
 if [[ "${target_uid}" == "0" ]]; then
     exec "$@"
 fi

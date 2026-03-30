@@ -10,6 +10,7 @@ import time
 import json
 from typing import List, Dict, Any, Optional
 from src.primary import settings_manager
+from src.primary.stateful_manager import check_expiration, STATEFUL_DIR
 
 # Define the config directory - typically /config in Docker environment
 CONFIG_DIR = os.environ.get("NEUTARR_CONFIG_DIR", "/config")
@@ -112,41 +113,24 @@ def check_state_reset(app_type: str = None) -> bool:
         return False
 
     current_app_type = app_type
-
-    # Use a much longer default interval (1 week = 168 hours) to prevent frequent resets
-    reset_interval = settings_manager.get_advanced_setting("stateful_management_hours", 168)
-
-    last_reset = get_last_reset_time(current_app_type)
     now = datetime.datetime.now()
 
-    delta = now - last_reset
-    hours_passed = delta.total_seconds() / 3600
+    try:
+        expired = check_expiration()
+    except Exception as e:
+        logger.error(f"Error checking global stateful expiration for {current_app_type}: {e}")
+        expired = False
 
-    # Log every cycle to help diagnose state reset issues
-    logger.debug(
-        f"State check for {current_app_type}: {hours_passed:.1f} hours since last reset (interval: {reset_interval}h)"
-    )
+    if expired:
+        clear_processed_ids(current_app_type)
+        set_last_reset_time(now, current_app_type)
+        logger.info(f"Stateful data reset for {current_app_type} after expiration")
+        return True
 
-    if hours_passed >= reset_interval:
-        logger.warning(
-            f"State files for {current_app_type} will be reset after {hours_passed:.1f} hours (interval: {reset_interval}h)"
-        )
-        logger.warning(f"This will cause all previously processed media to be eligible for processing again")
-
-        # Add additional safeguard - only reset if more than double the interval has passed
-        # This helps prevent accidental resets due to clock issues or other anomalies
-        if hours_passed >= (reset_interval * 2):
-            logger.info(f"Confirmed state reset for {current_app_type} after {hours_passed:.1f} hours")
-            clear_processed_ids(current_app_type)
-            set_last_reset_time(now, current_app_type)
-            return True
-        else:
-            logger.info(
-                f"State reset postponed for {current_app_type} - will proceed when {reset_interval * 2}h have passed"
-            )
-            # Update last reset time partially to avoid immediate reset next cycle
-            half_delta = datetime.timedelta(hours=reset_interval / 2)
-            set_last_reset_time(now - half_delta, current_app_type)
+    # Keep legacy last_reset files present for older code paths and diagnostics.
+    last_reset = get_last_reset_time(current_app_type)
+    if last_reset == datetime.datetime.fromtimestamp(0):
+        set_last_reset_time(now, current_app_type)
 
     return False
 
@@ -181,6 +165,15 @@ def clear_processed_ids(app_type: str = None) -> None:
             logger.info(f"Cleared processed upgrade IDs for {current_app_type}")
     except Exception as e:
         logger.error(f"Error clearing processed upgrade IDs for {current_app_type}: {e}")
+
+    active_stateful_dir = STATEFUL_DIR / current_app_type
+    try:
+        if active_stateful_dir.exists():
+            for json_file in active_stateful_dir.glob("*.json"):
+                json_file.unlink()
+            logger.info(f"Cleared active stateful IDs for {current_app_type} from {active_stateful_dir}")
+    except Exception as e:
+        logger.error(f"Error clearing active stateful IDs for {current_app_type}: {e}")
 
 
 def calculate_reset_time(app_type: str = None) -> str:

@@ -12,6 +12,7 @@ import pathlib
 import shutil
 import subprocess  # nosec B404
 import time
+import time as time_module
 from typing import Any, Dict, List, Optional
 
 # Create a simple logger for settings_manager
@@ -268,29 +269,39 @@ def apply_timezone(timezone: str) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
+    requested_timezone = timezone or "UTC"
     try:
-        # Set TZ environment variable
-        os.environ["TZ"] = timezone
-
         # Create symlink for localtime (common approach in containers)
-        zoneinfo_path = f"/usr/share/zoneinfo/{timezone}"
-        if os.path.exists(zoneinfo_path):
-            # Remove existing symlink if it exists
-            if os.path.exists("/etc/localtime"):
-                os.remove("/etc/localtime")
+        zoneinfo_path = f"/usr/share/zoneinfo/{requested_timezone}"
+        resolved_timezone = requested_timezone
 
-            # Create new symlink
-            os.symlink(zoneinfo_path, "/etc/localtime")
+        if not os.path.exists(zoneinfo_path):
+            settings_logger.warning(f"Timezone file not found: {zoneinfo_path}. Falling back to UTC")
+            resolved_timezone = "UTC"
+            zoneinfo_path = "/usr/share/zoneinfo/UTC"
 
-            # Also update /etc/timezone file if it exists
-            with open("/etc/timezone", "w") as f:
-                f.write(f"{timezone}\n")
+        # Set TZ environment variable
+        os.environ["TZ"] = resolved_timezone
 
-            settings_logger.info(f"Timezone set to {timezone}")
-            return True
-        else:
-            settings_logger.error(f"Timezone file not found: {zoneinfo_path}")
-            return False
+        if hasattr(time_module, "tzset"):
+            time_module.tzset()
+
+        # Remove existing symlink if it exists
+        if os.path.lexists("/etc/localtime"):
+            os.remove("/etc/localtime")
+
+        # Create new symlink
+        os.symlink(zoneinfo_path, "/etc/localtime")
+
+        # Also update /etc/timezone file if it exists
+        with open("/etc/timezone", "w") as f:
+            f.write(f"{resolved_timezone}\n")
+
+        if hasattr(time_module, "tzset"):
+            time_module.tzset()
+
+        settings_logger.info(f"Timezone set to {resolved_timezone}")
+        return True
     except Exception as e:
         settings_logger.error(f"Error setting timezone: {str(e)}")
         return False

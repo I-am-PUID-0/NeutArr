@@ -285,19 +285,28 @@ def increment_hourly_cap(app_type: str, count: int = 1) -> bool:
     with hourly_lock:
         caps = load_hourly_caps()
         prev_value = caps[app_type]["api_hits"]
-        caps[app_type]["api_hits"] += count
-        new_value = caps[app_type]["api_hits"]
 
         # Get the hourly cap from the app's specific configuration
         from src.primary.settings_manager import load_settings
 
         app_settings = load_settings(app_type)
         hourly_limit = app_settings.get("hourly_cap", 20)  # Default to 20 if not set
+        remaining = max(0, hourly_limit - prev_value)
+        applied_count = min(count, remaining) if hourly_limit > 0 else 0
 
         # Log current usage vs limit
         logger.debug(
-            f"*** HOURLY API INCREMENT *** {app_type} by {count}: {prev_value} -> {new_value} (limit: {hourly_limit})"
+            f"*** HOURLY API INCREMENT *** {app_type} requested {count}, applied {applied_count}: {prev_value} -> {prev_value + applied_count} (limit: {hourly_limit})"
         )
+
+        if applied_count <= 0:
+            caps[app_type]["api_hits"] = prev_value
+            save_hourly_caps(caps)
+            logger.warning(f"{app_type} hourly API cap already reached: {prev_value}/{hourly_limit}")
+            return False
+
+        caps[app_type]["api_hits"] = prev_value + applied_count
+        new_value = caps[app_type]["api_hits"]
 
         # Warn if approaching limit
         if new_value >= int(hourly_limit * 0.8) and prev_value < int(hourly_limit * 0.8):
@@ -305,7 +314,12 @@ def increment_hourly_cap(app_type: str, count: int = 1) -> bool:
 
         # Alert if exceeding limit
         if new_value >= hourly_limit and prev_value < hourly_limit:
-            logger.error(f"{app_type} has exceeded hourly API cap: {new_value}/{hourly_limit}")
+            logger.warning(f"{app_type} has reached hourly API cap: {new_value}/{hourly_limit}")
+
+        if applied_count < count:
+            logger.warning(
+                f"{app_type} hourly cap prevented {count - applied_count} additional tracked actions in this cycle"
+            )
 
         save_success = save_hourly_caps(caps)
 

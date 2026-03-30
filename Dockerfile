@@ -28,6 +28,7 @@ ENV NEUTARR_VERSION=${NEUTARR_VERSION}
 # Runtime system deps only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy venv from builder
