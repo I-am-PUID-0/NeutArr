@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.6.0...1.6.1) (2026-03-30)
+
+
+### 🐛 Bug Fixes
+
+* **runtime:** harden timezone setup and enforce hourly-cap/stateful reset behavior ([da77643](https://github.com/I-am-PUID-0/NeutArr/commit/da77643e11be77834e3fc71c3084a68b318e66ac)), closes [#27](https://github.com/I-am-PUID-0/NeutArr/issues/27)
+
 ## [1.6.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.5.1...1.6.0) (2026-03-20)
 
 
