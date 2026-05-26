@@ -46,8 +46,20 @@ def normalize_release_types(app_settings: Dict[str, Any]) -> List[str]:
     return release_types or ["physical"]
 
 
-def movie_has_selected_release_date(movie: Dict[str, Any], release_types: List[str], now: datetime.datetime) -> bool:
-    """Return True when any selected Radarr release date exists and is in the past."""
+def _parse_radarr_release_date(release_date: str) -> datetime.datetime:
+    parsed_release_date = datetime.datetime.fromisoformat(release_date.replace("Z", "+00:00"))
+    if parsed_release_date.tzinfo is None:
+        return parsed_release_date.replace(tzinfo=datetime.timezone.utc)
+    return parsed_release_date.astimezone(datetime.timezone.utc)
+
+
+def movie_has_selected_release_date(
+    movie: Dict[str, Any],
+    release_types: List[str],
+    now: datetime.datetime,
+    availability_delay_days: int = 0,
+) -> bool:
+    """Return True when any selected Radarr release date is available after delay."""
     for release_type in release_types:
         release_field = RADARR_RELEASE_TYPE_FIELDS[release_type]
         release_date = movie.get(release_field)
@@ -55,13 +67,14 @@ def movie_has_selected_release_date(movie: Dict[str, Any], release_types: List[s
             continue
 
         try:
-            parsed_release_date = datetime.datetime.fromisoformat(release_date.replace("Z", "+00:00"))
+            parsed_release_date = _parse_radarr_release_date(release_date)
         except (TypeError, ValueError):
             movie_title = movie.get("title", "Unknown Title")
             radarr_logger.debug(f"Skipping invalid {release_field} value for {movie_title}: {release_date}")
             continue
 
-        if parsed_release_date < now:
+        available_at = parsed_release_date + datetime.timedelta(days=availability_delay_days)
+        if available_at < now:
             return True
 
     return False
@@ -108,6 +121,8 @@ def process_missing_movies(
     radarr_logger.info(f"Monitored Only: {monitored_only}")
     radarr_logger.info(f"Skip Future Releases: {skip_future_releases}")
     # Skip Movie Refresh setting has been removed
+    availability_delay_days = 0
+
     radarr_logger.info(f"Release Types for Future Status: {', '.join(release_types)}")
     radarr_logger.info(
         "Using release date fields to determine future releases: "
@@ -152,17 +167,21 @@ def process_missing_movies(
 
     # Filter out future releases if configured
     if skip_future_releases:
+        availability_delay_days = radarr_api.get_availability_delay_days(api_url, api_key, api_timeout)
+        radarr_logger.info(f"Radarr Availability Delay: {availability_delay_days} days")
         now = datetime.datetime.now(datetime.timezone.utc)
         original_count = len(missing_movies)
 
         missing_movies = [
-            movie for movie in missing_movies if movie_has_selected_release_date(movie, release_types, now)
+            movie
+            for movie in missing_movies
+            if movie_has_selected_release_date(movie, release_types, now, availability_delay_days)
         ]
         skipped_count = original_count - len(missing_movies)
         if skipped_count > 0:
             radarr_logger.info(
-                f"Skipped {skipped_count} future movie releases based on selected release dates: "
-                f"{', '.join(release_types)}."
+                f"Skipped {skipped_count} future movie releases based on selected release dates "
+                f"and Radarr availability delay ({availability_delay_days} days): {', '.join(release_types)}."
             )
 
     if not missing_movies:

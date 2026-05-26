@@ -121,6 +121,30 @@ def get_download_queue_size(api_url: str, api_key: str, api_timeout: int) -> int
         return -1
 
 
+def get_indexer_config(api_url: str, api_key: str, api_timeout: int) -> Optional[Dict[str, Any]]:
+    """Get Radarr indexer configuration, including availability delay."""
+    config = arr_request(api_url, api_key, api_timeout, "config/indexer")
+    if isinstance(config, dict):
+        return config
+    radarr_logger.error("Failed to retrieve Radarr indexer configuration.")
+    return None
+
+
+def get_availability_delay_days(api_url: str, api_key: str, api_timeout: int) -> int:
+    """Return Radarr's indexer availability delay in days, defaulting to no delay."""
+    config = get_indexer_config(api_url, api_key, api_timeout)
+    if not config:
+        return 0
+
+    try:
+        return int(config.get("availabilityDelay", 0) or 0)
+    except (TypeError, ValueError):
+        radarr_logger.warning(
+            f"Invalid Radarr availabilityDelay value: {config.get('availabilityDelay')}. Using 0 days."
+        )
+        return 0
+
+
 def get_movies_with_missing(api_url: str, api_key: str, api_timeout: int, monitored_only: bool) -> Optional[List[Dict]]:
     """
     Get a list of movies with missing files (not downloaded/available).

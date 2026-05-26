@@ -93,6 +93,24 @@ class RadarrReleaseTypeTests(unittest.TestCase):
 
         self.assertTrue(movie_has_selected_release_date(movie, ["digital", "physical"], now))
 
+    def test_positive_availability_delay_postpones_missing_search(self):
+        now = datetime.datetime(2026, 5, 26, tzinfo=datetime.timezone.utc)
+        movie = {"title": "Example Movie", "inCinemas": "2026-05-20T00:00:00Z"}
+
+        self.assertFalse(movie_has_selected_release_date(movie, ["cinema"], now, availability_delay_days=16))
+
+    def test_positive_availability_delay_allows_search_after_delay_passes(self):
+        now = datetime.datetime(2026, 6, 6, tzinfo=datetime.timezone.utc)
+        movie = {"title": "Example Movie", "inCinemas": "2026-05-20T00:00:00Z"}
+
+        self.assertTrue(movie_has_selected_release_date(movie, ["cinema"], now, availability_delay_days=16))
+
+    def test_negative_availability_delay_allows_early_missing_search(self):
+        now = datetime.datetime(2026, 5, 26, tzinfo=datetime.timezone.utc)
+        movie = {"title": "Example Movie", "physicalRelease": "2026-06-10T00:00:00Z"}
+
+        self.assertTrue(movie_has_selected_release_date(movie, ["physical"], now, availability_delay_days=-16))
+
 
 if __name__ == "__main__":
     unittest.main()
