@@ -164,6 +164,14 @@ const SettingsForms = {
             }];
         }
         
+        const configuredReleaseTypes = Array.isArray(settings.release_types)
+            ? settings.release_types
+            : [settings.release_type || 'physical'];
+        const selectedReleaseTypes = new Set(
+            configuredReleaseTypes.filter(type => ['digital', 'physical', 'cinema'].includes(type))
+        );
+        if (selectedReleaseTypes.size === 0) selectedReleaseTypes.add('physical');
+
         // Create a container for instances with a scrollable area for many instances
         let instancesHtml = `
             <div class="settings-group">
@@ -271,13 +279,13 @@ const SettingsForms = {
                     <p class="setting-help">Skip searching for movies with future release dates</p>
                 </div>
                 <div class="setting-item" id="future_release_type_container" style="${settings.skip_future_releases !== false ? '' : 'display: none;'}">
-                    <label for="radarr_release_type"><span class="info-icon" title="Which release date type determines future status (e.g. digital, physical)"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Release Type for Future Status:</label>
-                    <select id="radarr_release_type">
-                        <option value="digital" ${settings.release_type === 'digital' ? 'selected' : ''}>Digital Release</option>
-                        <option value="physical" ${settings.release_type === 'physical' || !settings.release_type ? 'selected' : ''}>Physical Release</option>
-                        <option value="cinema" ${settings.release_type === 'cinema' ? 'selected' : ''}>Cinema Release</option>
-                    </select>
-                    <p class="setting-help">Select which release date type to use when determining if a movie is considered a future release</p>
+                    <label><span class="info-icon" title="Which release date types determine future status"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Release Types for Future Status:</label>
+                    <div class="checkbox-group" id="radarr_release_types">
+                        <label><input type="checkbox" name="radarr_release_types" value="digital" ${selectedReleaseTypes.has('digital') ? 'checked' : ''}> Digital Release</label>
+                        <label><input type="checkbox" name="radarr_release_types" value="physical" ${selectedReleaseTypes.has('physical') ? 'checked' : ''}> Physical Release</label>
+                        <label><input type="checkbox" name="radarr_release_types" value="cinema" ${selectedReleaseTypes.has('cinema') ? 'checked' : ''}> Cinema Release</label>
+                    </div>
+                    <p class="setting-help">Select one or more release date types. A movie is eligible once any selected release date has passed.</p>
                 </div>
             </div>
         `;
@@ -1153,7 +1161,11 @@ const SettingsForms = {
                 settings.monitored_only = getInputValue('#radarr_monitored_only', true);
                 settings.skip_future_releases = getInputValue('#radarr_skip_future_releases', true);
 
-                settings.release_type = getInputValue('#radarr_release_type', 'physical');
+                const selectedReleaseTypes = Array.from(
+                    container.querySelectorAll('input[name="radarr_release_types"]:checked')
+                ).map(input => input.value);
+                settings.release_types = selectedReleaseTypes.length ? selectedReleaseTypes : ['physical'];
+                settings.release_type = settings.release_types[0];
             } 
             else if (appType === 'lidarr') {
                 settings.hunt_missing_items = getInputValue('#lidarr_hunt_missing_items', 1);

@@ -12,6 +12,10 @@
   "sleep_duration": 900,
   "monitored_only": true,
   "skip_future_releases": true,
+  "release_types": [
+    "physical"
+  ],
+  "release_type": "physical",
 
   "hourly_cap": 20
 }

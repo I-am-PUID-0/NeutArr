@@ -18,6 +18,54 @@ from src.primary.settings_manager import load_settings, get_advanced_setting
 # Get logger for the app
 radarr_logger = get_logger("radarr")
 
+RADARR_RELEASE_TYPE_FIELDS = {
+    "digital": "digitalRelease",
+    "physical": "physicalRelease",
+    "cinema": "inCinemas",
+}
+
+
+def normalize_release_types(app_settings: Dict[str, Any]) -> List[str]:
+    """Return selected Radarr release date types, preserving old single-value configs."""
+    raw_release_types = app_settings.get("release_types")
+    if raw_release_types is None:
+        raw_release_types = app_settings.get("release_type", "physical")
+
+    if isinstance(raw_release_types, str):
+        candidates = [item.strip().lower() for item in raw_release_types.split(",")]
+    elif isinstance(raw_release_types, list):
+        candidates = [str(item).strip().lower() for item in raw_release_types]
+    else:
+        candidates = []
+
+    release_types = []
+    for candidate in candidates:
+        if candidate in RADARR_RELEASE_TYPE_FIELDS and candidate not in release_types:
+            release_types.append(candidate)
+
+    return release_types or ["physical"]
+
+
+def movie_has_selected_release_date(movie: Dict[str, Any], release_types: List[str], now: datetime.datetime) -> bool:
+    """Return True when any selected Radarr release date exists and is in the past."""
+    for release_type in release_types:
+        release_field = RADARR_RELEASE_TYPE_FIELDS[release_type]
+        release_date = movie.get(release_field)
+        if not release_date:
+            continue
+
+        try:
+            parsed_release_date = datetime.datetime.fromisoformat(release_date.replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            movie_title = movie.get("title", "Unknown Title")
+            radarr_logger.debug(f"Skipping invalid {release_field} value for {movie_title}: {release_date}")
+            continue
+
+        if parsed_release_date < now:
+            return True
+
+    return False
+
 
 def process_missing_movies(
     app_settings: Dict[str, Any],
@@ -54,21 +102,17 @@ def process_missing_movies(
     # Use advanced settings from general.json for command operations
     command_wait_delay = get_advanced_setting("command_wait_delay", 1)
     command_wait_attempts = get_advanced_setting("command_wait_attempts", 600)
-    release_type = app_settings.get("release_type", "physical")
+    release_types = normalize_release_types(app_settings)
 
     radarr_logger.info(f"Hunt Missing Movies: {hunt_missing_movies}")
     radarr_logger.info(f"Monitored Only: {monitored_only}")
     radarr_logger.info(f"Skip Future Releases: {skip_future_releases}")
     # Skip Movie Refresh setting has been removed
-    radarr_logger.info(f"Release Type for Future Status: {release_type}")
-
-    release_type_field = "physicalRelease"
-    if release_type == "digital":
-        release_type_field = "digitalRelease"
-    elif release_type == "cinema":
-        release_type_field = "inCinemas"
-
-    radarr_logger.info(f"Using {release_type_field} date to determine future releases")
+    radarr_logger.info(f"Release Types for Future Status: {', '.join(release_types)}")
+    radarr_logger.info(
+        "Using release date fields to determine future releases: "
+        f"{', '.join(RADARR_RELEASE_TYPE_FIELDS[item] for item in release_types)}"
+    )
     radarr_logger.info("=======================================")
 
     radarr_logger.info("Starting missing movies processing cycle for Radarr.")
@@ -112,14 +156,14 @@ def process_missing_movies(
         original_count = len(missing_movies)
 
         missing_movies = [
-            movie
-            for movie in missing_movies
-            if movie.get(release_type_field)
-            and datetime.datetime.fromisoformat(movie[release_type_field].replace("Z", "+00:00")) < now
+            movie for movie in missing_movies if movie_has_selected_release_date(movie, release_types, now)
         ]
         skipped_count = original_count - len(missing_movies)
         if skipped_count > 0:
-            radarr_logger.info(f"Skipped {skipped_count} future movie releases based on {release_type} release date.")
+            radarr_logger.info(
+                f"Skipped {skipped_count} future movie releases based on selected release dates: "
+                f"{', '.join(release_types)}."
+            )
 
     if not missing_movies:
         radarr_logger.info("No missing movies left to process after filtering future releases.")
