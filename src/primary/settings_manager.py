@@ -261,50 +261,45 @@ def get_configured_apps() -> List[str]:
 
 
 def apply_timezone(timezone: str) -> bool:
-    """Apply the specified timezone to the container.
+    """Apply the specified timezone for the current process.
 
-    Args:
-        timezone: The timezone to set (e.g., 'UTC', 'America/New_York')
-
-    Returns:
-        bool: True if successful, False otherwise
+    Updating /etc/localtime is best-effort because many containers run with a
+    read-only or non-root-owned /etc. NeutArr should still honor TZ when Python
+    can apply it with time.tzset().
     """
     requested_timezone = timezone or "UTC"
+    zoneinfo_path = f"/usr/share/zoneinfo/{requested_timezone}"
+    resolved_timezone = requested_timezone
+
+    if not os.path.exists(zoneinfo_path):
+        settings_logger.warning(f"Timezone file not found: {zoneinfo_path}. Falling back to UTC")
+        resolved_timezone = "UTC"
+        zoneinfo_path = "/usr/share/zoneinfo/UTC"
+
     try:
-        # Create symlink for localtime (common approach in containers)
-        zoneinfo_path = f"/usr/share/zoneinfo/{requested_timezone}"
-        resolved_timezone = requested_timezone
-
-        if not os.path.exists(zoneinfo_path):
-            settings_logger.warning(f"Timezone file not found: {zoneinfo_path}. Falling back to UTC")
-            resolved_timezone = "UTC"
-            zoneinfo_path = "/usr/share/zoneinfo/UTC"
-
-        # Set TZ environment variable
         os.environ["TZ"] = resolved_timezone
-
         if hasattr(time_module, "tzset"):
             time_module.tzset()
+    except Exception as e:
+        settings_logger.error(f"Error applying process timezone {resolved_timezone}: {str(e)}")
+        return False
 
-        # Remove existing symlink if it exists
+    try:
         if os.path.lexists("/etc/localtime"):
             os.remove("/etc/localtime")
-
-        # Create new symlink
         os.symlink(zoneinfo_path, "/etc/localtime")
 
-        # Also update /etc/timezone file if it exists
         with open("/etc/timezone", "w") as f:
             f.write(f"{resolved_timezone}\n")
+    except PermissionError as e:
+        settings_logger.warning(
+            f"Timezone applied via TZ={resolved_timezone}; skipping /etc timezone update due to permissions: {e}"
+        )
+    except OSError as e:
+        settings_logger.warning(f"Timezone applied via TZ={resolved_timezone}; skipping /etc timezone update: {e}")
 
-        if hasattr(time_module, "tzset"):
-            time_module.tzset()
-
-        settings_logger.info(f"Timezone set to {resolved_timezone}")
-        return True
-    except Exception as e:
-        settings_logger.error(f"Error setting timezone: {str(e)}")
-        return False
+    settings_logger.info(f"Timezone set to {resolved_timezone}")
+    return True
 
 
 # Add a list of known advanced settings for clarity and documentation
