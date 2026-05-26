@@ -1,17 +1,16 @@
 import json
 import os
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_TEST_CONFIG = tempfile.TemporaryDirectory()
-os.environ["NEUTARR_CONFIG_DIR"] = _TEST_CONFIG.name
-os.environ.setdefault("NEUTARR_INSTANCE_ID", "test")
-os.environ.setdefault("PORT", "9705")
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 sys.path.insert(0, str(_REPO_ROOT))
+
+from test_support import configure_test_environment
+
+_TEST_CONFIG = configure_test_environment()
 
 from src.primary.web_server import app
 
@@ -21,10 +20,6 @@ class ApplicationSmokeTests(unittest.TestCase):
     def setUpClass(cls):
         app.config.update(TESTING=True)
         cls.client = app.test_client()
-
-    @classmethod
-    def tearDownClass(cls):
-        _TEST_CONFIG.cleanup()
 
     def test_health_endpoint_returns_core_service_payload(self):
         response = self.client.get("/api/health")

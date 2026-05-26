@@ -4,5 +4,14 @@
   "max_download_time": "2h",
   "ignore_above_size": "25GB",
   "remove_from_client": true,
-  "dry_run": false
+  "dry_run": false,
+  "app_enabled": {
+    "sonarr": false,
+    "radarr": false,
+    "lidarr": false,
+    "readarr": false,
+    "whisparr": false,
+    "eros": false
+  },
+  "app_instances": {}
 }

@@ -130,7 +130,7 @@ All configuration is done through the web UI. Settings are persisted to `/config
 - **Scheduling** — automated search windows per app
 - **Security** — auth mode selection (standard, local bypass, proxy bypass)
 - **Account & API** — username, password, and API key management inside Settings
-- **Swaparr** — stalled download detection thresholds and removal settings
+- **Swaparr** — per-instance enable toggles, stalled download detection thresholds, and removal settings
 
 ## Why v6.6.3?
 

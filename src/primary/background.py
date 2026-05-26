@@ -292,6 +292,7 @@ def app_specific_loop(app_type: str) -> None:
             # Assuming app_settings already contains most general settings, add instance specifics
             combined_settings = app_settings.copy()  # Start with general settings
             combined_settings.update(instance_details)  # Add/overwrite with instance specifics (name, url, key)
+            combined_settings["instance_index"] = instance_index
 
             # Ensure settings from general.json are consistently used for all apps
             combined_settings["api_timeout"] = settings_manager.get_advanced_setting("api_timeout", 120)

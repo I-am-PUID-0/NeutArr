@@ -19,6 +19,39 @@ swaparr_logger = get_logger("swaparr")
 
 # Create state directory for tracking strikes
 SWAPARR_STATE_DIR = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
+SWAPARR_APP_TYPES = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
+
+
+def is_enabled_for_app(app_name, swaparr_settings):
+    """Return whether Swaparr should process a specific app type."""
+    app_enabled = swaparr_settings.get("app_enabled", {}) if swaparr_settings else {}
+    if not isinstance(app_enabled, dict):
+        return False
+    return app_enabled.get(app_name, False) is True
+
+
+def is_enabled_for_app_instance(app_name, app_settings, swaparr_settings):
+    """Return whether Swaparr should process a specific app instance."""
+    if not is_enabled_for_app(app_name, swaparr_settings):
+        return False
+
+    app_instances = swaparr_settings.get("app_instances", {}) if swaparr_settings else {}
+    if not isinstance(app_instances, dict):
+        return False
+
+    instance_toggles = app_instances.get(app_name, {})
+    if not isinstance(instance_toggles, dict):
+        return False
+
+    instance_name = app_settings.get("instance_name") or app_settings.get("name") or "Default"
+    instance_index = app_settings.get("instance_index")
+
+    if instance_name in instance_toggles:
+        return instance_toggles[instance_name] is True
+    if instance_index is not None and str(instance_index) in instance_toggles:
+        return instance_toggles[str(instance_index)] is True
+
+    return False
 
 
 def ensure_state_directory(app_name):
@@ -285,6 +318,12 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
     if not swaparr_settings or not swaparr_settings.get("enabled", False):
         swaparr_logger.debug(
             f"Swaparr is disabled, skipping {app_name} instance: {app_settings.get('instance_name', 'Unknown')}"
+        )
+        return
+
+    if not is_enabled_for_app_instance(app_name, app_settings, swaparr_settings):
+        swaparr_logger.debug(
+            f"Swaparr is disabled for {app_name} instance: {app_settings.get('instance_name', 'Unknown')}"
         )
         return
 

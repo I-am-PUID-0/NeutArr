@@ -4,6 +4,11 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from test_support import configure_test_environment
+
+configure_test_environment()
 
 from src.primary.apps.radarr.missing import movie_has_selected_release_date, normalize_release_types
 

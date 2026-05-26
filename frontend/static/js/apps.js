@@ -201,6 +201,19 @@ const appsModule = {
                 return response.json();
             })
             .then(appSettings => {
+                if (app !== 'swaparr') {
+                    return { appSettings, allSettings: null };
+                }
+
+                return fetch('/api/settings')
+                    .then(response => response.ok ? response.json() : null)
+                    .catch(error => {
+                        console.warn('[Apps] Could not load all settings for Swaparr instance toggles:', error);
+                        return null;
+                    })
+                    .then(allSettings => ({ appSettings, allSettings }));
+            })
+            .then(({ appSettings, allSettings }) => {
                 console.log(`[Apps] Received settings for ${app}:`, appSettings);
                 
                 // Clear loading message
@@ -217,7 +230,7 @@ const appsModule = {
                     const formFunction = SettingsForms[`generate${app.charAt(0).toUpperCase()}${app.slice(1)}Form`];
                     if (typeof formFunction === 'function') {
                         // Use .call() to set the 'this' context correctly
-                        formFunction.call(SettingsForms, formElement, appSettings);
+                        formFunction.call(SettingsForms, formElement, appSettings, allSettings);
                         
                         // Update duration displays for this app
                         if (typeof SettingsForms.updateDurationDisplay === 'function') {

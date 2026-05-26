@@ -1185,7 +1185,7 @@ let neutarrUI = {
         if (typeof SettingsForms !== 'undefined') {
             const formFunction = SettingsForms[`generate${app.charAt(0).toUpperCase()}${app.slice(1)}Form`];
             if (typeof formFunction === 'function') {
-                formFunction(form, appSettings); // This function already calls setupInstanceManagement internally
+                formFunction(form, appSettings, this.originalSettings); // This function already calls setupInstanceManagement internally
                 
                 // Update duration displays for this app
                 if (typeof SettingsForms.updateDurationDisplay === 'function') {
@@ -1378,23 +1378,39 @@ let neutarrUI = {
 
         // Special handling for Swaparr which has a different structure
         if (app === 'swaparr') {
-            // Get all inputs directly without filtering for instance fields
-            const inputs = form.querySelectorAll('input, select');
-            inputs.forEach(input => {
-                // Extract the field name without the app prefix
-                let key = input.id;
-                if (key.startsWith(`${app}_`)) {
-                    key = key.substring(app.length + 1);
+            const getValue = (selector, defaultValue) => {
+                const input = form.querySelector(selector);
+                if (!input) return defaultValue;
+                if (input.type === 'checkbox') return input.checked;
+                if (input.type === 'number') {
+                    const parsed = parseInt(input.value, 10);
+                    return Number.isNaN(parsed) ? defaultValue : parsed;
                 }
-                
-                // Store the value based on input type
-                if (input.type === 'checkbox') {
-                    settings[key] = input.checked;
-                } else if (input.type === 'number') {
-                    settings[key] = input.value === '' ? null : parseInt(input.value, 10);
-                } else {
-                    settings[key] = input.value.trim();
-                }
+                return input.value.trim() || defaultValue;
+            };
+
+            settings.enabled = getValue('#swaparr_enabled', false);
+            settings.max_strikes = getValue('#swaparr_max_strikes', 3);
+            settings.max_download_time = getValue('#swaparr_max_download_time', '2h');
+            settings.ignore_above_size = getValue('#swaparr_ignore_above_size', '25GB');
+            settings.remove_from_client = getValue('#swaparr_remove_from_client', true);
+            settings.dry_run = getValue('#swaparr_dry_run', false);
+            settings.app_enabled = {};
+            settings.app_instances = {};
+
+            ['sonarr', 'radarr', 'lidarr', 'readarr', 'whisparr', 'eros'].forEach(appType => {
+                settings.app_enabled[appType] = false;
+                settings.app_instances[appType] = {};
+            });
+
+            form.querySelectorAll('input[name="swaparr_instance_enabled"]').forEach(input => {
+                const appType = input.dataset.app;
+                const instance = input.dataset.instance;
+                if (!appType || !instance) return;
+                if (!settings.app_instances[appType]) settings.app_instances[appType] = {};
+                const enabled = settings.enabled ? input.checked : input.dataset.defaultEnabled !== 'false';
+                settings.app_instances[appType][instance] = enabled;
+                if (enabled) settings.app_enabled[appType] = true;
             });
             
             console.log(`[neutarrUI] Collected Swaparr settings:`, settings);
