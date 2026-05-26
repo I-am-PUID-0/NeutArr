@@ -183,13 +183,21 @@ The project ships a devcontainer. Open in VS Code with the Dev Containers extens
 DEBUG=true poetry run python main.py
 # → http://localhost:9705
 
+# Test
+poetry run python -m unittest discover -s tests
+
 # Lint
 poetry run ruff check .
 poetry run ruff format --check .
 
+# Compile smoke check
+poetry run python -m compileall -q src main.py tests
+
 # Security scan
 poetry run bandit -r src/ main.py -ll
 ```
+
+The automated test suite includes application smoke tests for the Flask app, auth setup flow, health/version endpoints, default config JSON, required frontend assets, and focused unit tests for helper logic. CI runs the same unittest discovery command on pull requests.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
