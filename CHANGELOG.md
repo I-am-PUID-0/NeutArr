@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.7.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.6.1...1.7.0) (2026-05-26)
+
+
+### ✨ Features
+
+* Multiple action for Release Type Radarr ([f0b86f4](https://github.com/I-am-PUID-0/NeutArr/commit/f0b86f4288f958bf03538d20a940500262ba54b6)), closes [#43](https://github.com/I-am-PUID-0/NeutArr/issues/43)
+* **radarr:** add availability delay handling for release date checks ([3370c2a](https://github.com/I-am-PUID-0/NeutArr/commit/3370c2accf223ca140bf6d2039d6455cdea7018d)), closes [#44](https://github.com/I-am-PUID-0/NeutArr/issues/44)
+* **radarr:** implement quality and custom-format cutoff checks for upgrade candidates ([a80055d](https://github.com/I-am-PUID-0/NeutArr/commit/a80055da867f6141a046d78a065becffce450357)), closes [#37](https://github.com/I-am-PUID-0/NeutArr/issues/37)
+* **settings:** enhance timezone application handling and add unit tests ([5d8ffa5](https://github.com/I-am-PUID-0/NeutArr/commit/5d8ffa57159b778c7986a6e69bce8ea41567f851)), closes [#51](https://github.com/I-am-PUID-0/NeutArr/issues/51)
+* **swaparr:** enhance per-instance settings management and update configuration structure ([5c562d6](https://github.com/I-am-PUID-0/NeutArr/commit/5c562d646be2b060f5f6e2677f7657c575af73cf)), closes [#48](https://github.com/I-am-PUID-0/NeutArr/issues/48)
+
+
+### 🤡 Other Changes
+
+* **deps:** update action versions in workflows and bump package versions in poetry.lock ([f806dae](https://github.com/I-am-PUID-0/NeutArr/commit/f806dae4eba7f3d6294af00238281ebfbbfae632))
+* **deps:** update docker/login-action and docker/build-push-action to latest versions ([78dcb53](https://github.com/I-am-PUID-0/NeutArr/commit/78dcb535cc7acca48a20ed8978d7cc4293db6b5f))
+
+
+### 🚀 CI/CD Pipeline
+
+* **tests:** add unit tests for Radarr release types and application smoke tests ([00b904c](https://github.com/I-am-PUID-0/NeutArr/commit/00b904c7ee6584f192c6254b9dd92aa0169863ed))
+
 ## [1.6.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.6.0...1.6.1) (2026-03-30)
 
 
