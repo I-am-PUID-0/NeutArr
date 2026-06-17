@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.7.0...1.8.0) (2026-06-17)
+
+
+### ✨ Features
+
+* update dependencies and add pre-commit configuration ([d1217c7](https://github.com/I-am-PUID-0/NeutArr/commit/d1217c74e27bbd479ac9a74f00ae3ed7702a25f9))
+
+
+### 🐛 Bug Fixes
+
+* **radarr:** enhance quality profile handling to accept scalar custom format IDs and format IDs without nested format ([bd802ad](https://github.com/I-am-PUID-0/NeutArr/commit/bd802ad7db827d7819ddc858d9545be4d24d30a8)), closes [#57](https://github.com/I-am-PUID-0/NeutArr/issues/57)
+
 ## [1.7.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.6.1...1.7.0) (2026-05-26)
 
 
