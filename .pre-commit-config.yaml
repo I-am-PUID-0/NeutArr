@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: poetry run ruff check .
+        language: system
+        pass_filenames: false
+        types_or: [python]
+
+      - id: ruff-format-check
+        name: ruff format --check
+        entry: poetry run ruff format --check .
+        language: system
+        pass_filenames: false
+        types_or: [python]
+
+      - id: python-compile
+        name: python compileall
+        entry: poetry run python -m compileall -q src main.py tests
+        language: system
+        pass_filenames: false
+        types_or: [python]
+
+      - id: unit-tests
+        name: unit tests
+        entry: poetry run python -m unittest discover -s tests
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

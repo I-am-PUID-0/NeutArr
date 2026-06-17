@@ -31,13 +31,22 @@ chore: update pyjwt to 2.10.0
 ## Local Checks
 
 ```bash
-# Lint
-ruff check .
-ruff format --check .
+# Install dependencies
+poetry install --no-root --with dev
 
-# Security scan (install once: pip install bandit)
-bandit -r src/ main.py -ll
+# Run lint, format check, compile smoke check, and tests
+make verify
+
+# Optional: install git hooks
+make pre-commit-install
+
+# Optional security scan
+make security
 ```
+
+NeutArr does not use a Node/pnpm frontend build. The UI is Flask templates and static assets, so Python tooling is the source of truth for local checks.
+
+The devcontainer uses a repo-local `.venv`. Keep Poetry virtualenvs enabled; disabling them can make dependency updates try to modify root-owned system packages in the base image.
 
 ## Pull Request Expectations
 
