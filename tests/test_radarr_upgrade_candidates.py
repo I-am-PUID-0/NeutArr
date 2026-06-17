@@ -80,6 +80,32 @@ class RadarrUpgradeCandidateTests(unittest.TestCase):
 
         self.assertEqual(_get_movie_file_custom_format_score(movie, profile), -50)
 
+    def test_quality_profile_accepts_scalar_custom_format_id(self):
+        profile = make_profile()
+        profile["formatItems"] = [
+            {"format": 100, "score": 50},
+            {"format": 200, "score": -100},
+        ]
+        profile_info = _build_quality_profile_map([profile])[1]
+        movie = make_movie(quality_id=20)
+        movie["movieFile"].pop("customFormatScore")
+        movie["movieFile"]["customFormats"] = [{"id": 100}, {"id": 200}]
+
+        self.assertEqual(_get_movie_file_custom_format_score(movie, profile_info), -50)
+
+    def test_quality_profile_accepts_format_id_without_nested_format(self):
+        profile = make_profile()
+        profile["formatItems"] = [
+            {"formatId": 100, "score": 50},
+            {"formatId": 200, "score": -100},
+        ]
+        profile_info = _build_quality_profile_map([profile])[1]
+        movie = make_movie(quality_id=20)
+        movie["movieFile"].pop("customFormatScore")
+        movie["movieFile"]["customFormats"] = [{"id": 100}, {"id": 200}]
+
+        self.assertEqual(_get_movie_file_custom_format_score(movie, profile_info), -50)
+
 
 if __name__ == "__main__":
     unittest.main()

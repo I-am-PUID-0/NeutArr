@@ -194,8 +194,11 @@ def _build_quality_profile_map(profiles: List[Dict[str, Any]]) -> Dict[int, Dict
 
         format_scores = {}
         for item in profile.get("formatItems", []):
-            custom_format = item.get("format") or {}
-            format_id = custom_format.get("id") or item.get("formatId")
+            custom_format = item.get("format")
+            if isinstance(custom_format, dict):
+                format_id = custom_format.get("id") or item.get("formatId")
+            else:
+                format_id = item.get("formatId") or custom_format
             if format_id is not None:
                 format_scores[format_id] = item.get("score", 0) or 0
 
