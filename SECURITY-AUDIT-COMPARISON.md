@@ -150,15 +150,15 @@ All GitHub Actions in all four workflow files are now pinned to immutable commit
 
 | Action | Tag | SHA |
 |:-------|:----|:----|
-| `actions/checkout` | v6 | `de0fac2e...` |
-| `actions/setup-python` | v6 | `a309ff8b...` |
-| `docker/setup-qemu-action` | v3 | `c7c53464...` |
-| `docker/setup-buildx-action` | v3 | `8d2750c6...` |
-| `docker/login-action` | v3 | `c94ce9fb...` |
-| `docker/build-push-action` | v6 | `10e90e36...` |
-| `actions/github-script` | v8 | `ed597411...` |
-| `googleapis/release-please-action` | v4 | `16a9c908...` |
-| `webiny/action-conventional-commits` | v1.3.1 | `faccb24f...` |
+| `actions/checkout` | v7 | `9c091bb2...` |
+| `actions/setup-python` | v6.3.0 | `ece7cb06...` |
+| `docker/setup-qemu-action` | v4.1.0 | `06116385...` |
+| `docker/setup-buildx-action` | v4.2.0 | `bb05f3f5...` |
+| `docker/login-action` | v4.4.0 | `af1e73f9...` |
+| `docker/build-push-action` | v7.3.0 | `53b7df96...` |
+| `actions/github-script` | v9.0.0 | `3a2844b7...` |
+| `googleapis/release-please-action` | v5.0.0 | `45996ed1...` |
+| `webiny/action-conventional-commits` | v1.4.2 | `7f91b159...` |
 
 `dependabot.yml` monitors both `github-actions` and `pip` weekly, targeting `dev`, and will open PRs to update SHA pins when new versions are released.
 
