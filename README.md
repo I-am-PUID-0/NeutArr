@@ -118,6 +118,7 @@ NeutArr ships a JWT dual-token auth system (bcrypt + PyJWT, stateless):
 | **API key** | `X-Api-Key` header or `?apikey=` query param; for automation and integrations |
 
 Auth mode is selected during the first-run setup wizard and can be changed in Settings. The API key is shown in `Settings -> Account & API` with rotate, show/hide, and copy controls.
+Local access bypass CIDR ranges can be edited in `Settings -> Security`; defaults cover loopback, RFC-1918 private networks, and IPv6 ULA.
 
 > **Note:** `/api/*` endpoints always require JWT or API key regardless of bypass mode. Bypass modes only skip the web UI login redirect.
 
@@ -150,7 +151,7 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 
 **Auth:**
 - JWT dual-token auth (bcrypt hashing, stateless sessions) replaces SHA-256 + server-side sessions
-- Auth modes: standard / local-bypass (CIDR) / proxy-bypass, with proper `ipaddress` network validation
+- Auth modes: standard / local-bypass (GUI-configurable CIDR ranges) / proxy-bypass, with proper `ipaddress` network validation
 - `X-Forwarded-For` only trusted when `TRUSTED_PROXIES` env var is set
 - API key auth: auto-generated, timing-safe comparison, rotate endpoint
 - 2FA removed

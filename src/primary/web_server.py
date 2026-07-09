@@ -45,7 +45,12 @@ from src.primary.utils.logger import (
     update_logging_levels,
 )  # Import get_logger, LOG_DIR, and update_logging_levels
 from src.primary.utils.version import get_runtime_version
-from src.primary.auth import authenticate_request, INSTANCE_STORAGE_KEY
+from src.primary.auth import (
+    INSTANCE_STORAGE_KEY,
+    authenticate_request,
+    normalize_local_bypass_cidrs,
+    reset_bypass_caches,
+)
 
 # Import blueprints for routes
 from src.primary.routes.common import common_bp
@@ -441,10 +446,17 @@ def save_general_settings():
             data["local_access_bypass"] = False
             data["proxy_auth_bypass"] = False
 
+    try:
+        data["local_bypass_cidrs"] = normalize_local_bypass_cidrs(data.get("local_bypass_cidrs"))
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     # Save general settings
     success = settings_manager.save_settings("general", data)
 
     if success:
+        reset_bypass_caches()
+
         # Update expiration timing from general settings if applicable
         try:
             new_hours = int(data.get("stateful_management_hours"))

@@ -59,14 +59,15 @@ ACCESS_COOKIE = f"neutarr_token_{INSTANCE_STORAGE_KEY}"  # non-httponly; JS-read
 REFRESH_COOKIE = f"neutarr_refresh_{INSTANCE_STORAGE_KEY}"  # httponly; auto-sent to refresh endpoint
 
 # Private RFC-1918 + loopback CIDR ranges for local access bypass
-_LOCAL_NETWORKS = [
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("fc00::/7"),  # IPv6 ULA
+DEFAULT_LOCAL_BYPASS_CIDRS = [
+    "127.0.0.0/8",
+    "::1/128",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "fc00::/7",
 ]
+_DEFAULT_LOCAL_NETWORKS = [ipaddress.ip_network(cidr) for cidr in DEFAULT_LOCAL_BYPASS_CIDRS]
 
 # Paths that bypass auth entirely — explicit set + prefix list, no substring tricks
 ALWAYS_PUBLIC_PATHS = frozenset(
@@ -390,10 +391,67 @@ def _get_client_ip() -> Optional[str]:
     return request.remote_addr
 
 
+def normalize_local_bypass_cidrs(value, *, use_defaults_when_empty: bool = True) -> list[str]:
+    """Return validated local-bypass CIDR strings for config/UI persistence."""
+    if value is None:
+        entries = []
+    elif isinstance(value, str):
+        entries = []
+        for line in value.replace(",", "\n").splitlines():
+            cidr = line.strip()
+            if cidr:
+                entries.append(cidr)
+    elif isinstance(value, list):
+        entries = []
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError("CIDR ranges must be strings")
+            cidr = item.strip()
+            if cidr:
+                entries.append(cidr)
+    else:
+        raise ValueError("CIDR ranges must be a list or text value")
+
+    if not entries and use_defaults_when_empty:
+        entries = list(DEFAULT_LOCAL_BYPASS_CIDRS)
+
+    normalized = []
+    seen = set()
+    for cidr in entries:
+        try:
+            network = ipaddress.ip_network(cidr, strict=False)
+        except ValueError as exc:
+            raise ValueError(f"Invalid CIDR range: {cidr}") from exc
+
+        network_str = str(network)
+        if network_str not in seen:
+            normalized.append(network_str)
+            seen.add(network_str)
+
+    return normalized
+
+
+def _get_local_networks() -> list[ipaddress._BaseNetwork]:
+    try:
+        from src.primary import settings_manager
+
+        settings = settings_manager.load_settings("general")
+        if "local_bypass_cidrs" not in settings:
+            return _DEFAULT_LOCAL_NETWORKS
+        configured_cidrs = normalize_local_bypass_cidrs(
+            settings.get("local_bypass_cidrs"),
+            use_defaults_when_empty=False,
+        )
+        return [ipaddress.ip_network(cidr, strict=False) for cidr in configured_cidrs]
+    except Exception as exc:
+        logger.warning(f"Invalid local bypass CIDR configuration; local bypass disabled until fixed: {exc}")
+        return []
+
+
 def _is_local_ip(ip_str: str) -> bool:
     try:
         ip = ipaddress.ip_address(ip_str)
-        return any(ip in net for net in _LOCAL_NETWORKS)
+        return any(ip in net for net in _get_local_networks())
     except ValueError:
         return False
 
@@ -403,7 +461,7 @@ def _get_proxy_bypass() -> bool:
     if _proxy_bypass_cache["expires"] > now and _proxy_bypass_cache["value"] is not None:
         return _proxy_bypass_cache["value"]
     try:
-        from primary import settings_manager
+        from src.primary import settings_manager
 
         value = settings_manager.get_setting("general", "proxy_auth_bypass", False)
     except Exception:
@@ -418,7 +476,7 @@ def _get_local_bypass() -> bool:
     if _local_bypass_cache["expires"] > now and _local_bypass_cache["value"] is not None:
         return _local_bypass_cache["value"]
     try:
-        from primary import settings_manager
+        from src.primary import settings_manager
 
         value = settings_manager.get_setting("general", "local_access_bypass", False)
     except Exception:

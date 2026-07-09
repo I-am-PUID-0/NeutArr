@@ -4,6 +4,32 @@
  */
 
 const SettingsForms = {
+    escapeHtml: function(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    formatLocalBypassCidrs: function(value) {
+        if (Array.isArray(value)) {
+            return value.join('\n');
+        }
+        if (typeof value === 'string') {
+            return value.replace(/\s*,\s*/g, '\n').trim();
+        }
+        return [
+            '127.0.0.0/8',
+            '::1/128',
+            '10.0.0.0/8',
+            '172.16.0.0/12',
+            '192.168.0.0/16',
+            'fc00::/7'
+        ].join('\n');
+    },
+
     // Generate Sonarr settings form
     generateSonarrForm: function(container, settings = {}) {
         // Add data-app-type attribute to container
@@ -1156,6 +1182,7 @@ const SettingsForms = {
             
             // Save the auth_mode value directly
             settings.auth_mode = authMode;
+            settings.local_bypass_cidrs = container.querySelector('#local_bypass_cidrs')?.value || '';
             
             // Set the appropriate flags based on the selected auth mode
             switch (authMode) {
@@ -1318,6 +1345,7 @@ const SettingsForms = {
     generateGeneralForm: function(container, settings = {}) {
         // Add data-app-type attribute to container
         container.setAttribute('data-app-type', 'general');
+        const localBypassCidrs = SettingsForms.escapeHtml(SettingsForms.formatLocalBypassCidrs(settings.local_bypass_cidrs));
         
         container.innerHTML = `
             <div class="settings-group">
@@ -1379,10 +1407,16 @@ const SettingsForms = {
                     </select>
                     <p class="setting-help" style="margin-left: -3ch !important;">
                         <strong>Login Mode:</strong> Standard login required for all connections<br>
-                        <strong>Local Bypass Mode:</strong> Only local network connections (192.168.x.x, 10.x.x.x) bypass login<br>
+                        <strong>Local Bypass Mode:</strong> Connections from the CIDR ranges below bypass login<br>
                         <strong>No Login Mode:</strong> Completely disable authentication when running behind your own reverse proxy
                     </p>
                     <p class="setting-help warning" style="color: #ff6b6b; margin-left: -3ch !important;"><strong>Warning:</strong> Only use No Login Mode if your reverse proxy (e.g., Cloudflare, Nginx) is properly securing access!</p>
+                </div>
+                <div class="setting-item" id="local_bypass_cidrs_container">
+                    <label for="local_bypass_cidrs"><span class="info-icon" title="CIDR ranges allowed to skip the web login when Local Bypass Mode is selected"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Local Bypass CIDRs:</label>
+                    <textarea id="local_bypass_cidrs" name="local_bypass_cidrs" rows="6" style="width: 50% !important; max-width: 460px !important; box-sizing: border-box !important; margin: 0 !important; padding: 8px 12px !important; border-radius: 4px !important; display: block !important; text-align: left !important; font-family: monospace;">${localBypassCidrs}</textarea>
+                    <p class="setting-help" style="margin-left: -3ch !important;">One CIDR range per line, or comma-separated. These ranges are only used by Local Bypass Mode.</p>
+                    <p class="setting-help warning" style="color: #ffb86c; margin-left: -3ch !important;">Use the narrowest trusted proxy or LAN ranges that should skip NeutArr login.</p>
                 </div>
                 <div class="setting-item">
                     <label for="ssl_verify"><span class="info-icon" title="Verify SSL certificates when connecting to *arr instances"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Enable SSL Verify:</label>
@@ -1434,6 +1468,17 @@ const SettingsForms = {
                 const days = (hours / 24).toFixed(1);
                 statefulDaysSpan.textContent = `${days} days`;
             });
+        }
+
+        const authModeSelect = container.querySelector('#auth_mode');
+        const localBypassCidrsContainer = container.querySelector('#local_bypass_cidrs_container');
+        const updateLocalBypassCidrsVisibility = () => {
+            if (!authModeSelect || !localBypassCidrsContainer) return;
+            localBypassCidrsContainer.style.display = authModeSelect.value === 'local_bypass' ? '' : 'none';
+        };
+        if (authModeSelect) {
+            authModeSelect.addEventListener('change', updateLocalBypassCidrsVisibility);
+            updateLocalBypassCidrsVisibility();
         }
         
         // Load stateful management info

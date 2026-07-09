@@ -1468,7 +1468,7 @@ let neutarrUI = {
         console.log(`[neutarrUI] Processed instances for ${app}:`, settings.instances);
 
         // Now collect any OTHER settings NOT part of the instance structure
-        const allInputs = form.querySelectorAll('input, select');
+        const allInputs = form.querySelectorAll('input, select, textarea');
         const handledInstanceFieldIds = new Set();
 
         // Identify IDs used in instance collection to avoid double-adding them

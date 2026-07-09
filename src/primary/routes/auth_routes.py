@@ -26,6 +26,7 @@ from ..auth import (
     _get_client_ip,
     _get_local_bypass,
     _is_local_ip,
+    normalize_local_bypass_cidrs,
     reset_bypass_caches,
     LEGACY_REFRESH_COOKIE,
     REFRESH_COOKIE,
@@ -370,7 +371,12 @@ def auth_mode():
 
     if request.method == "GET":
         settings = settings_manager.load_settings("general")
-        return jsonify({"auth_mode": settings.get("auth_mode", "login")})
+        return jsonify(
+            {
+                "auth_mode": settings.get("auth_mode", "login"),
+                "local_bypass_cidrs": normalize_local_bypass_cidrs(settings.get("local_bypass_cidrs")),
+            }
+        )
 
     # POST — update mode
     if not request.is_json:
@@ -383,6 +389,11 @@ def auth_mode():
     current["auth_mode"] = mode
     current["local_access_bypass"] = mode == "local_bypass"
     current["proxy_auth_bypass"] = mode == "no_login"
+    if "local_bypass_cidrs" in request.json:
+        try:
+            current["local_bypass_cidrs"] = normalize_local_bypass_cidrs(request.json.get("local_bypass_cidrs"))
+        except ValueError as e:
+            return jsonify({"success": False, "error": str(e)}), 400
 
     if settings_manager.save_settings("general", current):
         reset_bypass_caches()
