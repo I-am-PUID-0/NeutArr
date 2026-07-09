@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.8.0...1.9.0) (2026-07-09)
+
+
+### ✨ Features
+
+* **auth:** make local bypass CIDRs configurable ([83fef9a](https://github.com/I-am-PUID-0/NeutArr/commit/83fef9a8dad4c20d2e71d5de5f63882ea7287cb9))
+
+
+### 🛠️ Build System
+
+* **deps:** update workflow actions and python lockfile ([7b0ff1b](https://github.com/I-am-PUID-0/NeutArr/commit/7b0ff1b9da4321e3cb8de5839628e34580b5643e))
+
 ## [1.8.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.7.0...1.8.0) (2026-06-17)
 
 
