@@ -240,6 +240,64 @@ def _get_movie_file_custom_format_score(movie: Dict[str, Any], profile_info: Dic
     return total if matched_any else None
 
 
+def _movie_has_custom_format_data(movie: Dict[str, Any]) -> bool:
+    movie_file = movie.get("movieFile") or {}
+    for source in (movie_file, movie):
+        if isinstance(source.get("customFormatScore"), (int, float)):
+            return True
+        if isinstance(source.get("customFormats"), list):
+            return True
+    return False
+
+
+def _get_movie_file_id(movie: Dict[str, Any]) -> Optional[int]:
+    movie_file = movie.get("movieFile") or {}
+    movie_file_id = movie_file.get("id") or movie.get("movieFileId")
+    return movie_file_id if isinstance(movie_file_id, int) else None
+
+
+def _merge_detailed_movie_file(movie: Dict[str, Any], detailed_movie_file: Dict[str, Any]) -> Dict[str, Any]:
+    enriched_movie = dict(movie)
+    enriched_movie["movieFile"] = {
+        **(movie.get("movieFile") or {}),
+        **detailed_movie_file,
+    }
+    return enriched_movie
+
+
+def _enrich_movie_file_custom_format_data(
+    movie: Dict[str, Any],
+    api_url: str,
+    api_key: str,
+    api_timeout: int,
+    movie_file_cache: Dict[int, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Fetch Radarr movie-file detail when /movie omits custom-format score data."""
+    if _movie_has_custom_format_data(movie):
+        return movie
+
+    movie_file_id = _get_movie_file_id(movie)
+    if movie_file_id is None:
+        return movie
+
+    if movie_file_id not in movie_file_cache:
+        detailed_movie_file = arr_request(api_url, api_key, api_timeout, f"moviefile/{movie_file_id}")
+        if isinstance(detailed_movie_file, dict):
+            movie_file_cache[movie_file_id] = detailed_movie_file
+        else:
+            radarr_logger.debug(
+                f"Radarr movie file detail was unavailable for movieFile ID {movie_file_id}; "
+                "custom-format score upgrade check will use embedded movie data."
+            )
+            movie_file_cache[movie_file_id] = {}
+
+    detailed_movie_file = movie_file_cache[movie_file_id]
+    if not detailed_movie_file:
+        return movie
+
+    return _merge_detailed_movie_file(movie, detailed_movie_file)
+
+
 def _is_quality_cutoff_unmet(movie: Dict[str, Any], profile_info: Dict[str, Any]) -> bool:
     movie_file = movie.get("movieFile") or {}
     quality_rank = profile_info["quality_rank"]
@@ -288,6 +346,7 @@ def get_cutoff_unmet_movies(api_url: str, api_key: str, api_timeout: int, monito
     unmet_movies = []
     quality_unmet_count = 0
     format_unmet_count = 0
+    movie_file_cache = {}
     for movie in movies:
         is_monitored = movie.get("monitored", False)
         has_file = movie.get("hasFile", False)
@@ -301,10 +360,11 @@ def get_cutoff_unmet_movies(api_url: str, api_key: str, api_timeout: int, monito
 
         profile_info = profile_map[profile_id]
         quality_unmet = _is_quality_cutoff_unmet(movie, profile_info)
-        format_unmet = _is_custom_format_cutoff_unmet(movie, profile_info)
+        enriched_movie = _enrich_movie_file_custom_format_data(movie, api_url, api_key, api_timeout, movie_file_cache)
+        format_unmet = _is_custom_format_cutoff_unmet(enriched_movie, profile_info)
 
         if quality_unmet or format_unmet:
-            unmet_movies.append(movie)
+            unmet_movies.append(enriched_movie)
             if quality_unmet:
                 quality_unmet_count += 1
             if format_unmet:
