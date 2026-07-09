@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.9.0...1.9.1) (2026-07-09)
+
+
+### 🐛 Bug Fixes
+
+* **radarr:** fetch moviefile detail for custom format scoring ([d51e8f1](https://github.com/I-am-PUID-0/NeutArr/commit/d51e8f1dc892e0ae0a75f822f6fec1fe3b8928f0))
+
 ## [1.9.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.8.0...1.9.0) (2026-07-09)
 
 
