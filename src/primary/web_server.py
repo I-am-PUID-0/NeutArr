@@ -430,7 +430,9 @@ def save_general_settings():
     if not request.is_json:
         return jsonify({"success": False, "error": "Expected JSON data"}), 400
 
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"success": False, "error": "Settings must be a JSON object"}), 400
 
     # Ensure auth_mode and bypass flags are consistent
     auth_mode = data.get("auth_mode")
@@ -496,7 +498,9 @@ def handle_app_settings(app_name):
         if not request.is_json:
             return jsonify({"success": False, "error": "Expected JSON data"}), 400
 
-        data = request.json
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "error": "Settings must be a JSON object"}), 400
         web_logger.debug(f"Received {app_name} settings save request: {data}")
 
         # Clean URLs in the data before saving

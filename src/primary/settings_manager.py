@@ -10,7 +10,10 @@ import logging
 import os
 import pathlib
 import shutil
+import stat
 import subprocess  # nosec B404
+import tempfile
+import threading
 import time
 import time as time_module
 from typing import Any, Dict, List, Optional
@@ -39,6 +42,50 @@ KNOWN_DEFAULT_CONFIG_FILES = {
 # Add a settings cache with timestamps to avoid excessive disk reads
 settings_cache = {}  # Format: {app_name: {'timestamp': timestamp, 'data': settings_dict}}
 CACHE_TTL = 5  # Cache time-to-live in seconds
+_settings_write_lock = threading.RLock()
+
+
+def _atomic_write_json(file_path: pathlib.Path, data: Dict[str, Any]) -> None:
+    """Durably replace a JSON file without exposing a partial write."""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = stat.S_IMODE(file_path.stat().st_mode) if file_path.exists() else 0o600
+    file_descriptor = None
+    temp_path = None
+
+    try:
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix=f".{file_path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = pathlib.Path(temp_name)
+        os.fchmod(file_descriptor, existing_mode)
+
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as temp_file:
+            file_descriptor = None
+            json.dump(data, temp_file, indent=2)
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        os.replace(temp_path, file_path)
+        temp_path = None
+
+        # Persist the directory entry where the filesystem supports it. Some
+        # network filesystems reject directory fsync even though replace works.
+        try:
+            directory_descriptor = os.open(file_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except OSError as error:
+            settings_logger.debug(f"Unable to fsync settings directory {file_path.parent}: {error}")
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _validate_app_type(app_name: str) -> bool:
@@ -52,13 +99,14 @@ def _validate_app_type(app_name: str) -> bool:
 def clear_cache(app_name=None):
     """Clear the settings cache for a specific app or all apps."""
     global settings_cache
-    if app_name:
-        if app_name in settings_cache:
-            settings_logger.debug(f"Clearing cache for {app_name}")
-            settings_cache.pop(app_name, None)
-    else:
-        settings_logger.debug("Clearing entire settings cache")
-        settings_cache = {}
+    with _settings_write_lock:
+        if app_name:
+            if app_name in settings_cache:
+                settings_logger.debug(f"Clearing cache for {app_name}")
+                settings_cache.pop(app_name, None)
+        else:
+            settings_logger.debug("Clearing entire settings cache")
+            settings_cache = {}
 
 
 def get_settings_file_path(app_name: str) -> pathlib.Path:
@@ -194,20 +242,20 @@ def save_settings(app_name: str, settings_data: Dict[str, Any]) -> bool:
         settings_logger.error(f"Attempted to save settings for unknown app type: {app_name}")
         return False
 
+    if not isinstance(settings_data, dict):
+        settings_logger.error(f"Refused to save non-object settings for {app_name}")
+        return False
+
     settings_file = get_settings_file_path(app_name)
     try:
-        # Ensure the directory exists (though it should from the top-level check)
-        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        with _settings_write_lock:
+            _atomic_write_json(settings_file, settings_data)
+            settings_logger.info(f"Settings saved successfully for {app_name} to {settings_file}")
 
-        # Write the provided settings data directly
-        with open(settings_file, "w") as f:
-            json.dump(settings_data, f, indent=2)
-        settings_logger.info(f"Settings saved successfully for {app_name} to {settings_file}")
+            # Clear cache for this app to ensure fresh reads
+            clear_cache(app_name)
 
-        # Clear cache for this app to ensure fresh reads
-        clear_cache(app_name)
-
-        return True
+            return True
     except Exception as e:
         settings_logger.error(f"Error saving settings for {app_name} to {settings_file}: {e}")
         return False
