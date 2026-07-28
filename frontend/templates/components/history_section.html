@@ -40,7 +40,7 @@
             </button>
         </div>
     </div>
-    
+
     <div class="history-container">
         <div class="modern-table-wrapper force-scrollbar">
             <table class="modern-table history-table">
@@ -78,6 +78,17 @@
         <span id="historyPageInfo">Page <span id="historyCurrentPage">1</span> of <span id="historyTotalPages">1</span></span>
         <button id="historyNextPage" class="pagination-button">Next <i class="fas fa-chevron-right"></i></button>
     </div>
+
+    <dialog id="historyDetailsDialog" class="history-details-dialog" aria-labelledby="historyDetailsTitle">
+        <div class="history-details-dialog__header">
+            <h3 id="historyDetailsTitle">History details</h3>
+            <button id="historyDetailsClose" class="history-details-dialog__close" type="button"
+                    aria-label="Close history details">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <pre id="historyDetailsContent" class="history-details-dialog__content"></pre>
+    </dialog>
 </section>
 
 <style>
@@ -561,80 +572,109 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
     
-    /* Info icon and JSON tooltip styling */
-    .info-hover-icon {
-        color: rgb(52, 152, 219); /* Fully opaque - no transparency */
+    /* History details trigger */
+    .history-details-button {
+        color: rgb(52, 152, 219);
         margin-right: 8px;
         cursor: pointer;
         transition: all 0.3s ease;
-        position: relative;
-        /* Make sure the icon is fully opaque with background */
-        background-color: rgb(14, 22, 33); /* Match the table background */
+        background-color: rgb(14, 22, 33);
+        border: 0;
         border-radius: 50%;
-        padding: 2px;
-        height: 14px;
-        width: 14px;
+        padding: 0;
+        height: 22px;
+        width: 22px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        /* Add subtle glow effect matching the tooltip */
         box-shadow: 0 0 5px rgb(52, 152, 219);
+        flex-shrink: 0;
     }
     
-    /* Hide info icons on mobile devices */
-    @media screen and (max-width: 768px) {
-        .info-hover-icon {
-            display: none;
-        }
-    }
-    
-    .info-hover-icon:hover {
-        color: rgb(255, 255, 255); /* Bright white on hover */
-        background-color: rgb(52, 152, 219); /* Blue background on hover */
+    .history-details-button:hover,
+    .history-details-button:focus-visible {
+        color: rgb(255, 255, 255);
+        background-color: rgb(52, 152, 219);
         transform: scale(1.2);
         box-shadow: 0 0 8px rgb(52, 152, 219);
+        outline: none;
     }
     
-    /* Hide the tooltip by default */
-    .json-tooltip {
-        display: none;
-        position: absolute;
-        left: 35px; /* Move the tooltip to the right by default */
-        top: 100%;
-        /* Extra thick solid background with absolutely no transparency */
-        background-color: #121824;
-        /* Add a thick dark background behind content */
-        background-image: 
-            linear-gradient(to bottom, 
-                #121824 0%, 
-                #0c111d 100%);
-        /* Double border for better definition */
+    /* Native dialogs render in the browser top layer, outside table overflow clipping. */
+    .history-details-dialog {
+        color: #ffffff;
+        background: linear-gradient(to bottom, #121824 0%, #0c111d 100%);
         border: 3px solid #2185d0;
         border-radius: 8px;
-        padding: 10px;
-        width: 350px;
-        max-height: 300px;
-        overflow-y: auto;
-        z-index: 999999; /* Super high z-index */
+        padding: 0;
+        width: min(560px, calc(100vw - 32px));
+        max-height: min(80vh, 640px);
+        overflow: hidden;
+        box-shadow:
+            0 0 0 4px #121824,
+            0 0 0 5px #2185d0,
+            0 0 20px 5px #2185d0,
+            0 5px 15px rgba(0, 0, 0, 0.9);
+        animation: historyDetailsGlow 2s ease-in-out infinite alternate;
+    }
+
+    .history-details-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(2px);
+    }
+
+    .history-details-dialog__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(52, 152, 219, 0.4);
+    }
+
+    .history-details-dialog__header h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .history-details-dialog__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        color: rgba(255, 255, 255, 0.8);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    .history-details-dialog__close:hover,
+    .history-details-dialog__close:focus-visible {
+        color: #ffffff;
+        background: rgba(52, 152, 219, 0.2);
+        border-color: rgba(52, 152, 219, 0.6);
+        outline: none;
+    }
+
+    .history-details-dialog__content {
+        box-sizing: border-box;
+        max-height: min(65vh, 520px);
+        margin: 0;
+        padding: 16px;
+        overflow: auto;
+        color: #ffffff;
         font-family: monospace;
-        font-size: 12px;
-        color: #ffffff; /* Pure white text */
+        font-size: 13px;
+        line-height: 1.5;
         text-align: left;
         white-space: pre-wrap;
-        /* Force complete opacity */
-        opacity: 1 !important;
-        /* Strong glow effect similar to NeutArr logo - more pronounced */
-        box-shadow: 
-            0 0 0 4px #121824, /* Thick barrier */
-            0 0 0 5px #2185d0, /* Border highlight */
-            0 0 20px 5px #2185d0, /* Much stronger blue glow */
-            0 5px 15px rgba(0, 0, 0, 0.9); /* Deep shadow */
-        /* Animation for the glow effect - faster to be more noticeable */
-        animation: tooltipGlow 2s ease-in-out infinite alternate;
+        overflow-wrap: anywhere;
     }
-    
-    /* Glowing border animation */
-    @keyframes tooltipGlow {
+
+    @keyframes historyDetailsGlow {
         0% {
             box-shadow: 
                 0 0 0 4px #121824, /* Solid barrier */
@@ -661,24 +701,6 @@
         }
     }
     
-    /* Style the JSON content */
-    .json-content {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
-    
-    /* Show tooltip on hover */
-    .info-hover-icon:hover .json-tooltip {
-        display: block;
-        animation: fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
     /* Processed title styling */
     .processed-title {
         font-weight: 500;
@@ -699,9 +721,9 @@
     }
     
     /* Style for the info icon to keep it at the top when title wraps */
-    .title-line-container .info-hover-icon {
+    .title-line-container .history-details-button {
         flex-shrink: 0;
-        margin-top: 2px; /* Align with the first line of text */
+        margin-top: 0;
     }
     
     /* Ensure the first column allows wrapping */
@@ -943,29 +965,5 @@
             }
         });
         
-        // Original function exists in history.js
-        const originalRenderHistoryData = historyModule.renderHistoryData;
-        
-        if (typeof historyModule !== 'undefined') {
-            // Override the render method to apply our styling
-            historyModule.renderHistoryData = function(data) {
-                // Call the original render method
-                originalRenderHistoryData.call(this, data);
-                
-                // After the data is rendered, format the operation status columns
-                const operationCells = document.querySelectorAll('#historyTableBody tr td:nth-child(3)');
-                operationCells.forEach(cell => {
-                    const operationText = cell.textContent.trim();
-                    const statusClass = operationText.toLowerCase() === 'success' ? 'success' : 
-                                 operationText.toLowerCase() === 'missing' ? 'missing' : 
-                                 operationText.toLowerCase() === 'upgrade' ? 'upgrade' : 
-                                 operationText.toLowerCase() === 'warning' ? 'warning' : 'error';
-                    const statusEl = document.createElement('span');
-                    statusEl.className = `operation-status ${statusClass}`;
-                    statusEl.textContent = operationText;
-                    cell.replaceChildren(statusEl);
-                });
-            };
-        }
     });
 </script>
