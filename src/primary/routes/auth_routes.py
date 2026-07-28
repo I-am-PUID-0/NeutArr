@@ -18,10 +18,13 @@ Endpoints:
   POST /api/auth/mode            — updates auth mode (requires auth)
 """
 
+import hashlib
+import ipaddress
 import logging
 from flask import Blueprint, request, jsonify, make_response, redirect, render_template
 
 from ..auth import (
+    _get_client_ip,
     _get_local_bypass,
     _is_local_bypass_request,
     _is_proxy_authenticated_request,
@@ -46,15 +49,56 @@ from ..auth import (
     validate_api_key,
 )
 from .. import settings_manager
+from ..rate_limiter import SlidingWindowRateLimiter
 
 logger = logging.getLogger("neutarr.auth_routes")
 
 auth_bp = Blueprint("auth", __name__)
 
+LOGIN_RATE_LIMITER = SlidingWindowRateLimiter(limit=5, window_seconds=300)
+PASSWORD_RATE_LIMITER = SlidingWindowRateLimiter(limit=5, window_seconds=300)
+SETUP_RATE_LIMITER = SlidingWindowRateLimiter(limit=5, window_seconds=900)
+REFRESH_RATE_LIMITER = SlidingWindowRateLimiter(limit=10, window_seconds=300)
+VERIFY_RATE_LIMITER = SlidingWindowRateLimiter(limit=30, window_seconds=60)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _client_rate_limit_key() -> str:
+    """Return a normalized client key without trusting arbitrary header text."""
+    candidates = (_get_client_ip(), request.remote_addr)
+    for candidate in candidates:
+        try:
+            return f"client:{ipaddress.ip_address(candidate or '')}"
+        except ValueError:
+            continue
+    return "client:unknown"
+
+
+def _account_rate_limit_key(username: str) -> str:
+    """Return a non-reversible account bucket key."""
+    normalized = username.strip().casefold().encode("utf-8")
+    return f"account:{hashlib.sha256(normalized).hexdigest()}"
+
+
+def _rate_limit_response(retry_after: int):
+    """Return a consistent 429 response without disclosing which bucket filled."""
+    response = make_response(
+        jsonify({"error": "Too many authentication attempts. Try again later."}),
+        429,
+    )
+    response.headers["Retry-After"] = str(max(1, retry_after))
+    return response
+
+
+def _consume_rate_limit(limiter: SlidingWindowRateLimiter, keys: list[str]):
+    decision = limiter.consume(keys)
+    if decision.allowed:
+        return None
+    return _rate_limit_response(decision.retry_after)
 
 
 def _is_privileged() -> bool:
@@ -141,6 +185,11 @@ def auth_setup():
     if auth_config.has_users():
         return jsonify({"error": "Setup already complete"}), 400
 
+    rate_limit_keys = [_client_rate_limit_key()]
+    limited = _consume_rate_limit(SETUP_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
@@ -169,6 +218,7 @@ def auth_setup():
         return jsonify({"error": "Failed to create user"}), 500
 
     consume_setup_token()
+    SETUP_RATE_LIMITER.reset(rate_limit_keys)
     logger.info(f"First user '{username}' created via setup.")
     return _token_response(username, status=201)
 
@@ -188,11 +238,17 @@ def auth_login():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
+    rate_limit_keys = [_client_rate_limit_key(), _account_rate_limit_key(username)]
+    limited = _consume_rate_limit(LOGIN_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     if not verify_login(username, password):
-        logger.warning(f"Failed login attempt for user '{username}'.")
+        logger.warning("Failed login attempt.")
         return jsonify({"error": "Invalid username or password"}), 401
 
-    logger.info(f"User '{username}' logged in.")
+    LOGIN_RATE_LIMITER.reset(rate_limit_keys)
+    logger.info("User logged in.")
     return _token_response(username)
 
 
@@ -211,6 +267,11 @@ def auth_refresh():
     The instance-scoped httponly refresh cookie is sent automatically by the browser.
     JS clients can also send the refresh token in the request body.
     """
+    rate_limit_keys = [_client_rate_limit_key()]
+    limited = _consume_rate_limit(REFRESH_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     # Try httponly cookie first (browser), then JSON body (API clients)
     refresh_token = request.cookies.get(REFRESH_COOKIE) or request.cookies.get(LEGACY_REFRESH_COOKIE)
     if not refresh_token:
@@ -229,6 +290,7 @@ def auth_refresh():
     if not user or user.get("disabled", False):
         return jsonify({"error": "User not found or disabled"}), 401
 
+    REFRESH_RATE_LIMITER.reset(rate_limit_keys)
     logger.debug(f"Token refreshed for user '{username}'.")
     return _token_response(username)
 
@@ -241,6 +303,11 @@ def auth_refresh():
 @auth_bp.route("/api/auth/verify", methods=["POST"])
 def auth_verify():
     """Check if a token is valid. Accepts token in body or Authorization header."""
+    rate_limit_keys = [_client_rate_limit_key()]
+    limited = _consume_rate_limit(VERIFY_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     data = request.get_json(silent=True) or {}
     token = data.get("token")
     if not token:
@@ -260,6 +327,7 @@ def auth_verify():
     if not user or user.get("disabled", False):
         return jsonify({"valid": False})
 
+    VERIFY_RATE_LIMITER.reset(rate_limit_keys)
     return jsonify({"valid": True, "username": username})
 
 
@@ -291,6 +359,11 @@ def auth_change_password():
     if not current_password or not new_password:
         return jsonify({"error": "Current and new passwords are required"}), 400
 
+    rate_limit_keys = [_client_rate_limit_key(), _account_rate_limit_key(username)]
+    limited = _consume_rate_limit(PASSWORD_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     user = auth_config.get_user(username)
     if not user or not verify_password(user["password"], current_password):
         return jsonify({"error": "Current password is incorrect"}), 401
@@ -302,6 +375,7 @@ def auth_change_password():
     if not auth_config.update_password(username, new_password):
         return jsonify({"error": "Failed to update password"}), 500
 
+    PASSWORD_RATE_LIMITER.reset(rate_limit_keys)
     logger.info(f"Password changed for user '{username}'.")
     return jsonify({"success": True})
 
@@ -323,6 +397,11 @@ def auth_change_username():
     if len(new_username) < 3:
         return jsonify({"error": "Username must be at least 3 characters"}), 400
 
+    rate_limit_keys = [_client_rate_limit_key(), _account_rate_limit_key(username)]
+    limited = _consume_rate_limit(PASSWORD_RATE_LIMITER, rate_limit_keys)
+    if limited:
+        return limited
+
     user = auth_config.get_user(username)
     if not user or not verify_password(user["password"], current_password):
         return jsonify({"error": "Current password is incorrect"}), 401
@@ -330,6 +409,7 @@ def auth_change_username():
     if not auth_config.update_username(username, new_username):
         return jsonify({"error": "Username already taken or update failed"}), 400
 
+    PASSWORD_RATE_LIMITER.reset(rate_limit_keys)
     logger.info(f"Username changed from '{username}' to '{new_username}'.")
 
     if was_jwt_authenticated:
