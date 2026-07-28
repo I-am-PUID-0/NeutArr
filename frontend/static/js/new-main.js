@@ -1038,7 +1038,7 @@ let neutarrUI = {
                 entry.style.display = '';
                 matchCount++;
                 
-                // Simple highlight by replacing HTML - much more performant
+                // Highlight only visible text without reparsing the log row's HTML.
                 this.simpleHighlightMatch(entry, searchText);
             } else {
                 entry.style.display = 'none';
@@ -1076,24 +1076,49 @@ let neutarrUI = {
         }
     },
     
-    // New simplified highlighting method that's much more performant
+    // Highlight matching text without changing element markup or attributes.
     simpleHighlightMatch: function(logEntry, searchText) {
-        // Only proceed if the search text is meaningful
+        this.clearLogHighlights(logEntry);
+
         if (searchText.length < 2) return;
-        
-        // Store original HTML if not already stored
-        if (!logEntry.hasAttribute('data-original-html')) {
-            logEntry.setAttribute('data-original-html', logEntry.innerHTML);
+
+        const textNodes = [];
+        const walker = document.createTreeWalker(logEntry, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+            textNodes.push(walker.currentNode);
         }
-        
-        const html = logEntry.getAttribute('data-original-html');
-        const escapedSearchText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars
-        
-        // Simple case-insensitive replace with highlight span (using a more efficient regex approach)
-        const regex = new RegExp(`(${escapedSearchText})`, 'gi');
-        const newHtml = html.replace(regex, '<span class="search-highlight">$1</span>');
-        
-        logEntry.innerHTML = newHtml;
+
+        textNodes.forEach(textNode => {
+            const text = textNode.textContent || '';
+            const normalizedText = text.toLowerCase();
+            let matchIndex = normalizedText.indexOf(searchText);
+            if (matchIndex === -1) return;
+
+            const fragment = document.createDocumentFragment();
+            let cursor = 0;
+
+            while (matchIndex !== -1) {
+                fragment.appendChild(document.createTextNode(text.slice(cursor, matchIndex)));
+
+                const highlight = document.createElement('span');
+                highlight.className = 'search-highlight';
+                highlight.textContent = text.slice(matchIndex, matchIndex + searchText.length);
+                fragment.appendChild(highlight);
+
+                cursor = matchIndex + searchText.length;
+                matchIndex = normalizedText.indexOf(searchText, cursor);
+            }
+
+            fragment.appendChild(document.createTextNode(text.slice(cursor)));
+            textNode.replaceWith(fragment);
+        });
+    },
+
+    clearLogHighlights: function(logEntry) {
+        logEntry.querySelectorAll('.search-highlight').forEach(highlight => {
+            highlight.replaceWith(document.createTextNode(highlight.textContent || ''));
+        });
+        logEntry.normalize();
     },
     
     // Clear log search and reset to default view
@@ -1123,10 +1148,7 @@ let neutarrUI = {
             // Display all entries
             entry.style.display = '';
             
-            // Restore original HTML if it exists
-            if (entry.hasAttribute('data-original-html')) {
-                entry.innerHTML = entry.getAttribute('data-original-html');
-            }
+            this.clearLogHighlights(entry);
         });
         
         // Restore auto-scroll if it was enabled

@@ -59,6 +59,19 @@ class FrontendSecurityTests(unittest.TestCase):
             source,
         )
 
+    def test_log_search_highlights_text_without_reparsing_log_html(self):
+        source = (_REPO_ROOT / "frontend" / "static" / "js" / "new-main.js").read_text()
+
+        self.assertNotIn("data-original-html", source)
+        self.assertNotIn("logEntry.innerHTML = newHtml", source)
+        self.assertIn(
+            "document.createTreeWalker(logEntry, NodeFilter.SHOW_TEXT)",
+            source,
+        )
+        self.assertIn("highlight.textContent = text.slice(", source)
+        self.assertIn("textNode.replaceWith(fragment);", source)
+        self.assertIn("this.clearLogHighlights(entry);", source)
+
     def test_browser_auth_does_not_persist_or_inject_jwts(self):
         source = (_REPO_ROOT / "frontend" / "static" / "js" / "auth.js").read_text()
 
