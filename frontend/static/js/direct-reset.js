@@ -29,16 +29,8 @@ window.lastStatefulHoursValue = null;
         // Create the new button
         const resetButton = document.createElement('button');
         resetButton.id = 'emergency_reset_btn';
+        resetButton.className = 'danger-button emergency-reset-button';
         resetButton.innerText = '🔥 EMERGENCY RESET 🔥';
-        resetButton.style.background = 'linear-gradient(to right, #ff0000, #8b0000)';
-        resetButton.style.color = 'white';
-        resetButton.style.fontWeight = 'bold';
-        resetButton.style.border = 'none';
-        resetButton.style.borderRadius = '4px';
-        resetButton.style.padding = '8px 16px';
-        resetButton.style.marginLeft = '15px';
-        resetButton.style.cursor = 'pointer';
-        resetButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
         
         // Add click handler for the new button
         resetButton.onclick = function() {
@@ -78,7 +70,6 @@ window.lastStatefulHoursValue = null;
                     // Restore button state
                     this.disabled = false;
                     this.innerText = '🔥 EMERGENCY RESET 🔥';
-                    this.style.background = 'linear-gradient(to right, #ff0000, #8b0000)';
                     
                     // Clear the reset flag since operation failed
                     window.justCompletedStatefulReset = false;

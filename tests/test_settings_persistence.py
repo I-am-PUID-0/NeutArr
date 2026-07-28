@@ -90,6 +90,142 @@ class SettingsPersistenceTests(unittest.TestCase):
         self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), persisted_before_update)
         self.assertEqual(settings_manager.load_settings("sonarr"), persisted_before_update)
 
+    def test_load_disables_empty_placeholders_created_by_older_defaults(self):
+        self.settings_file.write_text(
+            json.dumps(
+                {
+                    "instances": [
+                        {
+                            "name": "Default",
+                            "api_url": "",
+                            "api_key": "",
+                            "enabled": True,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        loaded = settings_manager.load_settings("sonarr", use_cache=False)
+
+        self.assertFalse(loaded["instances"][0]["enabled"])
+        self.assertFalse(json.loads(self.settings_file.read_text(encoding="utf-8"))["instances"][0]["enabled"])
+
+    def test_load_preserves_configured_legacy_instance_without_enabled_field(self):
+        self.settings_file.write_text(
+            json.dumps(
+                {
+                    "instances": [
+                        {
+                            "name": "Primary",
+                            "api_url": "http://sonarr.example.invalid",
+                            "api_key": "existing-secret",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        loaded = settings_manager.load_settings("sonarr", use_cache=False)
+
+        self.assertTrue(loaded["instances"][0]["enabled"])
+        self.assertTrue(json.loads(self.settings_file.read_text(encoding="utf-8"))["instances"][0]["enabled"])
+
+    def test_load_preserves_explicit_enabled_state_for_custom_instance(self):
+        original_settings = {
+            "instances": [
+                {
+                    "name": "Primary",
+                    "api_url": "",
+                    "api_key": "",
+                    "enabled": True,
+                }
+            ]
+        }
+        self.settings_file.write_text(json.dumps(original_settings), encoding="utf-8")
+
+        loaded = settings_manager.load_settings("sonarr", use_cache=False)
+
+        self.assertTrue(loaded["instances"][0]["enabled"])
+
+    def test_save_allows_only_the_empty_disabled_default_placeholder(self):
+        placeholder_settings = {
+            "instances": [
+                {
+                    "name": "Default",
+                    "api_url": "",
+                    "api_key": "",
+                    "enabled": False,
+                }
+            ]
+        }
+
+        self.assertTrue(settings_manager.save_settings("sonarr", placeholder_settings))
+        self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), placeholder_settings)
+
+    def test_save_rejects_reserved_default_name_for_configured_or_additional_instances(self):
+        original_settings = {
+            "instances": [
+                {
+                    "name": "Primary",
+                    "api_url": "http://sonarr.example.invalid",
+                    "api_key": "existing-secret",
+                    "enabled": True,
+                }
+            ]
+        }
+        self.settings_file.write_text(json.dumps(original_settings), encoding="utf-8")
+
+        invalid_settings = {
+            "instances": [
+                {
+                    "name": "  DEFAULT  ",
+                    "api_url": "http://sonarr.example.invalid",
+                    "api_key": "new-secret",
+                    "enabled": True,
+                }
+            ]
+        }
+        self.assertFalse(settings_manager.save_settings("sonarr", invalid_settings))
+
+        additional_default = {
+            "instances": [
+                original_settings["instances"][0],
+                {
+                    "name": "default",
+                    "api_url": "",
+                    "api_key": "",
+                    "enabled": False,
+                },
+            ]
+        }
+        self.assertFalse(settings_manager.save_settings("sonarr", additional_default))
+        self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), original_settings)
+
+    def test_update_rejects_enabling_the_default_placeholder(self):
+        placeholder_settings = {
+            "instances": [
+                {
+                    "name": "Default",
+                    "api_url": "",
+                    "api_key": "",
+                    "enabled": False,
+                }
+            ]
+        }
+        self.settings_file.write_text(json.dumps(placeholder_settings), encoding="utf-8")
+        persisted_before_update = settings_manager.load_settings("sonarr", use_cache=False)
+
+        updated = settings_manager.update_settings(
+            "sonarr",
+            lambda settings: settings["instances"][0].update({"enabled": True}),
+        )
+
+        self.assertFalse(updated)
+        self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), persisted_before_update)
+
     def test_general_settings_route_rejects_non_object_json(self):
         with app.test_request_context("/api/settings/general", method="POST", json=[]):
             response, status = save_general_settings()
@@ -103,6 +239,24 @@ class SettingsPersistenceTests(unittest.TestCase):
 
         self.assertEqual(status, 400)
         self.assertEqual(response.get_json()["error"], "Settings must be a JSON object")
+
+    def test_app_settings_route_explains_reserved_default_instance_name(self):
+        configured_default = {
+            "instances": [
+                {
+                    "name": "Default",
+                    "api_url": "http://sonarr.example.invalid",
+                    "api_key": "new-secret",
+                    "enabled": True,
+                }
+            ]
+        }
+
+        with app.test_request_context("/api/settings/sonarr", method="POST", json=configured_default):
+            response, status = handle_app_settings("sonarr")
+
+        self.assertEqual(status, 400)
+        self.assertIn('"Default" is reserved', response.get_json()["error"])
 
 
 if __name__ == "__main__":

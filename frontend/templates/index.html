@@ -8,6 +8,8 @@
     <a class="skip-link" href="#mainContent">Skip to main content</a>
     <div class="app-container mobile-optimized">
         {% include 'components/sidebar.html' %}
+        <button class="sidebar-backdrop" id="sidebarBackdrop" type="button"
+                aria-label="Close navigation" tabindex="-1"></button>
         
         <main class="main-content" id="mainContent" tabindex="-1">
             {% include 'components/topbar.html' %}

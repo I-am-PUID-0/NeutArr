@@ -1,16 +1,24 @@
 <div class="top-bar">
     <!-- Add color line at the top of the topbar -->
     <div class="top-color-line"></div>
+    <button class="shell-menu-button" id="navToggle" type="button"
+            aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+        <i class="fas fa-bars" aria-hidden="true"></i>
+    </button>
     <div class="topbar-section left">
         <h1 class="page-title" id="currentPageTitle">Home</h1>
     </div>
     <div class="topbar-section center">
-        <div class="version-bar">
+        <a class="version-bar" id="versionReleaseLink"
+           href="https://github.com/I-am-PUID-0/NeutArr/releases"
+           target="_blank" rel="noopener noreferrer"
+           aria-label="View NeutArr releases on GitHub"
+           title="View this release on GitHub">
             <div class="version-item">
                 <i class="fas fa-code-branch version-icon" aria-hidden="true"></i>
                 <span>Version <span id="version-value">Loading...</span></span>
             </div>
-        </div>
+        </a>
     </div>
     <div class="topbar-section right">
         <div class="user-info" id="userInfoContainer">
@@ -380,14 +388,3 @@
         }
     }
 </style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var el = document.getElementById('version-value');
-        if (el) {
-            fetch('/api/version').then(function (r) { return r.text(); })
-                .then(function (v) { el.textContent = v.trim(); })
-                .catch(function () { });
-        }
-    });
-</script>

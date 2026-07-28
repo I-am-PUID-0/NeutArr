@@ -10,13 +10,7 @@
   "sonarr": [
     {
       "id": "0",
-      "name": "Default",
-      "display_name": "Sonarr",
-      "order": 1
-    },
-    {
-      "id": "1",
-      "name": "Instance 2",
+      "name": "test",
       "display_name": "Sonarr",
       "order": 1
     }

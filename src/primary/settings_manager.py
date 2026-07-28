@@ -39,6 +39,8 @@ KNOWN_SETTINGS_FILES = {app_name: SETTINGS_DIR / f"{app_name}.json" for app_name
 KNOWN_DEFAULT_CONFIG_FILES = {
     app_name: pathlib.Path(DEFAULT_CONFIGS_DIR) / f"{app_name}.json" for app_name in KNOWN_APP_TYPES
 }
+INSTANCE_APP_TYPES = frozenset({"sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"})
+RESERVED_INSTANCE_NAME = "default"
 
 # Add a settings cache with timestamps to avoid excessive disk reads
 settings_cache = {}  # Format: {app_name: {'timestamp': timestamp, 'data': settings_dict}}
@@ -95,6 +97,73 @@ def _validate_app_type(app_name: str) -> bool:
         return True
     settings_logger.warning(f"Rejected unknown app type: {app_name}")
     return False
+
+
+def _normalize_instance_enabled_defaults(app_name: str, settings: Dict[str, Any]) -> bool:
+    """Make instance enablement explicit without disabling configured legacy instances."""
+    if app_name not in INSTANCE_APP_TYPES:
+        return False
+
+    instances = settings.get("instances")
+    if not isinstance(instances, list):
+        return False
+
+    updated = False
+    for instance in instances:
+        if not isinstance(instance, dict):
+            continue
+
+        api_url = str(instance.get("api_url") or "").strip()
+        api_key = str(instance.get("api_key") or "").strip()
+        has_complete_connection = bool(api_url and api_key)
+        instance_name_parts = str(instance.get("name") or "").strip().casefold().split()
+        is_generated_placeholder = instance_name_parts == ["default"] or (
+            len(instance_name_parts) == 2 and instance_name_parts[0] == "instance" and instance_name_parts[1].isdigit()
+        )
+
+        if "enabled" not in instance:
+            # Preserve the previous behavior for configured legacy instances,
+            # while incomplete placeholders now fail closed.
+            instance["enabled"] = has_complete_connection
+            updated = True
+        elif instance.get("enabled") is True and is_generated_placeholder and not api_url and not api_key:
+            # Migrate untouched placeholders created by older defaults.
+            instance["enabled"] = False
+            updated = True
+
+    return updated
+
+
+def validate_instance_names(app_name: str, settings: Dict[str, Any]) -> Optional[str]:
+    """Return a user-facing error when an app uses a reserved instance name."""
+    if app_name not in INSTANCE_APP_TYPES:
+        return None
+
+    instances = settings.get("instances")
+    if not isinstance(instances, list):
+        return None
+
+    for index, instance in enumerate(instances):
+        if not isinstance(instance, dict):
+            continue
+
+        normalized_name = " ".join(str(instance.get("name") or "").split()).casefold()
+        if normalized_name != RESERVED_INSTANCE_NAME:
+            continue
+
+        is_empty_disabled_placeholder = (
+            index == 0
+            and not bool(instance.get("enabled", False))
+            and not str(instance.get("api_url") or "").strip()
+            and not str(instance.get("api_key") or "").strip()
+        )
+        if not is_empty_disabled_placeholder:
+            return (
+                'The instance name "Default" is reserved for the disabled placeholder. '
+                "Choose a descriptive name before configuring or enabling this instance."
+            )
+
+    return None
 
 
 def clear_cache(app_name=None):
@@ -212,6 +281,9 @@ def load_settings(app_type, use_cache=True):
                     current_settings[key] = value
                     updated = True
 
+            if _normalize_instance_enabled_defaults(app_type, current_settings):
+                updated = True
+
             # If keys were added, save the updated file
             if updated:
                 settings_logger.info(f"Added missing default keys to {app_type}.json")
@@ -245,6 +317,11 @@ def save_settings(app_name: str, settings_data: Dict[str, Any]) -> bool:
 
     if not isinstance(settings_data, dict):
         settings_logger.error(f"Refused to save non-object settings for {app_name}")
+        return False
+
+    validation_error = validate_instance_names(app_name, settings_data)
+    if validation_error:
+        settings_logger.warning(f"Refused invalid instance name configuration for {app_name}")
         return False
 
     settings_file = get_settings_file_path(app_name)
@@ -282,6 +359,10 @@ def update_settings(app_name: str, update_callback: Callable[[Dict[str, Any]], N
 
             updated_settings = deepcopy(current_settings)
             update_callback(updated_settings)
+            validation_error = validate_instance_names(app_name, updated_settings)
+            if validation_error:
+                settings_logger.warning(f"Refused invalid instance name update for {app_name}")
+                return False
             _atomic_write_json(settings_file, updated_settings)
             settings_logger.info(f"Settings updated successfully for {app_name} at {settings_file}")
             clear_cache(app_name)
@@ -328,7 +409,7 @@ def get_configured_apps() -> List[str]:
         # First check if there are valid instances configured (multi-instance mode)
         if "instances" in settings and isinstance(settings["instances"], list) and settings["instances"]:
             for instance in settings["instances"]:
-                if instance.get("enabled", True) and instance.get("api_url") and instance.get("api_key"):
+                if instance.get("enabled", False) and instance.get("api_url") and instance.get("api_key"):
                     configured.append(app_name)
                     break  # One valid instance is enough to consider the app configured
             continue  # Skip the single-instance check if we already checked instances

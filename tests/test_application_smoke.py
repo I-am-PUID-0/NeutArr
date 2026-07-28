@@ -138,6 +138,15 @@ class ApplicationSmokeTests(unittest.TestCase):
                 payload = json.loads(config_file.read_text())
                 self.assertIsInstance(payload, dict)
 
+    def test_default_app_instances_start_disabled(self):
+        defaults_dir = _REPO_ROOT / "src" / "primary" / "default_configs"
+
+        for app_name in ("sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"):
+            with self.subTest(app=app_name):
+                payload = json.loads((defaults_dir / f"{app_name}.json").read_text())
+                self.assertGreater(len(payload["instances"]), 0)
+                self.assertTrue(all(instance.get("enabled") is False for instance in payload["instances"]))
+
     def test_generated_setup_token_is_owner_only_and_consumable(self):
         token_file = _TEST_CONFIG / "generated-setup-token"
         configured_token = os.environ.pop("NEUTARR_SETUP_TOKEN")
@@ -160,6 +169,7 @@ class ApplicationSmokeTests(unittest.TestCase):
             _REPO_ROOT / "frontend" / "static" / "js" / "new-main.js",
             _REPO_ROOT / "frontend" / "static" / "js" / "settings_forms.js",
             _REPO_ROOT / "frontend" / "static" / "css" / "new-style.css",
+            _REPO_ROOT / "frontend" / "static" / "css" / "redesign.css",
         ]:
             with self.subTest(asset=asset.name):
                 self.assertTrue(asset.is_file())

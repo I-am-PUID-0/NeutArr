@@ -32,7 +32,7 @@ def get_status():
         for instance in instances:
             api_url = instance.get("api_url")
             api_key = instance.get("api_key")
-            if api_url and api_key and instance.get("enabled", True):
+            if api_url and api_key and instance.get("enabled", False):
                 # Use a short timeout for status checks
                 if whisparr_api.check_connection(api_url, api_key, 5):
                     connected_count += 1
@@ -213,7 +213,7 @@ def test_connection():
 def is_configured():
     """Check if Whisparr API credentials are configured"""
     instances = load_settings("whisparr").get("instances", [])
-    return any(inst.get("enabled", True) and inst.get("api_url") and inst.get("api_key") for inst in instances)
+    return any(inst.get("enabled", False) and inst.get("api_url") and inst.get("api_key") for inst in instances)
 
 
 @whisparr_bp.route("/versions", methods=["GET"])
@@ -229,7 +229,7 @@ def get_versions():
 
         results = []
         for instance in instances:
-            if not instance.get("enabled", True):
+            if not instance.get("enabled", False):
                 continue
 
             api_url = instance.get("api_url")

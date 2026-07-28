@@ -39,7 +39,7 @@ def get_configured_instances():
                 api_url = f"http://{api_url}"
                 sonarr_logger.warning(f"Auto-correcting URL to: {api_url}")
 
-            is_enabled = instance.get("enabled", True)
+            is_enabled = instance.get("enabled", False)
 
             # Only include properly configured instances
             if is_enabled and api_url and api_key:

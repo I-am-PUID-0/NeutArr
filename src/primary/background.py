@@ -13,7 +13,7 @@ import signal
 import importlib
 import logging
 import threading
-from typing import Dict, List, Optional, Callable, Union, Tuple
+from typing import Any, Dict, List, Optional, Callable, Union, Tuple
 import datetime
 import traceback
 
@@ -35,12 +35,83 @@ from src.primary.scheduler_engine import start_scheduler, stop_scheduler
 # Global state for managing app threads and their status
 app_threads: Dict[str, threading.Thread] = {}
 stop_event = threading.Event()  # Use an event for clearer stop signaling
+cycle_status_lock = threading.RLock()
+cycle_status: Dict[str, Dict[str, Any]] = {}
 
 # Hourly cap scheduler thread
 hourly_cap_scheduler_thread = None
 
 # Instance list generator thread
 instance_list_generator_thread = None
+
+
+def _set_cycle_status(
+    app_type: str,
+    state: str,
+    *,
+    next_cycle_at: Optional[float] = None,
+    interval_seconds: Optional[int] = None,
+    reason: Optional[str] = None,
+) -> None:
+    """Record the current lifecycle state for an app's background cycle."""
+    status = {
+        "state": state,
+        "next_cycle_at": next_cycle_at,
+        "interval_seconds": interval_seconds,
+    }
+    if reason:
+        status["reason"] = reason
+
+    with cycle_status_lock:
+        cycle_status[app_type] = status
+
+
+def _wait_with_cycle_status(
+    app_type: str,
+    seconds: int,
+    *,
+    state: str = "waiting",
+    reason: Optional[str] = None,
+) -> None:
+    """Wait for a retry or cycle while publishing its exact deadline."""
+    interval_seconds = max(0, int(seconds))
+    _set_cycle_status(
+        app_type,
+        state,
+        next_cycle_at=time.time() + interval_seconds,
+        interval_seconds=interval_seconds,
+        reason=reason,
+    )
+    stop_event.wait(interval_seconds)
+
+
+def mark_cycle_reset_requested(app_type: str) -> None:
+    """Expose a manual reset request until the worker begins its next cycle."""
+    with cycle_status_lock:
+        current = cycle_status.get(app_type, {})
+        interval_seconds = current.get("interval_seconds")
+
+    _set_cycle_status(
+        app_type,
+        "reset_pending",
+        interval_seconds=interval_seconds,
+        reason="Manual reset requested",
+    )
+
+
+def get_cycle_status_snapshot() -> Dict[str, Any]:
+    """Return a safe snapshot of all tracked background cycle deadlines."""
+    now = time.time()
+    with cycle_status_lock:
+        statuses = {app_type: dict(status) for app_type, status in cycle_status.items()}
+
+    for status in statuses.values():
+        next_cycle_at = status.get("next_cycle_at")
+        status["remaining_seconds"] = (
+            max(0, int(next_cycle_at - now + 0.999)) if isinstance(next_cycle_at, (int, float)) else None
+        )
+
+    return {"server_time": now, "cycles": statuses}
 
 
 def app_specific_loop(app_type: str) -> None:
@@ -52,6 +123,7 @@ def app_specific_loop(app_type: str) -> None:
     """
     app_logger = get_logger(app_type)
     app_logger.info(f"=== [{app_type.upper()}] Thread starting ===")
+    _set_cycle_status(app_type, "starting")
 
     # Dynamically import app-specific modules
     process_missing = None
@@ -131,10 +203,12 @@ def app_specific_loop(app_type: str) -> None:
             hunt_upgrade_setting = "hunt_upgrade_items"
         else:
             app_logger.error(f"Unsupported app_type: {app_type}")
+            _set_cycle_status(app_type, "error", reason="Unsupported application")
             return  # Exit thread if app type is invalid
 
     except (ImportError, AttributeError) as e:
         app_logger.error(f"Failed to import modules or functions for {app_type}: {e}", exc_info=True)
+        _set_cycle_status(app_type, "error", reason="Background worker failed to start")
         return  # Exit thread if essential modules fail to load
 
     # Create app-specific logger using provided function
@@ -147,17 +221,33 @@ def app_specific_loop(app_type: str) -> None:
             app_settings = settings_manager.load_settings(app_type)  # Corrected function name
             if not app_settings:  # Handle case where loading fails
                 app_logger.error("Failed to load settings. Skipping cycle.")
-                stop_event.wait(60)  # Wait a minute before retrying
+                _wait_with_cycle_status(
+                    app_type,
+                    60,
+                    state="retrying",
+                    reason="Settings unavailable",
+                )
                 continue
 
             # Get global settings needed for cycle timing
-            sleep_duration = app_settings.get("sleep_duration", 900)
+            sleep_duration = max(0, int(app_settings.get("sleep_duration", 900)))
             api_timeout = app_settings.get("api_timeout", 120)  # Default to 120 seconds
 
         except Exception as e:
             app_logger.error(f"Error loading settings for cycle: {e}", exc_info=True)
-            stop_event.wait(60)  # Wait before retrying
+            _wait_with_cycle_status(
+                app_type,
+                60,
+                state="retrying",
+                reason="Settings could not be loaded",
+            )
             continue
+
+        _set_cycle_status(
+            app_type,
+            "running",
+            interval_seconds=sleep_duration,
+        )
 
         # --- State Reset Check --- #
         check_state_reset(app_type)
@@ -177,11 +267,20 @@ def app_specific_loop(app_type: str) -> None:
                 else:
                     # No instances found via get_configured_instances
                     app_logger.warning(f"No configured {app_type} instances found. Skipping cycle.")
-                    stop_event.wait(sleep_duration)
+                    _wait_with_cycle_status(
+                        app_type,
+                        sleep_duration,
+                        reason="No enabled instances",
+                    )
                     continue
             except Exception as e:
                 app_logger.error(f"Error calling get_configured_instances function: {e}", exc_info=True)
-                stop_event.wait(60)
+                _wait_with_cycle_status(
+                    app_type,
+                    60,
+                    state="retrying",
+                    reason="Instance configuration unavailable",
+                )
                 continue
         else:
             # get_instances_func is None (either not defined in app module or import failed earlier)
@@ -198,13 +297,21 @@ def app_specific_loop(app_type: str) -> None:
                 app_logger.warning(
                     f"No 'get_configured_instances' function found and no valid single instance config (URL/Key) for {app_type}. Skipping cycle."
                 )
-                stop_event.wait(sleep_duration)
+                _wait_with_cycle_status(
+                    app_type,
+                    sleep_duration,
+                    reason="No enabled instances",
+                )
                 continue
 
         # If after all checks, instances_to_process is still empty
         if not instances_to_process:
             app_logger.warning(f"No valid {app_type} instances to process this cycle (unexpected state). Skipping.")
-            stop_event.wait(sleep_duration)
+            _wait_with_cycle_status(
+                app_type,
+                sleep_duration,
+                reason="No valid instances",
+            )
             continue
 
         # Process each instance dictionary returned by get_configured_instances
@@ -433,14 +540,21 @@ def app_specific_loop(app_type: str) -> None:
             app_logger.info(f"=== {app_type.upper()} cycle finished. No items processed in any instance. ===")
 
         # Calculate sleep duration (use configured or default value)
-        sleep_seconds = app_settings.get("sleep_duration", 900)  # Default to 15 minutes
+        sleep_seconds = sleep_duration
 
         # Sleep with periodic checks for reset file
         # Calculate and format the time when the next cycle will begin
-        next_cycle_time = datetime.datetime.now() + datetime.timedelta(seconds=sleep_seconds)
+        next_cycle_at = time.time() + sleep_seconds
+        next_cycle_time = datetime.datetime.fromtimestamp(next_cycle_at)
         next_cycle_time_str = next_cycle_time.strftime("%Y-%m-%d %H:%M:%S")
         app_logger.info(f"Next {app_type.upper()} cycle will begin at {next_cycle_time_str}")
         app_logger.debug(f"Sleeping for {sleep_seconds} seconds before next cycle...")
+        _set_cycle_status(
+            app_type,
+            "waiting",
+            next_cycle_at=next_cycle_at,
+            interval_seconds=sleep_seconds,
+        )
 
         # Use shorter sleep intervals and check for reset file
         wait_interval = 1  # Check every second to be more responsive
@@ -466,6 +580,11 @@ def app_specific_loop(app_type: str) -> None:
                     # Delete the reset file
                     os.remove(reset_file_path)
                     app_logger.info(f"Reset file removed for {app_type}. Starting new cycle now.")
+                    _set_cycle_status(
+                        app_type,
+                        "running",
+                        interval_seconds=sleep_seconds,
+                    )
                     break
                 except Exception as e:
                     app_logger.error(f"Error processing reset file for {app_type}: {e}", exc_info=True)
@@ -484,6 +603,7 @@ def app_specific_loop(app_type: str) -> None:
             if elapsed > 0 and elapsed % 30 == 0:
                 app_logger.debug(f"Still sleeping, {sleep_seconds - elapsed} seconds remaining before next cycle...")
 
+    _set_cycle_status(app_type, "stopped")
     app_logger.info(f"=== [{app_type.upper()}] Thread stopped ====")
 
 

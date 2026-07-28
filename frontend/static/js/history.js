@@ -39,6 +39,7 @@ const historyModule = {
             historyTable: document.querySelector('.history-table'),
             historyTableBody: document.getElementById('historyTableBody'),
             historyContainer: document.querySelector('.history-container'),
+            historyTableWrapper: document.querySelector('.modern-table-wrapper'),
             
             // Controls
             historySearchInput: document.getElementById('historySearchInput'),
@@ -51,6 +52,7 @@ const historyModule = {
             historyNextPage: document.getElementById('historyNextPage'),
             historyCurrentPage: document.getElementById('historyCurrentPage'),
             historyTotalPages: document.getElementById('historyTotalPages'),
+            historyPagination: document.querySelector('#historySection .pagination-controls'),
 
             // Details dialog
             historyDetailsDialog: document.getElementById('historyDetailsDialog'),
@@ -249,9 +251,7 @@ const historyModule = {
             return;
         }
         
-        // Hide empty state
-        this.elements.historyEmptyState.style.display = 'none';
-        this.elements.historyTable.style.display = 'table';
+        this.showViewState('data');
         
         // Render rows
         data.entries.forEach(entry => {
@@ -377,8 +377,16 @@ const historyModule = {
     
     // Show empty state
     showEmptyState: function() {
-        this.elements.historyTable.style.display = 'none';
-        this.elements.historyEmptyState.style.display = 'flex';
+        this.showViewState('empty');
+    },
+
+    // Keep the table shell, empty message, loader, and pagination mutually exclusive.
+    showViewState: function(state) {
+        this.elements.historyTableWrapper.hidden = state !== 'data';
+        this.elements.historyTable.hidden = state !== 'data';
+        this.elements.historyEmptyState.hidden = state !== 'empty';
+        this.elements.historyLoading.hidden = state !== 'loading';
+        this.elements.historyPagination.hidden = state !== 'data';
     },
     
     // Show error
@@ -396,11 +404,9 @@ const historyModule = {
         this.isLoading = isLoading;
         
         if (isLoading) {
-            this.elements.historyLoading.style.display = 'flex';
-            this.elements.historyTable.style.display = 'none';
-            this.elements.historyEmptyState.style.display = 'none';
+            this.showViewState('loading');
         } else {
-            this.elements.historyLoading.style.display = 'none';
+            this.elements.historyLoading.hidden = true;
         }
     },
     

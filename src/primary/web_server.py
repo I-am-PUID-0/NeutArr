@@ -503,6 +503,11 @@ def handle_app_settings(app_name):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({"success": False, "error": "Settings must be a JSON object"}), 400
+
+        validation_error = settings_manager.validate_instance_names(app_name, data)
+        if validation_error:
+            return jsonify({"success": False, "error": validation_error}), 400
+
         web_logger.debug(f"Received {app_name} settings save request: {data}")
 
         # Clean URLs in the data before saving
@@ -893,6 +898,7 @@ def reset_app_cycle(app_name):
         with open(reset_file, "w") as f:
             f.write(str(int(time.time())))  # Write current timestamp
 
+        background.mark_cycle_reset_requested(app_name)
         web_logger.info(f"Created reset file for {app_name} at {reset_file}")
         success = True
     except Exception as e:
@@ -907,6 +913,12 @@ def reset_app_cycle(app_name):
         return jsonify(
             {"success": False, "error": f"Failed to reset cycle for {app_name}. The app may not be running."}
         ), 500
+
+
+@app.route("/api/cycles", methods=["GET"])
+def api_cycle_status():
+    """Return live state and next-run deadlines for background app cycles."""
+    return jsonify(background.get_cycle_status_snapshot())
 
 
 # Native health endpoint (with legacy /ping alias)

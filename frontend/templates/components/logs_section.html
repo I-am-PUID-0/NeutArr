@@ -1,29 +1,35 @@
 <section id="logsSection" class="content-section">
     <div class="section-header">
-        <!-- Replace Log Tabs with Dropdown -->
-        <div class="log-dropdown-container">
-            <select id="logAppSelect" class="styled-select">
-                <option value="all">All</option>
-                <option value="sonarr">Sonarr</option>
-                <option value="radarr">Radarr</option>
-                <option value="lidarr">Lidarr</option>
-                <option value="readarr">Readarr</option>
-                <option value="whisparr">Whisparr V2</option>
-                <option value="eros">Whisparr V3</option>
-                <option value="swaparr">Swaparr</option>
-                <option value="system">System</option>
-            </select>
+        <div class="section-heading">
+            <span class="section-kicker">Diagnostics</span>
+            <h2>Live logs</h2>
+            <p>Follow service activity in real time and search the current stream.</p>
         </div>
         <div class="log-controls">
+            <div class="log-dropdown-container">
+                <label class="sr-only" for="logAppSelect">Choose a log stream</label>
+                <select id="logAppSelect" class="styled-select">
+                    <option value="all">All</option>
+                    <option value="sonarr">Sonarr</option>
+                    <option value="radarr">Radarr</option>
+                    <option value="lidarr">Lidarr</option>
+                    <option value="readarr">Readarr</option>
+                    <option value="whisparr">Whisparr V2</option>
+                    <option value="eros">Whisparr V3</option>
+                    <option value="swaparr">Swaparr</option>
+                    <option value="system">System</option>
+                </select>
+            </div>
             <!-- Add search functionality -->  
             <div class="log-search">
-                <div class="search-results-info" id="logSearchResults"></div>
-                <input type="text" id="logSearchInput" placeholder="Search logs...">
-                <button id="logSearchButton">
-                    <i class="fas fa-search"></i>
+                <div class="search-results-info" id="logSearchResults" hidden></div>
+                <input type="text" id="logSearchInput" placeholder="Search logs..." aria-label="Search logs">
+                <button id="logSearchButton" type="button" aria-label="Search logs" title="Search logs">
+                    <i class="fas fa-search" aria-hidden="true"></i>
                 </button>
-                <button id="clearSearchButton" class="clear-search-button" style="display: none;">
-                    <i class="fas fa-times"></i>
+                <button id="clearSearchButton" class="clear-search-button" hidden
+                        type="button" aria-label="Clear log search" title="Clear search">
+                    <i class="fas fa-times" aria-hidden="true"></i>
                 </button>
             </div>
             
@@ -36,8 +42,8 @@
                     <input type="checkbox" id="autoScrollCheckbox" checked>
                     <span>Auto-scroll</span>
                 </label>
-                <button id="clearLogsButton" class="clear-button">
-                    <i class="fas fa-trash-alt"></i> Clear
+                <button id="clearLogsButton" class="clear-button" type="button">
+                    <i class="fas fa-trash-alt" aria-hidden="true"></i> Clear
                 </button>
             </div>
         </div>

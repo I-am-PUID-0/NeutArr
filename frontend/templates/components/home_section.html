@@ -68,17 +68,29 @@
             font-size: 0.85em !important; /* Smaller font size */
         }
     </style>
+    <header class="section-intro">
+        <div>
+            <span class="section-kicker">Overview</span>
+            <h2>Automation activity</h2>
+            <p>Monitor connection health, API usage, searches, and upgrades across every configured app.</p>
+        </div>
+    </header>
     <div class="dashboard-grid stack-layout mobile-scrollable">
         <!-- Updated statistics card with new layout -->
         <div class="card stats-card">
             <div class="card-header">
-                <h3>Live Hunts Executed</h3>
-                <button id="reset-stats" class="action-button danger"><i class="fas fa-trash"></i> Reset</button>
+                <div>
+                    <span class="card-eyebrow">Current counters</span>
+                    <h3>Live hunts executed</h3>
+                </div>
+                <button id="reset-stats" class="action-button danger" hidden>
+                    <i class="fas fa-trash" aria-hidden="true"></i> Reset all
+                </button>
             </div>
             <div class="media-stats-container">
-                <div class="app-stats-grid">
+                <div class="app-stats-grid" id="homeAppsGrid">
                     <!-- Sonarr Card -->
-                    <div class="app-stats-card sonarr">
+                    <div class="app-stats-card sonarr" data-app="sonarr" hidden>
                         <div class="status-container">
                             <span id="sonarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -104,13 +116,18 @@
                                 <div class="stat-label">Upgrades Triggered</div>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="sonarr" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="sonarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
                     
                     <!-- Radarr Card -->
-                    <div class="app-stats-card radarr">
+                    <div class="app-stats-card radarr" data-app="radarr" hidden>
                         <div class="status-container">
                             <span id="radarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -136,13 +153,18 @@
                                 <span class="stat-label">Upgrades Triggered</span>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="radarr" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="radarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
                     
                     <!-- Lidarr Card -->
-                    <div class="app-stats-card lidarr">
+                    <div class="app-stats-card lidarr" data-app="lidarr" hidden>
                         <div class="status-container">
                             <span id="lidarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -168,13 +190,18 @@
                                 <span class="stat-label">Upgrades Triggered</span>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="lidarr" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="lidarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
                     
                     <!-- Readarr Card -->
-                    <div class="app-stats-card readarr">
+                    <div class="app-stats-card readarr" data-app="readarr" hidden>
                         <div class="status-container">
                             <span id="readarrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -200,13 +227,18 @@
                                 <span class="stat-label">Upgrades Triggered</span>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="readarr" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="readarr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
                     
                     <!-- Whisparr Card -->
-                    <div class="app-stats-card whisparr">
+                    <div class="app-stats-card whisparr" data-app="whisparr" hidden>
                         <div class="status-container">
                             <span id="whisparrHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -232,13 +264,18 @@
                                 <span class="stat-label">Upgrades Triggered</span>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="whisparr" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="whisparr"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
                     
                     <!-- Eros Card -->
-                    <div class="app-stats-card eros">
+                    <div class="app-stats-card eros" data-app="eros" hidden>
                         <div class="status-container">
                             <span id="erosHomeStatus" class="status-badge loading"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
                         </div>
@@ -264,10 +301,26 @@
                                 <span class="stat-label">Upgrades Triggered</span>
                             </div>
                         </div>
+                        <div class="cycle-countdown" data-cycle-countdown="eros" data-state="loading" role="timer" aria-live="off">
+                            <i class="fas fa-clock" aria-hidden="true"></i>
+                            <span class="cycle-countdown-label">Next cycle</span>
+                            <strong data-cycle-countdown-value>--:--</strong>
+                        </div>
                         <div class="reset-button-container">
                             <button class="cycle-reset-button" data-app="eros"><i class="fas fa-sync-alt"></i> Reset Cycle</button>
                         </div>
                     </div>
+                </div>
+                <div class="dashboard-empty-state" id="homeAppsState" role="status">
+                    <span class="dashboard-empty-icon" aria-hidden="true">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                    <h4 id="homeAppsStateTitle">Loading enabled apps</h4>
+                    <p id="homeAppsStateMessage">Checking your NeutArr configuration.</p>
+                    <a href="#apps" class="dashboard-empty-action">
+                        <i class="fas fa-plug" aria-hidden="true"></i>
+                        Open app integrations
+                    </a>
                 </div>
             </div>
         </div>

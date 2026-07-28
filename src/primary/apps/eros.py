@@ -116,7 +116,7 @@ def is_configured():
         instances = settings.get("instances", [])
 
         for instance in instances:
-            if instance.get("enabled", True):
+            if instance.get("enabled", False):
                 return True
 
         return False
@@ -134,7 +134,7 @@ def get_configured_instances():
 
         enabled_instances = []
         for instance in instances:
-            if not instance.get("enabled", True):
+            if not instance.get("enabled", False):
                 continue
 
             api_url = instance.get("api_url")

@@ -18,11 +18,15 @@ let neutarrUI = {
         whisparr: false, // Added whisparr
         eros: false // Added eros
     },
+    appStatusErrors: new Set(),
     originalSettings: {}, // Store the full original settings object
     settingsChanged: false, // Flag to track unsaved settings changes
     hasUnsavedChanges: false, // Global flag for unsaved changes across all apps
     formChanged: {}, // Track unsaved changes per app
     suppressUnsavedChangesCheck: false, // Flag to suppress unsaved changes dialog
+    cycleStatuses: {},
+    cycleServerOffsetMs: 0,
+    cycleStatusAvailable: false,
     
     // Logo URL
     logoUrl: '/static/logo/256.png',
@@ -37,6 +41,9 @@ let neutarrUI = {
         
         // Set up event listeners
         this.setupEventListeners();
+
+        // Make generated help icons accessible by mouse, touch, and keyboard.
+        this.setupInfoTooltips();
         
         // Setup logo handling to prevent flashing during navigation
         this.setupLogoHandling();
@@ -79,6 +86,9 @@ let neutarrUI = {
         
         // Load media stats
         this.loadMediaStats(); // Load media statistics
+
+        // Track the real next-run deadline published by each background worker.
+        this.setupCycleCountdowns();
         
         // Load current version
         this.loadCurrentVersion(); // Load current version
@@ -128,6 +138,7 @@ let neutarrUI = {
         this.elements.historySection = document.getElementById('historySection');
         this.elements.settingsSection = document.getElementById('settingsSection');
         this.elements.schedulingSection = document.getElementById('schedulingSection');
+        this.elements.mainContent = document.getElementById('mainContent');
         
         // App tabs & Settings Tabs
         this.elements.appTabs = document.querySelectorAll('.app-tab'); // For logs section
@@ -181,6 +192,11 @@ let neutarrUI = {
         
         // Logout
         this.elements.logoutLink = document.getElementById('logoutLink'); // Added logout link
+
+        // Responsive shell
+        this.elements.sidebar = document.getElementById('sidebar');
+        this.elements.navToggle = document.getElementById('navToggle');
+        this.elements.sidebarBackdrop = document.getElementById('sidebarBackdrop');
     },
     
     // Set up event listeners
@@ -188,9 +204,12 @@ let neutarrUI = {
         // Navigation
         document.addEventListener('click', (e) => {
             // Navigation link handling
-            const link = e.target.closest('.nav-item');
+            const link = e.target.closest('.nav-item, .brand-home-link');
             if (link) {
-                this.handleNavigation(e, link);
+                const navigated = this.handleNavigation(e, link);
+                if (navigated !== false && this.sidebarMediaQuery && this.sidebarMediaQuery.matches) {
+                    this.setSidebarOpen(false);
+                }
             }
             
             // Handle cycle reset button clicks
@@ -324,6 +343,31 @@ let neutarrUI = {
         if (this.elements.logoutLink) {
             this.elements.logoutLink.addEventListener('click', (e) => this.logout(e));
         }
+
+        if (this.elements.navToggle) {
+            this.elements.navToggle.addEventListener('click', () => {
+                this.setSidebarOpen(!document.body.classList.contains('sidebar-open'));
+            });
+        }
+
+        if (this.elements.sidebarBackdrop) {
+            this.elements.sidebarBackdrop.addEventListener('click', () => {
+                this.setSidebarOpen(false, true);
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (!document.body.classList.contains('sidebar-open')) return;
+
+            if (event.key === 'Escape') {
+                this.setSidebarOpen(false, true);
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                this.trapSidebarFocus(event);
+            }
+        });
         
         // Dark mode toggle
         const darkModeToggle = document.getElementById('darkModeToggle');
@@ -376,7 +420,10 @@ let neutarrUI = {
             settingsFormContainer.addEventListener('input', (event) => {
                 if (event.target.closest('.app-settings-panel.active')) {
                     // Check if the target is an input, select, or textarea within the active panel
-                    if (event.target.matches('input, select, textarea')) {
+                    if (
+                        event.target.matches('input, select, textarea') &&
+                        event.target.dataset.localPreference !== 'true'
+                    ) {
                         this.markSettingsAsChanged(); // Use the new function
                     }
                 }
@@ -384,7 +431,10 @@ let neutarrUI = {
              settingsFormContainer.addEventListener('change', (event) => {
                  if (event.target.closest('.app-settings-panel.active')) {
                     // Handle changes for checkboxes and selects that use 'change' event
-                    if (event.target.matches('input[type="checkbox"], select')) {
+                    if (
+                        event.target.matches('input[type="checkbox"], select') &&
+                        event.target.dataset.localPreference !== 'true'
+                    ) {
                          this.markSettingsAsChanged(); // Use the new function
                     }
                  }
@@ -407,6 +457,7 @@ let neutarrUI = {
         // Initial setup based on hash or default to home
         const initialHash = window.location.hash || '#home';
         this.handleHashNavigation(initialHash);
+        this.setupResponsiveSidebar();
 
         // LOGS: Listen for change on #logAppSelect
         const logAppSelect = document.getElementById('logAppSelect');
@@ -425,7 +476,199 @@ let neutarrUI = {
             });
         }
     },
+
+    setupInfoTooltips: function() {
+        const tooltip = document.createElement('div');
+        tooltip.id = 'infoTooltip';
+        tooltip.className = 'info-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+        this.elements.infoTooltip = tooltip;
+
+        const enhanceIcon = (icon) => {
+            if (icon.dataset.tooltipReady === 'true') return;
+
+            const tooltipText = icon.getAttribute('title')?.trim();
+            if (!tooltipText) return;
+
+            icon.dataset.tooltipReady = 'true';
+            icon.dataset.tooltipText = tooltipText;
+            icon.removeAttribute('title');
+            icon.setAttribute('role', 'button');
+            icon.setAttribute('tabindex', '0');
+            icon.setAttribute('aria-label', `More information: ${tooltipText}`);
+            icon.setAttribute('aria-expanded', 'false');
+
+            icon.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.toggleInfoTooltip(icon);
+            });
+
+            icon.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.toggleInfoTooltip(icon);
+                } else if (event.key === 'Escape' && this.activeInfoIcon === icon) {
+                    event.preventDefault();
+                    this.closeInfoTooltip(true);
+                }
+            });
+        };
+
+        const enhanceIcons = (root) => {
+            if (root.matches?.('.info-icon[title]')) enhanceIcon(root);
+            root.querySelectorAll?.('.info-icon[title]').forEach(enhanceIcon);
+        };
+
+        enhanceIcons(document);
+
+        this.infoTooltipObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) enhanceIcons(node);
+                });
+            });
+        });
+        this.infoTooltipObserver.observe(document.body, { childList: true, subtree: true });
+
+        document.addEventListener('pointerdown', (event) => {
+            if (
+                this.activeInfoIcon &&
+                !event.target.closest('.info-icon') &&
+                !event.target.closest('#infoTooltip')
+            ) {
+                this.closeInfoTooltip();
+            }
+        });
+
+        window.addEventListener('resize', () => this.closeInfoTooltip());
+        this.elements.mainContent?.addEventListener('scroll', () => this.closeInfoTooltip());
+    },
+
+    toggleInfoTooltip: function(icon) {
+        if (this.activeInfoIcon === icon && !this.elements.infoTooltip.hidden) {
+            this.closeInfoTooltip();
+            return;
+        }
+
+        this.closeInfoTooltip();
+        const tooltip = this.elements.infoTooltip;
+        tooltip.textContent = icon.dataset.tooltipText;
+        tooltip.hidden = false;
+        icon.setAttribute('aria-expanded', 'true');
+        icon.setAttribute('aria-describedby', tooltip.id);
+        this.activeInfoIcon = icon;
+        this.positionInfoTooltip(icon);
+    },
+
+    positionInfoTooltip: function(icon) {
+        const tooltip = this.elements.infoTooltip;
+        const iconRect = icon.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportPadding = 12;
+        const preferredLeft = iconRect.left + (iconRect.width - tooltipRect.width) / 2;
+        const left = Math.min(
+            Math.max(viewportPadding, preferredLeft),
+            window.innerWidth - tooltipRect.width - viewportPadding
+        );
+        let top = iconRect.bottom + 8;
+
+        if (top + tooltipRect.height > window.innerHeight - viewportPadding) {
+            top = iconRect.top - tooltipRect.height - 8;
+        }
+
+        tooltip.style.left = `${Math.round(left)}px`;
+        tooltip.style.top = `${Math.max(viewportPadding, Math.round(top))}px`;
+    },
+
+    closeInfoTooltip: function(restoreFocus = false) {
+        if (!this.activeInfoIcon || !this.elements.infoTooltip) return;
+
+        const icon = this.activeInfoIcon;
+        icon.setAttribute('aria-expanded', 'false');
+        icon.removeAttribute('aria-describedby');
+        this.elements.infoTooltip.hidden = true;
+        this.elements.infoTooltip.textContent = '';
+        this.activeInfoIcon = null;
+
+        if (restoreFocus) icon.focus();
+    },
     
+    setupResponsiveSidebar: function() {
+        if (!this.elements.sidebar || !this.elements.navToggle) return;
+
+        this.sidebarMediaQuery = window.matchMedia('(max-width: 900px)');
+        const syncSidebar = () => {
+            document.body.classList.remove('sidebar-open');
+            this.elements.navToggle.setAttribute('aria-expanded', 'false');
+            this.elements.navToggle.setAttribute('aria-label', 'Open navigation');
+
+            if (this.sidebarMediaQuery.matches) {
+                this.elements.sidebar.inert = true;
+                this.elements.sidebar.setAttribute('aria-hidden', 'true');
+            } else {
+                this.elements.sidebar.inert = false;
+                this.elements.sidebar.removeAttribute('aria-hidden');
+            }
+        };
+
+        if (typeof this.sidebarMediaQuery.addEventListener === 'function') {
+            this.sidebarMediaQuery.addEventListener('change', syncSidebar);
+        } else {
+            this.sidebarMediaQuery.addListener(syncSidebar);
+        }
+        syncSidebar();
+    },
+
+    setSidebarOpen: function(open, restoreFocus = false) {
+        if (!this.elements.sidebar || !this.elements.navToggle) return;
+
+        const isMobile = this.sidebarMediaQuery ? this.sidebarMediaQuery.matches : false;
+        const shouldOpen = Boolean(open && isMobile);
+        document.body.classList.toggle('sidebar-open', shouldOpen);
+        this.elements.navToggle.setAttribute('aria-expanded', String(shouldOpen));
+        this.elements.navToggle.setAttribute(
+            'aria-label',
+            shouldOpen ? 'Close navigation' : 'Open navigation'
+        );
+        this.elements.sidebar.inert = !shouldOpen && isMobile;
+
+        if (shouldOpen) {
+            this.elements.sidebar.removeAttribute('aria-hidden');
+            window.requestAnimationFrame(() => {
+                const firstLink = this.elements.sidebar.querySelector('.nav-item');
+                if (firstLink) firstLink.focus();
+            });
+        } else if (isMobile) {
+            this.elements.sidebar.setAttribute('aria-hidden', 'true');
+            if (restoreFocus) this.elements.navToggle.focus();
+        }
+    },
+
+    trapSidebarFocus: function(event) {
+        if (!this.elements.sidebar) return;
+
+        const focusable = Array.from(
+            this.elements.sidebar.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'
+            )
+        );
+        if (!focusable.length) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    },
+
     // Setup logo handling to prevent flashing during navigation
     setupLogoHandling: function() {
         // Get the logo image
@@ -459,13 +702,13 @@ let neutarrUI = {
         
         // Allow links with target="_blank" to open in a new window (return early)
         if (target === '_blank') {
-            return; // Let the default click behavior happen
+            return true; // Let the default click behavior happen
         }
         
         // For all other links, prevent default behavior and handle internally
         e.preventDefault();
 
-        if (!href) return; // Exit if no href
+        if (!href) return false; // Exit if no href
 
         let targetSection = null;
         let isInternalLink = href.startsWith('#');
@@ -483,7 +726,7 @@ let neutarrUI = {
             const hasRealChanges = this.hasFormChanges(this.currentSettingsTab);
             
             if (hasRealChanges && !confirm('You have unsaved changes. Are you sure you want to leave? Changes will be lost.')) {
-                return; // Stop navigation if user cancels
+                return false; // Stop navigation if user cancels
             }
             
             // User confirmed or no real changes, reset flag before navigating
@@ -513,6 +756,7 @@ let neutarrUI = {
             // If it's an external link (like /user), just navigate normally
             window.location.href = href;
         }
+        return true;
     },
     
     handleHashNavigation: function(hash) {
@@ -692,6 +936,13 @@ let neutarrUI = {
             activeNavItem.setAttribute('aria-current', 'page');
         }
         document.title = `${newTitle} · NeutArr`;
+
+        // Each primary section is its own page-level view. Avoid carrying the
+        // previous section's scroll position into the newly selected view.
+        if (this.elements.mainContent) {
+            this.elements.mainContent.scrollTop = 0;
+            this.elements.mainContent.scrollLeft = 0;
+        }
     },
     
     // App tab switching
@@ -1023,7 +1274,7 @@ let neutarrUI = {
         
         // Show clear search button when searching
         if (this.elements.clearSearchButton) {
-            this.elements.clearSearchButton.style.display = 'block';
+            this.elements.clearSearchButton.hidden = false;
         }
         
         // Filter log entries based on search text - with performance optimization
@@ -1071,7 +1322,7 @@ let neutarrUI = {
                 resultsText += ` (highlighting limited to first ${MAX_ENTRIES_TO_PROCESS})`;
             }
             this.elements.logSearchResults.textContent = resultsText;
-            this.elements.logSearchResults.style.display = 'block';
+            this.elements.logSearchResults.hidden = false;
         }
         
         // Disable auto-scroll when searching
@@ -1138,12 +1389,12 @@ let neutarrUI = {
         
         // Hide clear search button
         if (this.elements.clearSearchButton) {
-            this.elements.clearSearchButton.style.display = 'none';
+            this.elements.clearSearchButton.hidden = true;
         }
         
         // Hide search results info
         if (this.elements.logSearchResults) {
-            this.elements.logSearchResults.style.display = 'none';
+            this.elements.logSearchResults.hidden = true;
         }
         
         // Show all log entries - use a more efficient approach
@@ -1244,6 +1495,23 @@ let neutarrUI = {
     saveSettings: function() {
         const app = this.currentSettingsTab;
         console.log(`[neutarrUI] saveSettings called for app: ${app}`);
+
+        const settingsForm = document.getElementById(`${app}Settings`);
+        if (
+            app !== 'general' &&
+            app !== 'swaparr' &&
+            settingsForm &&
+            typeof SettingsForms !== 'undefined' &&
+            !SettingsForms.validateInstanceNames(settingsForm)
+        ) {
+            this.settingsChanged = true;
+            this.updateSaveResetButtonState(true);
+            this.showNotification(
+                'Choose a descriptive instance name before configuring or enabling the placeholder.',
+                'error'
+            );
+            return;
+        }
         
         // Clear the unsaved changes flag BEFORE sending the request
         // This prevents the "unsaved changes" dialog from appearing
@@ -1467,7 +1735,7 @@ let neutarrUI = {
                         name: nameInput && nameInput.value.trim() !== '' ? nameInput.value.trim() : `Instance ${index + 1}`,
                         api_url: this.cleanUrlString(urlInput.value),
                         // Default to true if toggle doesn't exist or is checked
-                        enabled: enabledInput ? enabledInput.checked : true
+                        enabled: enabledInput ? enabledInput.checked : false
                     });
                 }
             });
@@ -1488,7 +1756,7 @@ let neutarrUI = {
                      api_url: this.cleanUrlString(urlInput.value),
                      api_key: keyInput.value.trim(),
                      // Default to true if toggle doesn't exist or is checked
-                     enabled: enabledInput ? enabledInput.checked : true
+                     enabled: enabledInput ? enabledInput.checked : false
                  });
             }
         }
@@ -1521,6 +1789,10 @@ let neutarrUI = {
         }
 
         allInputs.forEach(input => {
+            if (input.dataset.localPreference === 'true') {
+                return;
+            }
+
             // Handle special case for Whisparr version
             if (input.id === 'whisparr_version') {
                 if (app === 'whisparr') {
@@ -1605,7 +1877,7 @@ let neutarrUI = {
             name: `Instance ${currentSettings.instances.length + 1}`,
             api_url: '',
             api_key: '',
-            enabled: true
+            enabled: false
         });
         
         // Regenerate form with new instance
@@ -1767,29 +2039,86 @@ let neutarrUI = {
     
     // App connections
     checkAppConnections: function() {
-        this.checkAppConnection('sonarr');
-        this.checkAppConnection('radarr');
-        this.checkAppConnection('lidarr');
-        this.checkAppConnection('readarr'); // Added readarr
-        this.checkAppConnection('whisparr'); // Added whisparr
-        this.checkAppConnection('eros'); // Enable actual Eros API check
+        const apps = Object.keys(this.configuredApps);
+        this.appStatusErrors.clear();
+        this.updateHomeAppsState(true);
+
+        return Promise.allSettled(apps.map(app => this.checkAppConnection(app)))
+            .then(() => this.updateHomeAppsState(false));
     },
     
     checkAppConnection: function(app) {
-        NeutArrUtils.fetchWithTimeout(`/api/status/${app}`)
+        return NeutArrUtils.fetchWithTimeout(`/api/status/${app}`)
             .then(response => response.json())
             .then(data => {
                 // Pass the whole data object for all apps
-                this.updateConnectionStatus(app, data); 
-
-                // Still update the configuredApps flag for potential other uses, but after updating status
-                this.configuredApps[app] = data.configured === true; // Ensure it's a boolean
+                this.configuredApps[app] = this.updateConnectionStatus(app, data);
             })
             .catch(error => {
                 console.error(`Error checking ${app} connection:`, error);
-                // Pass a default 'not configured' status object on error
-                this.updateConnectionStatus(app, { configured: false, connected: false }); 
+                this.appStatusErrors.add(app);
+                this.configuredApps[app] = false;
+                this.updateConnectionStatus(app, { configured: false, connected: false });
             });
+    },
+
+    updateHomeAppsState: function(isLoading = false) {
+        const grid = document.getElementById('homeAppsGrid')
+            || document.querySelector('#homeSection .app-stats-grid');
+        let state = document.getElementById('homeAppsState');
+        const resetButton = document.getElementById('reset-stats');
+        if (!grid) return;
+
+        // Keep live development and rolling deployments usable if JavaScript
+        // refreshes before the server-rendered template cache does.
+        if (!state) {
+            const statsContainer = grid.closest('.media-stats-container');
+            if (statsContainer) {
+                statsContainer.insertAdjacentHTML(
+                    'beforeend',
+                    `
+                        <div class="dashboard-empty-state" id="homeAppsState" role="status">
+                            <span class="dashboard-empty-icon" aria-hidden="true"></span>
+                            <h4 id="homeAppsStateTitle"></h4>
+                            <p id="homeAppsStateMessage"></p>
+                            <a href="#apps" class="dashboard-empty-action">
+                                <i class="fas fa-plug" aria-hidden="true"></i>
+                                Open app integrations
+                            </a>
+                        </div>
+                    `
+                );
+                state = document.getElementById('homeAppsState');
+            }
+        }
+
+        const configuredCount = Object.values(this.configuredApps).filter(Boolean).length;
+        const allChecksFailed = this.appStatusErrors.size === Object.keys(this.configuredApps).length;
+
+        grid.hidden = configuredCount === 0;
+        if (resetButton) resetButton.hidden = configuredCount === 0;
+        if (!state) return;
+        state.hidden = configuredCount > 0;
+
+        if (configuredCount > 0) return;
+
+        const icon = state.querySelector('.dashboard-empty-icon');
+        const title = document.getElementById('homeAppsStateTitle');
+        const message = document.getElementById('homeAppsStateMessage');
+
+        if (isLoading) {
+            if (icon) icon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            if (title) title.textContent = 'Loading enabled apps';
+            if (message) message.textContent = 'Checking your NeutArr configuration.';
+        } else if (allChecksFailed) {
+            if (icon) icon.innerHTML = '<i class="fas fa-triangle-exclamation"></i>';
+            if (title) title.textContent = 'App status is unavailable';
+            if (message) message.textContent = 'NeutArr could not load the enabled app list. Refresh to try again.';
+        } else {
+            if (icon) icon.innerHTML = '<i class="fas fa-plug-circle-plus"></i>';
+            if (title) title.textContent = 'No apps enabled';
+            if (message) message.textContent = 'Enable and configure an app to begin tracking automation activity.';
+        }
     },
     
     updateConnectionStatus: function(app, statusData) {
@@ -1822,17 +2151,17 @@ let neutarrUI = {
             isConnected = isConfigured && connectedCount > 0; 
         }
 
-        // --- Visibility Logic --- 
-        if (isConfigured) {
-            // Ensure the box is visible
-            if (appBox) appBox.style.display = ''; 
-        } else {
-            // Not configured - HIDE the box
-            if (appBox) appBox.style.display = 'none';
+        // Keep disabled or incomplete integrations out of the activity dashboard.
+        if (appBox) {
+            appBox.hidden = !isConfigured;
+            appBox.style.removeProperty('display');
+        }
+
+        if (!isConfigured) {
             // Update badge even if hidden (optional, but good practice)
             statusElement.className = 'status-badge not-configured';
             statusElement.innerHTML = '<i class="fas fa-times-circle"></i> Not Configured';
-            return; // No need to update badge further if not configured
+            return false;
         }
 
         // --- Badge Update Logic (only runs if configured) ---
@@ -1850,6 +2179,8 @@ let neutarrUI = {
                 statusElement.innerHTML = '<i class="fas fa-times-circle"></i> Not Connected';
             }
         }
+
+        return true;
     },
     
     // User actions
@@ -2004,6 +2335,94 @@ let neutarrUI = {
                 console.error('Error fetching statistics:', error);
             });
     },
+
+    setupCycleCountdowns: function() {
+        this.loadCycleStatuses();
+        window.setInterval(() => this.renderCycleCountdowns(), 1000);
+        window.setInterval(() => this.loadCycleStatuses(), 30000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.loadCycleStatuses();
+            }
+        });
+    },
+
+    loadCycleStatuses: function() {
+        return NeutArrUtils.fetchWithTimeout('/api/cycles')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Cycle status request failed with ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data || typeof data.server_time !== 'number' || typeof data.cycles !== 'object') {
+                    throw new Error('Cycle status response was invalid');
+                }
+
+                this.cycleStatuses = data.cycles;
+                this.cycleServerOffsetMs = (data.server_time * 1000) - Date.now();
+                this.cycleStatusAvailable = true;
+                this.renderCycleCountdowns();
+            })
+            .catch(error => {
+                console.error('Error fetching cycle status:', error);
+                this.cycleStatusAvailable = false;
+                this.renderCycleCountdowns();
+            });
+    },
+
+    formatCycleCountdown: function(totalSeconds) {
+        const seconds = Math.max(0, Math.ceil(totalSeconds));
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const remainder = seconds % 60;
+
+        if (hours > 0) {
+            return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        }
+        return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+    },
+
+    renderCycleCountdowns: function() {
+        const serverNow = (Date.now() + this.cycleServerOffsetMs) / 1000;
+
+        document.querySelectorAll('[data-cycle-countdown]').forEach(element => {
+            const app = element.dataset.cycleCountdown;
+            const status = this.cycleStatuses[app];
+            const label = element.querySelector('.cycle-countdown-label');
+            const value = element.querySelector('[data-cycle-countdown-value]');
+
+            if (!label || !value) return;
+
+            if (!this.cycleStatusAvailable || !status) {
+                element.dataset.state = 'unavailable';
+                label.textContent = 'Next cycle';
+                value.textContent = 'Unavailable';
+                return;
+            }
+
+            element.dataset.state = status.state || 'unavailable';
+            if ((status.state === 'waiting' || status.state === 'retrying')
+                && typeof status.next_cycle_at === 'number') {
+                const remaining = Math.max(0, status.next_cycle_at - serverNow);
+                label.textContent = status.state === 'retrying' ? 'Next retry' : 'Next cycle';
+                value.textContent = remaining > 0 ? this.formatCycleCountdown(remaining) : 'Starting…';
+                return;
+            }
+
+            const stateCopy = {
+                running: ['Cycle', 'Running'],
+                starting: ['Cycle', 'Starting…'],
+                reset_pending: ['Cycle', 'Reset requested'],
+                error: ['Cycle', 'Unavailable'],
+                stopped: ['Cycle', 'Stopped'],
+            };
+            const copy = stateCopy[status.state] || ['Next cycle', 'Unavailable'];
+            label.textContent = copy[0];
+            value.textContent = copy[1];
+        });
+    },
     
     updateStatsDisplay: function(stats) {
         // Update each app's statistics
@@ -2149,10 +2568,12 @@ let neutarrUI = {
                 return response.text();
             })
             .then(version => {
+                const currentVersion = version.trim();
                 const versionElement = document.getElementById('version-value');
                 if (versionElement) {
-                    versionElement.textContent = version.trim();
+                    versionElement.textContent = currentVersion;
                 }
+                this.updateVersionReleaseLink(currentVersion);
             })
             .catch(error => {
                 console.error('Error loading current version:', error);
@@ -2160,7 +2581,30 @@ let neutarrUI = {
                 if (versionElement) {
                     versionElement.textContent = 'Error';
                 }
+                this.updateVersionReleaseLink('');
             });
+    },
+
+    updateVersionReleaseLink: function(version) {
+        const releaseLink = document.getElementById('versionReleaseLink');
+        if (!releaseLink) return;
+
+        const repositoryReleases = 'https://github.com/I-am-PUID-0/NeutArr/releases';
+        const normalizedVersion = version.replace(/^v(?=\d)/, '');
+        const isStableRelease = /^\d+\.\d+\.\d+$/.test(normalizedVersion);
+
+        releaseLink.href = isStableRelease
+            ? `${repositoryReleases}/tag/${encodeURIComponent(normalizedVersion)}`
+            : repositoryReleases;
+        releaseLink.setAttribute(
+            'aria-label',
+            isStableRelease
+                ? `View NeutArr ${normalizedVersion} release on GitHub`
+                : 'View NeutArr releases on GitHub'
+        );
+        releaseLink.title = isStableRelease
+            ? `View NeutArr ${normalizedVersion} on GitHub`
+            : 'View NeutArr releases on GitHub';
     },
 
     // Load latest version from GitHub releases (disabled - upstream repo removed)
@@ -2820,6 +3264,7 @@ let neutarrUI = {
             if (data.success) {
                 // Show success notification
                 this.showNotification(`${app.charAt(0).toUpperCase() + app.slice(1)} cycle reset triggered successfully`, 'success');
+                this.loadCycleStatuses();
             } else {
                 // Show error notification
                 this.showNotification(`Error: ${data.error || 'Failed to reset cycle'}`, 'error');

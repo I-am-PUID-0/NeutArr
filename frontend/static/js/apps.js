@@ -519,6 +519,20 @@ const appsModule = {
     // Helper function to save settings for a specific app
     saveAppSettings: function(appType, appPanel) {
         console.log(`Saving settings for ${appType}`);
+
+        if (
+            appType !== 'general' &&
+            appType !== 'swaparr' &&
+            !SettingsForms.validateInstanceNames(appPanel)
+        ) {
+            if (typeof neutarrUI !== 'undefined' && typeof neutarrUI.showNotification === 'function') {
+                neutarrUI.showNotification(
+                    'Choose a descriptive instance name before configuring or enabling the placeholder.',
+                    'error'
+                );
+            }
+            return;
+        }
         
         // For Whisparr, ensure we indicate we're working with V2
         let apiVersion = "";

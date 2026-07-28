@@ -1,10 +1,14 @@
 <section id="settingsSection" class="content-section">
     <div class="section-header">
-        <h2>Settings</h2>
+        <div class="section-heading">
+            <span class="section-kicker">NeutArr</span>
+            <h2>Settings</h2>
+            <p>Manage application behavior, security, account access, and runtime preferences.</p>
+        </div>
         
         <div class="settings-actions">
             <button id="saveSettingsButton" class="save-button" disabled>
-                <i class="fas fa-save"></i> Save
+                <i class="fas fa-save" aria-hidden="true"></i> Save changes
             </button>
         </div>
     </div>
@@ -31,7 +35,9 @@
                     <input type="password" id="currentPasswordForUsernameChange" class="form-control">
                 </div>
                 <div class="settings-account-actions">
-                    <button id="saveUsername" class="action-button primary-button">Save Username</button>
+                    <div class="settings-account-action-buttons">
+                        <button id="saveUsername" class="action-button primary-button">Save Username</button>
+                    </div>
                 </div>
                 <div id="usernameStatus" class="status-message" style="display: none;"></div>
             </div>
@@ -51,7 +57,9 @@
                     <input type="password" id="confirmPassword" class="form-control">
                 </div>
                 <div class="settings-account-actions">
-                    <button id="savePassword" class="action-button primary-button">Save Password</button>
+                    <div class="settings-account-action-buttons">
+                        <button id="savePassword" class="action-button primary-button">Save Password</button>
+                    </div>
                 </div>
                 <div id="passwordStatus" class="status-message" style="display: none;"></div>
             </div>
@@ -62,19 +70,30 @@
                     <label for="apiKeyDisplay">API Key:</label>
                     <div class="settings-account-inline-controls">
                         <input type="password" id="apiKeyDisplay" class="form-control" readonly placeholder="Loading...">
-                        <button id="toggleApiKey" class="action-button secondary-button">
-                            <i class="fas fa-eye"></i> Show
+                        <button
+                            type="button"
+                            id="toggleApiKey"
+                            class="action-button secondary-button api-key-visibility-button"
+                            aria-controls="apiKeyDisplay"
+                            aria-pressed="false"
+                            aria-label="Show API key"
+                            title="Show API key"
+                        >
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                            <span class="api-key-visibility-label">Show</span>
                         </button>
                     </div>
                     <p class="setting-help settings-account-help">Send only as an <code>X-Api-Key</code> request header. URL query parameters are rejected to prevent credential leakage.</p>
                 </div>
                 <div class="settings-account-actions">
-                    <button id="copyApiKey" class="action-button secondary-button">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
-                    <button id="rotateApiKey" class="action-button danger-button">
-                        <i class="fas fa-sync-alt"></i> Rotate Key
-                    </button>
+                    <div class="settings-account-action-buttons">
+                        <button id="copyApiKey" class="action-button secondary-button">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                        <button id="rotateApiKey" class="action-button danger-button">
+                            <i class="fas fa-sync-alt"></i> Rotate Key
+                        </button>
+                    </div>
                 </div>
                 <div id="apiKeyStatus" class="status-message" style="display: none;"></div>
             </div>
@@ -99,6 +118,9 @@
         gap: 6px;
         border: none;
         transition: all 0.2s ease;
+        flex: 0 0 auto;
+        width: auto;
+        max-width: 100%;
     }
 
     #accountSettingsPanel .primary-button {
@@ -146,10 +168,13 @@
         display: flex;
         gap: 8px;
         align-items: center;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        width: min(100%, 620px);
     }
 
     .settings-account-inline-controls .form-control {
+        min-width: 0;
+        flex: 1 1 auto;
         font-family: monospace;
     }
 
@@ -177,10 +202,18 @@
     }
 
     .settings-account-actions {
-        margin: -4px 0 0 215px;
+        display: grid;
+        grid-template-columns: minmax(180px, 0.55fr) minmax(240px, 1fr);
+        column-gap: 24px;
+        margin: 10px 0 0;
+    }
+
+    .settings-account-action-buttons {
+        grid-column: 2;
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        width: min(100%, 620px);
     }
 
     #accountSettingsPanel .status-message {
@@ -233,8 +266,14 @@
         }
 
         .settings-account-actions {
+            grid-template-columns: 1fr;
             margin-left: 0;
+        }
+
+        .settings-account-action-buttons {
+            grid-column: 1;
             flex-direction: column;
+            width: 100%;
         }
 
         #accountSettingsPanel .action-button {

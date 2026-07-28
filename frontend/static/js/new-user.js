@@ -35,10 +35,19 @@
                 const display = document.getElementById('apiKeyDisplay');
                 if (!display) return;
                 const isVisible = display.type === 'text';
-                display.type = isVisible ? 'password' : 'text';
-                this.innerHTML = isVisible
-                    ? '<i class="fas fa-eye"></i> Show'
-                    : '<i class="fas fa-eye-slash"></i> Hide';
+                const willShow = !isVisible;
+                const icon = this.querySelector('i');
+                const label = this.querySelector('.api-key-visibility-label');
+                display.type = willShow ? 'text' : 'password';
+                if (icon) {
+                    icon.className = willShow ? 'fas fa-eye-slash' : 'fas fa-eye';
+                }
+                if (label) {
+                    label.textContent = willShow ? 'Hide' : 'Show';
+                }
+                this.setAttribute('aria-pressed', String(willShow));
+                this.setAttribute('aria-label', willShow ? 'Hide API key' : 'Show API key');
+                this.title = willShow ? 'Hide API key' : 'Show API key';
             });
         }
 

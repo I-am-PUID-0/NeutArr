@@ -47,7 +47,9 @@ class FrontendSecurityTests(unittest.TestCase):
         self.assertNotIn("value=\"${instance.name || ''}\"", source)
         self.assertNotIn("value=\"${instance.api_url || ''}\"", source)
         self.assertNotIn("value=\"${instance.api_key || ''}\"", source)
-        self.assertEqual(source.count("SettingsForms.escapeHtml(instance.name"), 12)
+        self.assertEqual(source.count("SettingsForms.escapeHtml(instance.name"), 6)
+        self.assertEqual(source.count("SettingsForms.generateInstanceIdentity(index, instance.name)"), 6)
+        self.assertIn("SettingsForms.escapeHtml(displayName)", source)
         self.assertEqual(source.count("SettingsForms.escapeHtml(instance.api_url"), 6)
         self.assertEqual(source.count("SettingsForms.escapeHtml(instance.api_key"), 6)
         self.assertIn(

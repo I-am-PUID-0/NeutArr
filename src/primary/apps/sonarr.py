@@ -141,7 +141,7 @@ def is_configured():
     # Check if instances are configured
     if "instances" in settings and isinstance(settings["instances"], list) and settings["instances"]:
         for instance in settings["instances"]:
-            if instance.get("enabled", True) and instance.get("api_url") and instance.get("api_key"):
+            if instance.get("enabled", False) and instance.get("api_url") and instance.get("api_key"):
                 sonarr_logger.debug(f"Found configured Sonarr instance: {instance.get('name', 'Unnamed')}")
                 return True
 

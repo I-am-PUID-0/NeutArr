@@ -1,13 +1,118 @@
 (function() {
     // Store logo URL consistently across the app - use local path instead of GitHub
     const LOGO_URL = '/static/logo/256.png';
+    const THEME_STORAGE_KEY = 'neutarr-appearance-theme';
+    const DENSITY_STORAGE_KEY = 'neutarr-appearance-density';
+    const DEFAULT_THEME = 'midnight';
+    const DEFAULT_DENSITY = 'comfortable';
+    const themes = {
+        midnight: {
+            label: 'Midnight Indigo',
+            canvas: '#080d18',
+            sidebar: '#0b1120',
+            surface: '#111827'
+        },
+        graphite: {
+            label: 'Graphite',
+            canvas: '#0d0f12',
+            sidebar: '#101216',
+            surface: '#171a20'
+        },
+        ocean: {
+            label: 'Deep Ocean',
+            canvas: '#06121a',
+            sidebar: '#071722',
+            surface: '#0d202c'
+        },
+        nordic: {
+            label: 'Nordic Frost',
+            canvas: '#0b1118',
+            sidebar: '#0d151e',
+            surface: '#16212d'
+        },
+        forest: {
+            label: 'Evergreen',
+            canvas: '#07130f',
+            sidebar: '#081710',
+            surface: '#0e2118'
+        },
+        amethyst: {
+            label: 'Amethyst',
+            canvas: '#120a1c',
+            sidebar: '#140b20',
+            surface: '#21112f'
+        },
+        rosewood: {
+            label: 'Rosewood',
+            canvas: '#170b11',
+            sidebar: '#190c13',
+            surface: '#28131d'
+        },
+        ember: {
+            label: 'Ember',
+            canvas: '#160c0b',
+            sidebar: '#190e0d',
+            surface: '#261513'
+        },
+        golden: {
+            label: 'Golden Hour',
+            canvas: '#151006',
+            sidebar: '#171208',
+            surface: '#251d0d'
+        },
+        neon: {
+            label: 'Neon Noir',
+            canvas: '#090819',
+            sidebar: '#0c0a1e',
+            surface: '#17132e'
+        }
+    };
+    const densities = new Set(['comfortable', 'compact']);
+
+    const normalizeTheme = (value) => Object.prototype.hasOwnProperty.call(themes, value) ? value : DEFAULT_THEME;
+    const normalizeDensity = (value) => densities.has(value) ? value : DEFAULT_DENSITY;
+
+    const applyAppearance = (theme, density, persist = true) => {
+        const selectedTheme = normalizeTheme(theme);
+        const selectedDensity = normalizeDensity(density);
+
+        document.documentElement.dataset.neutarrTheme = selectedTheme;
+        document.documentElement.dataset.neutarrDensity = selectedDensity;
+        document.documentElement.classList.add('dark-theme');
+
+        if (document.body) {
+            document.body.classList.add('dark-theme');
+        }
+
+        if (persist) {
+            localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
+            localStorage.setItem(DENSITY_STORAGE_KEY, selectedDensity);
+        }
+
+        return { theme: selectedTheme, density: selectedDensity };
+    };
+
+    const getAppearance = () => ({
+        theme: normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY)),
+        density: normalizeDensity(localStorage.getItem(DENSITY_STORAGE_KEY))
+    });
+
+    window.NeutArrAppearance = {
+        themes,
+        densities: Array.from(densities),
+        apply: applyAppearance,
+        get: getAppearance
+    };
+
+    const appearance = getAppearance();
+    const activePalette = themes[appearance.theme];
+    applyAppearance(appearance.theme, appearance.density, false);
     
     // Create and preload image with local path
     const preloadImg = new Image();
     preloadImg.src = LOGO_URL;
     
-    // Always enforce dark theme
-    document.documentElement.classList.add('dark-theme');
+    // Retain the legacy dark-mode preference for older pages.
     localStorage.setItem('neutarr-dark-mode', 'true');
     
     // Add inline style to immediately set background color
@@ -15,20 +120,20 @@
     const style = document.createElement('style');
     style.textContent = `
         body, html { 
-            background-color: #1a1d24 !important; 
+            background-color: ${activePalette.canvas} !important;
             color: #f8f9fa !important;
         }
         .sidebar {
-            background-color: #121212 !important;
+            background-color: ${activePalette.sidebar} !important;
         }
         .top-bar {
-            background-color: #252a34 !important;
+            background-color: ${activePalette.surface} !important;
         }
         .login-container {
-            background-color: #252a34 !important;
+            background-color: ${activePalette.surface} !important;
         }
         .login-header {
-            background-color: #121212 !important;
+            background-color: ${activePalette.sidebar} !important;
         }
     `;
     document.head.appendChild(style);

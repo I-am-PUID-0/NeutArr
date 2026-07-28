@@ -287,7 +287,7 @@ def _set_enabled(config_data: Dict[str, Any], enabled: bool, instance_index: Opt
             raise ValueError(f"Invalid instance entry at index: {instance_index}")
         instance["enabled"] = enabled
         config_data["enabled"] = any(
-            isinstance(candidate, dict) and candidate.get("enabled", True) for candidate in instances
+            isinstance(candidate, dict) and candidate.get("enabled", False) for candidate in instances
         )
         return
 

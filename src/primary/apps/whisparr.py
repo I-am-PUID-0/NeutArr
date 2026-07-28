@@ -8,7 +8,7 @@ def is_configured():
     """Check if Whisparr API credentials are configured"""
     try:
         instances = load_settings("whisparr").get("instances", [])
-        return any(inst.get("enabled", True) and inst.get("api_url") and inst.get("api_key") for inst in instances)
+        return any(inst.get("enabled", False) and inst.get("api_url") and inst.get("api_key") for inst in instances)
     except Exception as e:
         whisparr_logger.error(f"Error checking if Whisparr is configured: {str(e)}")
         return False
@@ -21,7 +21,7 @@ def get_configured_instances():
 
         enabled_instances = []
         for instance in instances:
-            if not instance.get("enabled", True):
+            if not instance.get("enabled", False):
                 continue
 
             api_url = instance.get("api_url")

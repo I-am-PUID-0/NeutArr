@@ -129,7 +129,7 @@ def is_configured():
     # Check if instances are configured
     if "instances" in settings and isinstance(settings["instances"], list) and settings["instances"]:
         for instance in settings["instances"]:
-            if instance.get("enabled", True) and instance.get("api_url") and instance.get("api_key"):
+            if instance.get("enabled", False) and instance.get("api_url") and instance.get("api_key"):
                 readarr_logger.debug(f"Found configured Readarr instance: {instance.get('name', 'Unnamed')}")
                 return True
 
@@ -155,7 +155,7 @@ def get_configured_instances():
     # Check if instances are configured
     if "instances" in settings and isinstance(settings["instances"], list) and settings["instances"]:
         for instance in settings["instances"]:
-            if instance.get("enabled", True) and instance.get("api_url") and instance.get("api_key"):
+            if instance.get("enabled", False) and instance.get("api_url") and instance.get("api_key"):
                 # Create a settings object for this instance by combining global settings with instance-specific ones
                 instance_settings = settings.copy()
                 # Remove instances list to avoid confusion
