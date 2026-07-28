@@ -13,6 +13,7 @@ from test_support import configure_test_environment
 configure_test_environment()
 
 from src.primary import history_manager
+from src.primary.instance_storage import legacy_instance_storage_key
 
 
 class HistoryManagerTests(unittest.TestCase):
@@ -30,17 +31,37 @@ class HistoryManagerTests(unittest.TestCase):
         self.path_patch.stop()
         self.temp_directory.cleanup()
 
-    def test_rename_preserves_history_when_names_share_a_safe_filename(self):
+    def test_colliding_instance_names_use_distinct_history_files(self):
         old_name = "Primary-4K"
         new_name = "Primary_4K"
-        history_file = history_manager.get_history_file_path("sonarr", old_name)
-        self.assertEqual(
-            history_file,
-            history_manager.get_history_file_path("sonarr", new_name),
+
+        history_manager.add_history_entry(
+            "sonarr",
+            {"name": "First", "instance_name": old_name, "id": 1},
+        )
+        history_manager.add_history_entry(
+            "sonarr",
+            {"name": "Second", "instance_name": new_name, "id": 2},
         )
 
-        history_file.parent.mkdir(parents=True)
-        history_file.write_text(
+        old_file = history_manager.get_history_file_path("sonarr", old_name)
+        new_file = history_manager.get_history_file_path("sonarr", new_name)
+        self.assertNotEqual(old_file, new_file)
+        self.assertEqual(
+            json.loads(old_file.read_text(encoding="utf-8"))[0]["instance_name"],
+            old_name,
+        )
+        self.assertEqual(
+            json.loads(new_file.read_text(encoding="utf-8"))[0]["instance_name"],
+            new_name,
+        )
+
+    def test_rename_splits_and_preserves_a_legacy_collision_file(self):
+        old_name = "Primary-4K"
+        new_name = "Primary_4K"
+        legacy_file = self.history_directory / "sonarr" / f"{legacy_instance_storage_key(old_name)}.json"
+        legacy_file.parent.mkdir(parents=True)
+        legacy_file.write_text(
             json.dumps(
                 [
                     {"id": 1, "date_time": 10, "instance_name": old_name},
@@ -58,8 +79,12 @@ class HistoryManagerTests(unittest.TestCase):
             )
         )
 
-        self.assertTrue(history_file.exists())
-        entries = json.loads(history_file.read_text(encoding="utf-8"))
+        old_file = history_manager.get_history_file_path("sonarr", old_name)
+        new_file = history_manager.get_history_file_path("sonarr", new_name)
+        self.assertFalse(legacy_file.exists())
+        self.assertFalse(old_file.exists())
+        self.assertTrue(new_file.exists())
+        entries = json.loads(new_file.read_text(encoding="utf-8"))
         self.assertEqual([entry["instance_name"] for entry in entries], [new_name, new_name])
 
 

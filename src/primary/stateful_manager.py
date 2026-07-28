@@ -10,7 +10,10 @@ import time
 import pathlib
 import datetime
 import logging
+import threading
 from typing import Dict, Any, List, Optional, Set
+
+from src.primary.instance_storage import instance_storage_key, legacy_instance_storage_key
 
 # Create logger for stateful_manager
 stateful_logger = logging.getLogger("stateful_manager")
@@ -32,8 +35,82 @@ APP_TYPES = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
 for app_type in APP_TYPES:
     (STATEFUL_DIR / app_type).mkdir(exist_ok=True)
 
-# Add import for get_advanced_setting
-from src.primary.settings_manager import get_advanced_setting
+# Add import for settings helpers
+from src.primary.settings_manager import get_advanced_setting, load_settings
+
+
+stateful_migration_lock = threading.Lock()
+
+
+def get_stateful_file_path(app_type: str, instance_name: str) -> pathlib.Path:
+    """Return the collision-resistant processed-ID path for an instance."""
+    return STATEFUL_DIR / app_type / f"{instance_storage_key(instance_name)}.json"
+
+
+def _configured_names_for_legacy_key(app_type: str, instance_name: str) -> List[str]:
+    legacy_key = legacy_instance_storage_key(instance_name)
+    names = [instance_name]
+
+    try:
+        settings = load_settings(app_type)
+        instances = settings.get("instances", []) if isinstance(settings, dict) else []
+        for instance in instances:
+            if not isinstance(instance, dict):
+                continue
+            configured_name = instance.get("name") or "Default"
+            if legacy_instance_storage_key(configured_name) == legacy_key:
+                names.append(configured_name)
+    except Exception as e:
+        stateful_logger.warning(f"Could not inspect configured instances during state migration: {e}")
+
+    return list(dict.fromkeys(names))
+
+
+def _migrate_legacy_state_file(app_type: str, instance_name: str) -> pathlib.Path:
+    state_file = get_stateful_file_path(app_type, instance_name)
+    legacy_file = STATEFUL_DIR / app_type / f"{legacy_instance_storage_key(instance_name)}.json"
+
+    if state_file == legacy_file or not legacy_file.exists():
+        return state_file
+
+    with stateful_migration_lock:
+        if not legacy_file.exists():
+            return state_file
+
+        try:
+            with open(legacy_file, "r") as f:
+                legacy_data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            stateful_logger.warning(f"Could not migrate legacy state file {legacy_file}: {e}")
+            return state_file
+
+        if not isinstance(legacy_data, dict):
+            stateful_logger.warning(f"Could not migrate legacy state file {legacy_file}: expected an object")
+            return state_file
+
+        migrated_names = []
+        for configured_name in _configured_names_for_legacy_key(app_type, instance_name):
+            configured_file = get_stateful_file_path(app_type, configured_name)
+            if configured_file == legacy_file:
+                continue
+            configured_file.parent.mkdir(exist_ok=True, parents=True)
+            if not configured_file.exists():
+                try:
+                    with open(configured_file, "w") as f:
+                        json.dump(legacy_data, f, indent=2)
+                except OSError as e:
+                    stateful_logger.warning(f"Could not migrate legacy state to {configured_file}: {e}")
+                    return state_file
+            migrated_names.append(configured_name)
+
+        legacy_file.unlink(missing_ok=True)
+        stateful_logger.info(
+            "Migrated legacy processed-ID state for %s instances in %s",
+            len(migrated_names),
+            app_type,
+        )
+
+    return state_file
 
 
 def initialize_lock_file() -> None:
@@ -209,10 +286,7 @@ def get_processed_ids(app_type: str, instance_name: str) -> Set[str]:
         stateful_logger.warning(f"Unknown app type: {app_type}")
         return set()
 
-    # Create safe filename from instance name
-    safe_instance_name = "".join([c if c.isalnum() else "_" for c in instance_name])
-
-    file_path = STATEFUL_DIR / app_type / f"{safe_instance_name}.json"
+    file_path = _migrate_legacy_state_file(app_type, instance_name)
     stateful_logger.debug(f"[get_processed_ids] Checking file: {file_path} for {app_type}/{instance_name}")  # DEBUG LOG
 
     if not file_path.exists():
@@ -248,10 +322,7 @@ def add_processed_id(app_type: str, instance_name: str, media_id: str) -> bool:
         stateful_logger.warning(f"Unknown app type: {app_type}")
         return False
 
-    # Create safe filename from instance name
-    safe_instance_name = "".join([c if c.isalnum() else "_" for c in instance_name])
-
-    file_path = STATEFUL_DIR / app_type / f"{safe_instance_name}.json"
+    file_path = get_stateful_file_path(app_type, instance_name)
 
     # Get existing processed IDs using the get function (which includes logging)
     current_processed_ids_set = get_processed_ids(app_type, instance_name)
@@ -298,12 +369,9 @@ def is_processed(app_type: str, instance_name: str, media_id: str) -> bool:
     Returns:
         bool: True if already processed, False otherwise
     """
-    # Create safe filename for logging
-    safe_instance = "".join([c if c.isalnum() else "_" for c in instance_name])
-    file_path = STATEFUL_DIR / app_type / f"{safe_instance}.json"
-
     # Get processed IDs for this app/instance
     processed_ids = get_processed_ids(app_type, instance_name)
+    file_path = get_stateful_file_path(app_type, instance_name)
 
     # Log what we're checking and the result
     # Converting media_id to string since some callers might pass an integer

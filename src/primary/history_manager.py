@@ -6,6 +6,8 @@ import threading
 import time
 from datetime import datetime
 
+from src.primary.instance_storage import instance_storage_key, legacy_instance_storage_key
+
 # Create a logger
 logger = logging.getLogger(__name__)
 
@@ -43,13 +45,58 @@ def ensure_history_dir():
 
 def get_history_file_path(app_type, instance_name=None):
     """Get the appropriate history file path based on app type and instance name"""
-    # If no instance name is provided, use "Default"
-    if instance_name is None:
-        instance_name = "Default"
+    return HISTORY_BASE_PATH / app_type / f"{instance_storage_key(instance_name)}.json"
 
-    # Create safe filename from instance name (same as in stateful_manager.py)
-    safe_instance_name = "".join([c if c.isalnum() else "_" for c in instance_name])
-    return HISTORY_BASE_PATH / app_type / f"{safe_instance_name}.json"
+
+def _migrate_legacy_history_file(app_type, instance_name):
+    """Move matching entries out of a legacy filename without affecting collisions."""
+    history_file = get_history_file_path(app_type, instance_name)
+    legacy_file = HISTORY_BASE_PATH / app_type / f"{legacy_instance_storage_key(instance_name)}.json"
+
+    if history_file == legacy_file or history_file.exists() or not legacy_file.exists():
+        return history_file
+
+    try:
+        with open(legacy_file, "r") as f:
+            legacy_data = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        logger.warning(f"Could not migrate legacy history file {legacy_file}: {e}")
+        return history_file
+
+    if not isinstance(legacy_data, list):
+        logger.warning(f"Could not migrate legacy history file {legacy_file}: expected a list")
+        return history_file
+
+    matching_entries = []
+    remaining_entries = []
+    for entry in legacy_data:
+        if isinstance(entry, dict) and entry.get("instance_name") == instance_name:
+            matching_entries.append(entry)
+        else:
+            remaining_entries.append(entry)
+
+    if not matching_entries:
+        if not legacy_data:
+            legacy_file.unlink(missing_ok=True)
+        return history_file
+
+    history_file.parent.mkdir(exist_ok=True, parents=True)
+    with open(history_file, "w") as f:
+        json.dump(matching_entries, f, indent=2)
+
+    if remaining_entries:
+        with open(legacy_file, "w") as f:
+            json.dump(remaining_entries, f, indent=2)
+    else:
+        legacy_file.unlink(missing_ok=True)
+
+    logger.info(
+        "Migrated %s history entries for %s/%s from legacy storage",
+        len(matching_entries),
+        app_type,
+        instance_name,
+    )
+    return history_file
 
 
 def add_history_entry(app_type, entry_data):
@@ -101,6 +148,7 @@ def add_history_entry(app_type, entry_data):
 
     # Thread-safe file operation
     with history_locks[app_type]:
+        history_file = _migrate_legacy_history_file(app_type, instance_name)
         try:
             if history_file.exists():
                 with open(history_file, "r") as f:
@@ -335,6 +383,9 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
     # Thread-safe operation
     with history_locks[app_type]:
         try:
+            old_file = _migrate_legacy_history_file(app_type, old_instance_name)
+            new_file = _migrate_legacy_history_file(app_type, new_instance_name)
+
             if old_file == new_file:
                 history_data = []
                 if old_file.exists():
@@ -429,23 +480,21 @@ def initialize_instance_history(app_type, instance_name):
         logger.error(f"Invalid app type: {app_type}")
         return None
 
-    try:
-        # Get the history file path
-        history_file = get_history_file_path(app_type, instance_name)
+    with history_locks[app_type]:
+        try:
+            history_file = _migrate_legacy_history_file(app_type, instance_name)
 
-        # Ensure parent directory exists
-        history_file.parent.mkdir(exist_ok=True, parents=True)
+            history_file.parent.mkdir(exist_ok=True, parents=True)
 
-        # Create the file if it doesn't exist
-        if not history_file.exists():
-            with open(history_file, "w") as f:
-                json.dump([], f)
-            logger.info(f"Created history file for {app_type}/{instance_name}: {history_file}")
+            if not history_file.exists():
+                with open(history_file, "w") as f:
+                    json.dump([], f)
+                logger.info(f"Created history file for {app_type}/{instance_name}: {history_file}")
 
-        return str(history_file)
-    except Exception as e:
-        logger.error(f"Error initializing history for {app_type}/{instance_name}: {e}")
-        return None
+            return str(history_file)
+        except Exception as e:
+            logger.error(f"Error initializing history for {app_type}/{instance_name}: {e}")
+            return None
 
 
 def sync_history_files_with_instances():
