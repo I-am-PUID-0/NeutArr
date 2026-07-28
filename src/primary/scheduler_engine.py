@@ -10,7 +10,7 @@ import threading
 import datetime
 import time
 import traceback
-from typing import Dict, List, Any
+from typing import Any, Dict, List, Optional, Tuple
 import collections
 
 # Import settings_manager for validated, atomic configuration updates
@@ -38,14 +38,60 @@ stop_event = threading.Event()
 scheduler_thread = None
 
 
-def _set_enabled(config_data: Dict[str, Any], enabled: bool) -> None:
-    """Apply a scheduled enabled state to an app and each configured instance."""
-    config_data["enabled"] = enabled
+def _resolve_schedule_target(target: Any) -> Optional[Tuple[str, Optional[int]]]:
+    """Resolve UI and legacy scheduler target values to a config and instance."""
+    if target == "global":
+        return "global", None
+
+    if not isinstance(target, str):
+        return None
+
+    aliases = {
+        "whisparr-v2": "whisparr",
+        "whisparr-v3": "eros",
+    }
+    if target in aliases:
+        return aliases[target], None
+
+    if target in SCHEDULABLE_APP_TYPES:
+        return target, None
+
+    for app_type in SCHEDULABLE_APP_TYPES:
+        prefix = f"{app_type}-"
+        if not target.startswith(prefix):
+            continue
+
+        target_suffix = target.removeprefix(prefix)
+        if target_suffix == "all":
+            return app_type, None
+        if target_suffix.isdecimal():
+            return app_type, int(target_suffix)
+        return None
+
+    return None
+
+
+def _set_enabled(config_data: Dict[str, Any], enabled: bool, instance_index: Optional[int] = None) -> None:
+    """Apply a scheduled enabled state to all instances or one instance."""
     instances = config_data.get("instances")
-    if isinstance(instances, list):
-        for instance in instances:
-            if isinstance(instance, dict):
-                instance["enabled"] = enabled
+    if instance_index is not None:
+        if not isinstance(instances, list) or instance_index >= len(instances):
+            raise ValueError(f"Unknown instance index: {instance_index}")
+        instance = instances[instance_index]
+        if not isinstance(instance, dict):
+            raise ValueError(f"Invalid instance entry at index: {instance_index}")
+        instance["enabled"] = enabled
+        config_data["enabled"] = any(
+            isinstance(candidate, dict) and candidate.get("enabled", True) for candidate in instances
+        )
+        return
+
+    config_data["enabled"] = enabled
+    if not isinstance(instances, list):
+        return
+    for instance in instances:
+        if isinstance(instance, dict):
+            instance["enabled"] = enabled
 
 
 def _set_hourly_cap(config_data: Dict[str, Any], hourly_cap: int) -> None:
@@ -171,7 +217,7 @@ def execute_action(action_entry):
         return False
 
     action_type = action_entry.get("action")
-    app_type = action_entry.get("app")
+    raw_target = action_entry.get("app")
     app_id = action_entry.get("id")
 
     if not isinstance(action_type, str):
@@ -180,11 +226,13 @@ def execute_action(action_entry):
         add_to_history(action_entry, "error", message)
         return False
 
-    if app_type not in {*SCHEDULABLE_APP_TYPES, "global"}:
-        message = f"Invalid scheduler app target: {app_type}"
+    resolved_target = _resolve_schedule_target(raw_target)
+    if resolved_target is None:
+        message = f"Invalid scheduler app target: {raw_target}"
         scheduler_logger.error(message)
         add_to_history(action_entry, "error", message)
         return False
+    app_type, instance_index = resolved_target
 
     # Generate a unique key for this action to track execution
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -208,8 +256,11 @@ def execute_action(action_entry):
                 result_message = f"{app_type} disabled successfully"
 
             scheduler_logger.info(message)
-            if not _update_scheduled_app_settings(app_type, lambda config: _set_enabled(config, False)):
-                error_message = f"Error disabling {app_type}"
+            if not _update_scheduled_app_settings(
+                app_type,
+                lambda config: _set_enabled(config, False, instance_index),
+            ):
+                error_message = f"Error disabling {raw_target}"
                 scheduler_logger.error(error_message)
                 add_to_history(action_entry, "error", error_message)
                 return False
@@ -226,8 +277,11 @@ def execute_action(action_entry):
                 result_message = f"{app_type} enabled successfully"
 
             scheduler_logger.info(message)
-            if not _update_scheduled_app_settings(app_type, lambda config: _set_enabled(config, True)):
-                error_message = f"Error enabling {app_type}"
+            if not _update_scheduled_app_settings(
+                app_type,
+                lambda config: _set_enabled(config, True, instance_index),
+            ):
+                error_message = f"Error enabling {raw_target}"
                 scheduler_logger.error(error_message)
                 add_to_history(action_entry, "error", error_message)
                 return False
@@ -448,10 +502,10 @@ def check_and_execute_schedules():
 
                     # Execute the action
                     schedule_entry["appType"] = app_type
-                    execute_action(schedule_entry)
+                    action_succeeded = execute_action(schedule_entry)
 
                     # Update last executed time
-                    if entry_id:
+                    if entry_id and action_succeeded:
                         last_executed_actions[entry_id] = datetime.datetime.now()
 
         # No need to log anything when no schedules are found, as this is expected

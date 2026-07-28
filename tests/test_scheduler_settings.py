@@ -19,15 +19,24 @@ class SchedulerSettingsTests(unittest.TestCase):
     def setUp(self):
         self.temp_directory = tempfile.TemporaryDirectory()
         self.settings_file = Path(self.temp_directory.name) / "sonarr.json"
+        self.eros_settings_file = Path(self.temp_directory.name) / "eros.json"
         self.default_file = Path(self.temp_directory.name) / "sonarr.default.json"
+        self.eros_default_file = Path(self.temp_directory.name) / "eros.default.json"
         self.default_file.write_text("{}", encoding="utf-8")
+        self.eros_default_file.write_text("{}", encoding="utf-8")
         self.path_patch = patch.dict(
             settings_manager.KNOWN_SETTINGS_FILES,
-            {"sonarr": self.settings_file},
+            {
+                "sonarr": self.settings_file,
+                "eros": self.eros_settings_file,
+            },
         )
         self.default_patch = patch.dict(
             settings_manager.KNOWN_DEFAULT_CONFIG_FILES,
-            {"sonarr": self.default_file},
+            {
+                "sonarr": self.default_file,
+                "eros": self.eros_default_file,
+            },
         )
         self.path_patch.start()
         self.default_patch.start()
@@ -63,7 +72,7 @@ class SchedulerSettingsTests(unittest.TestCase):
         )
 
         with patch.object(settings_manager, "update_settings", wraps=settings_manager.update_settings) as update:
-            result = scheduler_engine.execute_action({"id": "disable-sonarr", "action": "disable", "app": "sonarr"})
+            result = scheduler_engine.execute_action({"id": "disable-sonarr", "action": "disable", "app": "sonarr-all"})
 
         self.assertTrue(result)
         update.assert_called_once()
@@ -72,16 +81,73 @@ class SchedulerSettingsTests(unittest.TestCase):
         self.assertEqual([instance["enabled"] for instance in persisted["instances"]], [False, False])
         self.assertEqual(persisted["api_key"], "existing-secret")
 
+    def test_instance_target_changes_only_the_selected_instance(self):
+        self.write_settings(
+            {
+                "enabled": True,
+                "instances": [
+                    {"name": "Primary", "enabled": True},
+                    {"name": "Secondary", "enabled": True},
+                ],
+            }
+        )
+
+        result = scheduler_engine.execute_action({"id": "disable-secondary", "action": "disable", "app": "sonarr-1"})
+
+        self.assertTrue(result)
+        persisted = self.read_settings()
+        self.assertTrue(persisted["enabled"])
+        self.assertEqual([instance["enabled"] for instance in persisted["instances"]], [True, False])
+
+    def test_whisparr_v3_target_updates_eros_settings(self):
+        self.eros_settings_file.write_text(
+            json.dumps({"enabled": True, "instances": [{"name": "Eros", "enabled": True}]}),
+            encoding="utf-8",
+        )
+        settings_manager.clear_cache("eros")
+
+        result = scheduler_engine.execute_action({"id": "disable-eros", "action": "disable", "app": "whisparr-v3"})
+
+        self.assertTrue(result)
+        persisted = json.loads(self.eros_settings_file.read_text(encoding="utf-8"))
+        self.assertFalse(persisted["enabled"])
+        self.assertFalse(persisted["instances"][0]["enabled"])
+
     def test_api_cap_action_changes_only_the_requested_setting(self):
         self.write_settings({"enabled": True, "hourly_cap": 20, "api_key": "existing-secret"})
 
-        result = scheduler_engine.execute_action({"id": "limit-sonarr", "action": "api-5", "app": "sonarr"})
+        result = scheduler_engine.execute_action({"id": "limit-sonarr", "action": "api-5", "app": "sonarr-all"})
 
         self.assertTrue(result)
         self.assertEqual(
             self.read_settings(),
             {"enabled": True, "hourly_cap": 5, "api_key": "existing-secret"},
         )
+
+    def test_current_ui_targets_resolve_to_the_expected_config(self):
+        expected_targets = {
+            "global": ("global", None),
+            "sonarr-all": ("sonarr", None),
+            "radarr-all": ("radarr", None),
+            "lidarr-all": ("lidarr", None),
+            "readarr-all": ("readarr", None),
+            "whisparr-v2": ("whisparr", None),
+            "whisparr-v3": ("eros", None),
+        }
+
+        for target, expected in expected_targets.items():
+            with self.subTest(target=target):
+                self.assertEqual(scheduler_engine._resolve_schedule_target(target), expected)
+
+    def test_non_string_target_is_rejected(self):
+        self.write_settings({"enabled": True})
+
+        result = scheduler_engine.execute_action(
+            {"id": "invalid-target-type", "action": "disable", "app": ["sonarr-all"]}
+        )
+
+        self.assertFalse(result)
+        self.assertEqual(self.read_settings(), {"enabled": True})
 
     def test_unknown_or_path_like_app_target_is_rejected(self):
         self.write_settings({"enabled": True})
@@ -101,6 +167,27 @@ class SchedulerSettingsTests(unittest.TestCase):
         self.assertEqual(self.read_settings(), {"enabled": True})
         self.assertEqual(scheduler_engine.last_executed_actions, {})
         self.assertEqual(scheduler_engine.execution_history[0]["status"], "error")
+
+    def test_scheduler_check_does_not_suppress_retry_after_failed_action(self):
+        action = {
+            "id": "retry-action",
+            "action": "disable",
+            "app": "sonarr-all",
+            "time": {"hour": 12, "minute": 0},
+            "days": ["monday"],
+            "enabled": True,
+        }
+
+        with (
+            patch.object(scheduler_engine.os.path, "exists", return_value=True),
+            patch.object(scheduler_engine.os.path, "getsize", return_value=100),
+            patch.object(scheduler_engine, "load_schedule", return_value={"sonarr": [action]}),
+            patch.object(scheduler_engine, "should_execute_schedule", return_value=True),
+            patch.object(scheduler_engine, "execute_action", return_value=False),
+        ):
+            scheduler_engine.check_and_execute_schedules()
+
+        self.assertNotIn("retry-action", scheduler_engine.last_executed_actions)
 
 
 if __name__ == "__main__":
