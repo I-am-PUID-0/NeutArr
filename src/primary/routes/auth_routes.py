@@ -5,7 +5,6 @@ Auth API Blueprint for NeutArr.
 Endpoints:
   GET  /api/auth/status          — public; returns auth state
   POST /api/auth/setup           — public; creates first user
-  POST /api/auth/skip-setup      — public; marks setup_skipped
   POST /api/auth/login           — public; returns tokens + sets cookies
   POST /api/auth/refresh         — public; uses refresh cookie to issue new tokens
   POST /api/auth/logout          — clears cookies
@@ -32,12 +31,15 @@ from ..auth import (
     REFRESH_COOKIE,
     INSTANCE_STORAGE_KEY,
     auth_config,
+    consume_setup_token,
+    ensure_setup_token,
     verify_login,
     verify_password,
     validate_password_strength,
     create_token_pair,
     decode_token,
     set_auth_cookies,
+    validate_setup_token,
     clear_auth_cookies,
     get_current_user,
     get_api_key_from_request,
@@ -122,7 +124,8 @@ def auth_status():
         "instance_storage_key": INSTANCE_STORAGE_KEY,
         "proxy_auth_bypass": proxy_bypass,
         "local_access_bypass": local_bypass,
-        "setup_skipped": auth_config.is_setup_skipped(),
+        "setup_skipped": False,
+        "setup_token_required": not auth_config.has_users(),
         "auth_enabled": auth_config.has_users() and not proxy_bypass,
     }
 
@@ -145,6 +148,7 @@ def auth_setup():
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
     confirm_password = data.get("confirm_password") or ""
+    setup_token = data.get("setup_token") or request.headers.get("X-Setup-Token", "")
 
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
@@ -156,22 +160,20 @@ def auth_setup():
     strength_error = validate_password_strength(password)
     if strength_error:
         return jsonify({"error": strength_error}), 400
+    if not ensure_setup_token():
+        return jsonify({"error": "First-run setup token is not available; check the server logs"}), 503
+    if not validate_setup_token(setup_token):
+        logger.warning("Rejected first-user setup request with an invalid setup token.")
+        return jsonify({"error": "Valid first-run setup token required"}), 403
 
     if not auth_config.create_user(username, password):
+        if auth_config.has_users():
+            return jsonify({"error": "Setup already complete"}), 409
         return jsonify({"error": "Failed to create user"}), 500
 
+    consume_setup_token()
     logger.info(f"First user '{username}' created via setup.")
     return _token_response(username, status=201)
-
-
-@auth_bp.route("/api/auth/skip-setup", methods=["POST"])
-def auth_skip_setup():
-    """Mark setup as skipped (enables proxy-bypass / no-login mode)."""
-    if auth_config.has_users():
-        return jsonify({"error": "Cannot skip setup — users already exist"}), 400
-    auth_config.skip_setup()
-    logger.info("Setup skipped — proxy auth bypass mode active.")
-    return jsonify({"success": True, "setup_skipped": True})
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +411,7 @@ def auth_mode():
 
 @auth_bp.route("/login", methods=["GET"])
 def login_page():
-    if not auth_config.has_users() and not auth_config.is_setup_skipped():
+    if not auth_config.has_users():
         return redirect("/setup")
     try:
         if settings_manager.get_setting("general", "proxy_auth_bypass", False):
@@ -423,4 +425,5 @@ def login_page():
 def setup_page():
     if auth_config.has_users():
         return redirect("/login")
+    ensure_setup_token()
     return render_template("setup.html")

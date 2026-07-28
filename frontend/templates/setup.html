@@ -305,6 +305,18 @@
                 <h2 style="margin: 0 0 20px; color: #fff; font-size: 20px; font-weight: 500;">Create Your Account</h2>
                 <div class="error-message" id="accountError"></div>
                 <div class="form-group">
+                    <label for="setup_token">
+                        <i class="fas fa-key"></i>
+                        <span>First-run setup token</span>
+                    </label>
+                    <input type="password" id="setup_token" name="setup_token" required autocomplete="off">
+                    <div class="auth-mode-description">
+                        Find the generated token in the NeutArr container logs or
+                        <code>/config/.setup-token</code>. You can instead provide
+                        <code>NEUTARR_SETUP_TOKEN</code> before first startup.
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="username">
                         <i class="fas fa-user"></i>
                         <span>Username</span>
@@ -372,6 +384,7 @@
             const accountError = document.getElementById('accountError');
             const authModeError = document.getElementById('authModeError');
 
+            const setupTokenInput = document.getElementById('setup_token');
             const usernameInput = document.getElementById('username');
             const passwordInput = document.getElementById('password');
             const confirmPasswordInput = document.getElementById('confirm_password');
@@ -435,11 +448,12 @@
             accountNextButton.addEventListener('click', async function() {
                 hideError(accountError);
 
+                const setupToken = setupTokenInput.value.trim();
                 const username = usernameInput.value.trim();
                 const password = passwordInput.value;
                 const confirmPassword = confirmPasswordInput.value;
 
-                if (!username || !password || !confirmPassword) {
+                if (!setupToken || !username || !password || !confirmPassword) {
                     showError(accountError, 'All fields are required.');
                     return;
                 }
@@ -464,7 +478,12 @@
                     const response = await fetch('/api/auth/setup', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password, confirm_password: confirmPassword }),
+                        body: JSON.stringify({
+                            setup_token: setupToken,
+                            username,
+                            password,
+                            confirm_password: confirmPassword
+                        }),
                     });
 
                     const data = await response.json();

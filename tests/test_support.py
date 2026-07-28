@@ -13,6 +13,7 @@ def configure_test_environment():
     stateful_dir = Path(os.environ.setdefault("STATEFUL_DIR", str(config_dir / "stateful")))
 
     os.environ.setdefault("NEUTARR_INSTANCE_ID", "test")
+    os.environ.setdefault("NEUTARR_SETUP_TOKEN", "test-first-run-token")
     os.environ.setdefault("PORT", "9705")
 
     config_dir.mkdir(parents=True, exist_ok=True)

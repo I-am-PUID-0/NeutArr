@@ -19,6 +19,8 @@ import os
 import secrets
 import time
 import hashlib
+import hmac
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -34,9 +36,11 @@ logger = logging.getLogger("neutarr.auth")
 # ---------------------------------------------------------------------------
 
 USERS_FILE = Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "users.json"
+SETUP_TOKEN_FILE = Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / ".setup-token"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 JWT_ALGORITHM = "HS256"
+MIN_SETUP_TOKEN_LENGTH = 16
 
 LEGACY_ACCESS_COOKIE = "neutarr_token"
 LEGACY_REFRESH_COOKIE = "neutarr_refresh"
@@ -84,7 +88,6 @@ ALWAYS_PUBLIC_PATHS = frozenset(
         "/api/auth/refresh",
         "/api/auth/status",
         "/api/auth/setup",
-        "/api/auth/skip-setup",
         "/api/auth/verify",
     }
 )
@@ -105,73 +108,89 @@ class AuthConfigManager:
 
     def __init__(self):
         self._config: Optional[dict] = None
+        self._lock = threading.RLock()
 
     def _load(self) -> None:
-        if USERS_FILE.exists():
-            try:
-                with open(USERS_FILE) as f:
-                    self._config = json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to load users.json: {e}")
+        with self._lock:
+            if USERS_FILE.exists():
+                try:
+                    with open(USERS_FILE) as f:
+                        self._config = json.load(f)
+                except Exception as e:
+                    logger.error(f"Failed to load users.json: {e}")
+                    self._config = self._default_config()
+            else:
                 self._config = self._default_config()
-        else:
-            self._config = self._default_config()
-            self._save()
+                self._save()
 
     def _default_config(self) -> dict:
         return {
             "jwt_secret": secrets.token_urlsafe(32),
             "api_key": secrets.token_urlsafe(24),
             "users": [],
-            "setup_skipped": False,
         }
 
-    def _save(self) -> None:
-        USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with open(USERS_FILE, "w") as f:
-                json.dump(self._config, f, indent=2)
-            os.chmod(USERS_FILE, 0o600)
-        except Exception as e:
-            logger.error(f"Failed to save users.json: {e}")
+    def _save(self) -> bool:
+        """Persist auth configuration atomically with owner-only permissions."""
+        with self._lock:
+            USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            temp_file = USERS_FILE.with_name(f".{USERS_FILE.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            try:
+                with open(temp_file, "w") as f:
+                    json.dump(self._config, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.chmod(temp_file, 0o600)
+                os.replace(temp_file, USERS_FILE)
+                return True
+            except Exception as e:
+                logger.error(f"Failed to save users.json: {e}")
+                try:
+                    temp_file.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                return False
 
     @property
     def config(self) -> dict:
-        if self._config is None:
-            self._load()
-        return self._config
+        with self._lock:
+            if self._config is None:
+                self._load()
+            return self._config
 
     def get_jwt_secret(self) -> str:
         return self.config.get("jwt_secret", "")
 
     def has_users(self) -> bool:
-        return len(self.config.get("users", [])) > 0
-
-    def is_setup_skipped(self) -> bool:
-        return self.config.get("setup_skipped", False)
+        with self._lock:
+            return len(self.config.get("users", [])) > 0
 
     def get_user(self, username: str) -> Optional[dict]:
-        for user in self.config.get("users", []):
-            if user.get("username") == username:
-                return user
-        return None
+        with self._lock:
+            for user in self.config.get("users", []):
+                if user.get("username") == username:
+                    return user
+            return None
 
     def create_user(self, username: str, password: str) -> bool:
-        """Create first (and only) user. Returns False if user already exists."""
-        if self.get_user(username):
-            logger.warning(f"User '{username}' already exists.")
-            return False
-        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
-        self.config.setdefault("users", []).append(
-            {
+        """Atomically create the first user and refuse every later creation."""
+        with self._lock:
+            if self.config.get("users"):
+                logger.warning("Refused user creation because setup is already complete.")
+                return False
+
+            hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+            user = {
                 "username": username,
                 "password": hashed,
                 "disabled": False,
             }
-        )
-        self._save()
-        logger.info(f"User '{username}' created.")
-        return True
+            self.config.setdefault("users", []).append(user)
+            if not self._save():
+                self.config["users"].remove(user)
+                return False
+            logger.info(f"User '{username}' created.")
+            return True
 
     def update_password(self, username: str, new_password: str) -> bool:
         for user in self.config.get("users", []):
@@ -191,10 +210,6 @@ class AuthConfigManager:
                 return True
         return False
 
-    def skip_setup(self) -> None:
-        self.config["setup_skipped"] = True
-        self._save()
-
     def get_api_key(self) -> str:
         """Return stored API key, generating one if missing (migration path)."""
         key = self.config.get("api_key")
@@ -213,6 +228,84 @@ class AuthConfigManager:
 
 
 auth_config = AuthConfigManager()
+
+_setup_token_lock = threading.Lock()
+
+
+def _read_setup_token_file() -> Optional[str]:
+    try:
+        token = SETUP_TOKEN_FILE.read_text(encoding="utf-8").strip()
+        return token or None
+    except FileNotFoundError:
+        return None
+    except OSError as e:
+        logger.error(f"Failed to read setup token file {SETUP_TOKEN_FILE}: {e}")
+        return None
+
+
+def ensure_setup_token() -> Optional[str]:
+    """Return the configured first-run token, generating a persistent one if needed."""
+    if auth_config.has_users():
+        try:
+            SETUP_TOKEN_FILE.unlink(missing_ok=True)
+        except OSError as e:
+            logger.warning(f"Could not remove stale setup token file {SETUP_TOKEN_FILE}: {e}")
+        return None
+
+    environment_token = os.environ.get("NEUTARR_SETUP_TOKEN", "").strip()
+    if environment_token:
+        if len(environment_token) < MIN_SETUP_TOKEN_LENGTH:
+            logger.error(
+                "NEUTARR_SETUP_TOKEN must contain at least "
+                f"{MIN_SETUP_TOKEN_LENGTH} characters before first-run setup can continue."
+            )
+            return None
+        return environment_token
+
+    with _setup_token_lock:
+        existing_token = _read_setup_token_file()
+        if existing_token:
+            return existing_token
+
+        token = secrets.token_urlsafe(24)
+        SETUP_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = SETUP_TOKEN_FILE.with_name(f".{SETUP_TOKEN_FILE.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        try:
+            with open(temp_file, "w", encoding="utf-8") as f:
+                f.write(f"{token}\n")
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(temp_file, 0o600)
+            os.replace(temp_file, SETUP_TOKEN_FILE)
+        except OSError as e:
+            logger.error(f"Failed to create first-run setup token: {e}")
+            try:
+                temp_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
+
+        logger.warning(
+            "First-run setup token: %s (also stored at %s; it is removed after account creation)",
+            token,
+            SETUP_TOKEN_FILE,
+        )
+        return token
+
+
+def validate_setup_token(candidate: str) -> bool:
+    expected = ensure_setup_token()
+    if not expected or not candidate:
+        return False
+    return hmac.compare_digest(expected.encode("utf-8"), candidate.strip().encode("utf-8"))
+
+
+def consume_setup_token() -> None:
+    """Remove the generated setup-token file after successful account creation."""
+    try:
+        SETUP_TOKEN_FILE.unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning(f"Could not remove consumed setup token file {SETUP_TOKEN_FILE}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -505,10 +598,8 @@ def authenticate_request():
     or a redirect/JSON response to reject it. Priority order:
       1. Always-public paths (static, /login, /setup, /api/auth/*)
       2. Valid JWT access token OR valid API key (explicit credentials always win)
-      3. No users and setup not skipped → force setup flow
+      3. No users → force the token-protected setup flow
       4. API requests: always require credentials — bypass modes do not exempt
-         API calls. The only exception is no-user proxy mode (setup_skipped=True,
-         has_users=False) where no API key has been issued to anyone.
       5. Page requests: proxy_auth_bypass OR (local_access_bypass + LAN IP)
          removes the login redirect — the web UI is accessible without logging in.
       6. Reject: redirect /login for page requests
@@ -527,19 +618,15 @@ def authenticate_request():
     if get_current_user():
         return None
 
-    # 3. No users and setup not skipped — force setup flow
-    if not auth_config.has_users() and not auth_config.is_setup_skipped():
+    # 3. No users — force the token-protected setup flow
+    if not auth_config.has_users():
         if is_api:
             return jsonify({"error": "Setup required", "setup_required": True}), 401
         return redirect("/setup")
 
     # 4. API requests always require credentials (JWT or API key).
     #    Bypass modes do not exempt API calls — they only skip the web UI login.
-    #    Exception: no-user proxy mode (setup_skipped, no users) — fully open
-    #    because there is no API key issued to anyone in this configuration.
     if is_api:
-        if not auth_config.has_users():  # no-user proxy mode, setup_skipped=True
-            return None
         return jsonify({"error": "Authentication required"}), 401
 
     # 5. Page requests: bypass modes remove the login redirect

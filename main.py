@@ -42,6 +42,7 @@ except Exception as e:
 try:
     # Import the Flask app instance
     from primary.web_server import app
+    from src.primary.auth import ensure_setup_token
 
     # Import the background task starter function and shutdown helpers from the renamed file
     from primary.background import start_neutarr, stop_event, shutdown_threads
@@ -89,6 +90,7 @@ def run_web_server():
     host = os.environ.get("FLASK_HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("PORT", 9705))  # Use PORT for consistency
 
+    ensure_setup_token()
     web_logger.info(f"Starting web server on {host}:{port} (Debug: {debug_mode})...")
 
     if debug_mode:

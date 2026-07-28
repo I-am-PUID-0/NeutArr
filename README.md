@@ -97,9 +97,19 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      # Optional: provide your own 16+ character first-run token.
+      # If omitted, NeutArr generates one and prints it to the container log.
+      # - NEUTARR_SETUP_TOKEN=replace-with-a-long-random-token
 ```
 
-Visit `http://localhost:9705` — the first-run wizard creates your account and sets the auth mode.
+On the first start, retrieve the one-time setup token:
+
+```bash
+docker logs neutarr 2>&1 | grep 'First-run setup token'
+# The same generated value is stored at ./config/.setup-token.
+```
+
+Visit `http://localhost:9705`, enter that token in the first-run wizard, create your account, and select the auth mode. NeutArr deletes the generated token file after the account is created. When `NEUTARR_SETUP_TOKEN` is supplied explicitly, use that value instead; it is not printed or written to the token file.
 
 For bind mounts created by Portainer or other tools as `root:root`, set `PUID` and `PGID` to your host user. The container entrypoint will repair `/config` ownership before starting NeutArr.
 
@@ -120,7 +130,7 @@ NeutArr ships a JWT dual-token auth system (bcrypt + PyJWT, stateless):
 Auth mode is selected during the first-run setup wizard and can be changed in Settings. The API key is shown in `Settings -> Account & API` with rotate, show/hide, and copy controls.
 Local access bypass CIDR ranges can be edited in `Settings -> Security`; defaults cover loopback, RFC-1918 private networks, and IPv6 ULA.
 
-> **Note:** `/api/*` endpoints always require JWT or API key regardless of bypass mode. Bypass modes only skip the web UI login redirect.
+> **Note:** Initial account creation requires the one-time setup token. There is no unauthenticated skip-setup mode. After setup, `/api/*` endpoints always require JWT or API key regardless of bypass mode; bypass modes only skip the web UI login redirect.
 
 ## Configuration
 

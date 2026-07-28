@@ -114,16 +114,16 @@
                             <h4>Steps</h4>
                             <ol>
                                 <li>Clone the repository:
-                                    <pre><code>git clone https://github.com/plexguide/NeutArr.io.git</code></pre>
+                                    <pre><code>git clone https://github.com/I-am-PUID-0/NeutArr.git</code></pre>
                                 </li>
                                 <li>Navigate to the directory:
-                                    <pre><code>cd NeutArr.io</code></pre>
+                                    <pre><code>cd NeutArr</code></pre>
                                 </li>
                                 <li>Run the Docker Compose command:
                                     <pre><code>docker-compose up -d</code></pre>
                                 </li>
                                 <li>Access NeutArr.io through your browser:
-                                    <pre><code>http://localhost:7575</code></pre>
+                                    <pre><code>http://localhost:9705</code></pre>
                                 </li>
                             </ol>
                             
@@ -145,6 +145,9 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      # Optional. If omitted, retrieve the generated token from the
+      # container log or ./config/.setup-token.
+      # - NEUTARR_SETUP_TOKEN=replace-with-a-long-random-token
     restart: unless-stopped</code></pre>
                         </div>
                         
@@ -252,8 +255,9 @@ sudo apt install -y nodejs npm git</code></pre>
                 <h3>Initial Setup</h3>
                 <p>After installing NeutArr.io, you'll need to complete the initial setup:</p>
                 <ol>
-                    <li>Access the web interface (default: <code>http://localhost:7575</code>)</li>
-                    <li>Create an administrator account when prompted</li>
+                    <li>Retrieve the one-time token from the container log by running <code>docker logs neutarr</code>, or read <code>./config/.setup-token</code>. If you supplied <code>NEUTARR_SETUP_TOKEN</code>, use that value instead.</li>
+                    <li>Access the web interface at <code>http://localhost:9705</code>.</li>
+                    <li>Enter the setup token and create an administrator account. The generated token file is removed after successful account creation.</li>
                     <li>Follow the setup wizard to configure your media paths and integrate with media applications (Sonarr, Radarr, etc.)</li>
                 </ol>
                 

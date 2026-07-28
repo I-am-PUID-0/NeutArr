@@ -12,4 +12,7 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
+      # Optional: set a 16+ character first-run token. When omitted, retrieve
+      # the generated token from the container log or ./config/.setup-token.
+      # - NEUTARR_SETUP_TOKEN=replace-with-a-long-random-token
     restart: unless-stopped

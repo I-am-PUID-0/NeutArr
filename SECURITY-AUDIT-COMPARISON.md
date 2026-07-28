@@ -62,7 +62,7 @@ No `backup_routes.py` in NeutArr. Backup/restore was introduced in a later Hunta
 
 **Status: NOT APPLICABLE**
 
-No `/api/setup/clear` endpoint. The setup flow uses `/api/auth/setup` and `/api/auth/skip-setup`, both in `ALWAYS_PUBLIC_PATHS`, but these endpoints check server-side state (`has_users`, `setup_skipped`) and become inert once setup is complete.
+No `/api/setup/clear` or skip-setup endpoint exists. Initial account creation through `/api/auth/setup` requires a one-time first-run token supplied through `NEUTARR_SETUP_TOKEN` or generated into the owner-only `/config/.setup-token` file. First-user creation is serialized and becomes permanently unavailable after the account is persisted.
 
 ---
 
