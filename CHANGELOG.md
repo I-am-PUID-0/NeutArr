@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.10.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.9.1...1.10.0) (2026-07-28)
+
+
+### ✨ Features
+
+* **ui:** complete the responsive interface redesign ([738aaea](https://github.com/I-am-PUID-0/NeutArr/commit/738aaea89651216ec8ae2e6503a918b1f41e0a94)), closes [#85](https://github.com/I-am-PUID-0/NeutArr/issues/85)
+
+
+### 🐛 Bug Fixes
+
+* **auth:** keep browser sessions in protected cookies ([e9e3d13](https://github.com/I-am-PUID-0/NeutArr/commit/e9e3d1391e796be9f84c1775bcb7da372a7f73b6))
+* **auth:** rate limit credential verification endpoints ([fb9162b](https://github.com/I-am-PUID-0/NeutArr/commit/fb9162b620c7e7b614668d30fd9821df09043bb8))
+* **auth:** reject API keys in URL query strings ([88d0d03](https://github.com/I-am-PUID-0/NeutArr/commit/88d0d037f3b4d27e8e7fdc5bd00cb68003f0adc2))
+* **auth:** revoke JWT sessions on logout and password change ([bca1363](https://github.com/I-am-PUID-0/NeutArr/commit/bca136311795d7a4060c6e40700d7216e7143847))
+* **auth:** secure first-run account creation ([41e94a2](https://github.com/I-am-PUID-0/NeutArr/commit/41e94a2b6281f7fd86d3e1c9d71776b5993b499e))
+* **auth:** secure proxy bypass without exposing the API key ([1f63dd3](https://github.com/I-am-PUID-0/NeutArr/commit/1f63dd38666bb3bde785706b6b93b04c2ef012c5))
+* **history:** make media details accessible and visible ([114f940](https://github.com/I-am-PUID-0/NeutArr/commit/114f9400862fd1938b10f5628a8083311bfcd999)), closes [#80](https://github.com/I-am-PUID-0/NeutArr/issues/80)
+* **history:** persist safely and isolate malformed records ([40743e1](https://github.com/I-am-PUID-0/NeutArr/commit/40743e10160b96f44bc399c7d715cbaf995bf5e4))
+* **history:** preserve data when renamed paths collide ([674a534](https://github.com/I-am-PUID-0/NeutArr/commit/674a534cf381621598efd0bed8970a6e7914f569))
+* **logging:** redact credentials from logs and log responses ([63b9c0a](https://github.com/I-am-PUID-0/NeutArr/commit/63b9c0a72663de52cf104f758c541d56af913a0a))
+* **logs:** highlight searches without rewriting html ([9ffe6b4](https://github.com/I-am-PUID-0/NeutArr/commit/9ffe6b4e11e08286e17d95b440bf57f666614e7c))
+* **scheduler:** fail actions with no configured targets ([4c8d98e](https://github.com/I-am-PUID-0/NeutArr/commit/4c8d98e1f0f0236893c87f9fedce15107e6c350f))
+* **scheduler:** persist schedule definitions safely ([44886d5](https://github.com/I-am-PUID-0/NeutArr/commit/44886d56af18f1a7b4a9ff5dc81014a6b68c15c9))
+* **scheduler:** persist scheduled settings safely ([e6fb8ed](https://github.com/I-am-PUID-0/NeutArr/commit/e6fb8eda26466be315ddf3747da59ae4a7146f81))
+* **scheduler:** preserve execution windows across midnight ([73fd560](https://github.com/I-am-PUID-0/NeutArr/commit/73fd560a83e11504786da1af54c625c151ca8218))
+* **scheduler:** resolve UI app targets correctly ([f2943fe](https://github.com/I-am-PUID-0/NeutArr/commit/f2943fe9a503a0bf9fdd08539fd68fc5304c19e5))
+* **scheduling:** prevent stored xss in schedule rows ([6f6a365](https://github.com/I-am-PUID-0/NeutArr/commit/6f6a36553add8a08a2432d9d19a22d8166badc63))
+* **security:** constrain history paths to trusted roots ([5e3961c](https://github.com/I-am-PUID-0/NeutArr/commit/5e3961c3ea9fdb95892a009bf19444949dc130eb))
+* **security:** prevent exception details from leaking in API responses ([b25eae3](https://github.com/I-am-PUID-0/NeutArr/commit/b25eae3e00fda6c41ee2aa82452f41a1ecf47b86))
+* **security:** prevent sensitive upstream data from reaching logs ([db97bc9](https://github.com/I-am-PUID-0/NeutArr/commit/db97bc90317bc7d3d558001a66f6e5cc2d193820))
+* **settings:** avoid redundant system timezone writes ([cbf5d46](https://github.com/I-am-PUID-0/NeutArr/commit/cbf5d46eed86cdcd2eb1ed59a1d449f2ce451086)), closes [#79](https://github.com/I-am-PUID-0/NeutArr/issues/79)
+* **settings:** escape persisted values in app forms ([95fc45e](https://github.com/I-am-PUID-0/NeutArr/commit/95fc45e1cbbe194487d72e519f0f76e1a6a11680))
+* **settings:** prevent partial configuration writes ([b4bcb5a](https://github.com/I-am-PUID-0/NeutArr/commit/b4bcb5a03b83704e89979d23536a4465d4ca9103))
+* **stateful:** serialize and atomically persist state ([65016b7](https://github.com/I-am-PUID-0/NeutArr/commit/65016b7e8c9cc76ea9c472497d97f8c0b6bdff61))
+* **stats:** serialize hourly resets and persist counters atomically ([1580e42](https://github.com/I-am-PUID-0/NeutArr/commit/1580e4288eee88e61a1ece4c9581db056735a582))
+* **storage:** isolate colliding instance state files ([2b34098](https://github.com/I-am-PUID-0/NeutArr/commit/2b3409861bda5d2e95e79b8c1ffe00a490221e12))
+* **swaparr:** isolate and safely persist instance state ([524c43b](https://github.com/I-am-PUID-0/NeutArr/commit/524c43b83a3d6a41edbbb5130de27214e1cab7c4))
+* **swaparr:** prevent stored xss in log views ([372b97d](https://github.com/I-am-PUID-0/NeutArr/commit/372b97d9ca7181e70bd80fad0226c0c1dcdb1597))
+* **swaparr:** support paginated v1 queue responses ([c592b0b](https://github.com/I-am-PUID-0/NeutArr/commit/c592b0bb01e689b2f969a2f8a020aa802448bad9)), closes [#78](https://github.com/I-am-PUID-0/NeutArr/issues/78)
+* **ui:** correct local bypass auth and cycle status ([741254f](https://github.com/I-am-PUID-0/NeutArr/commit/741254fab9a6c2907cb03e76e2dca39d4baf92bc))
+* **ui:** establish an accessible application shell ([631a292](https://github.com/I-am-PUID-0/NeutArr/commit/631a29206db2af0c8027b6be44b89c755b853a85))
+* **ui:** prevent activity card overflow on mobile ([a301354](https://github.com/I-am-PUID-0/NeutArr/commit/a3013548a4f3c17e23b4bd10744ce88641d48a57))
+* **ui:** scale automation cards to enabled app count ([05da44d](https://github.com/I-am-PUID-0/NeutArr/commit/05da44dc11300fa097cff3f2ba83b4e24ee7ec57))
+
+
+### 📖 Documentation
+
+* **readme:** guide first-time users through setup ([67db50f](https://github.com/I-am-PUID-0/NeutArr/commit/67db50fd640258b0a4a8a8c782d609fb99ab8fb5))
+
+
+### 🛠️ Build System
+
+* **deps:** refresh Python dependencies and GitHub Actions ([b51c10c](https://github.com/I-am-PUID-0/NeutArr/commit/b51c10c802fb7386f3e5cd86510f4967d5aa27f7))
+
 ## [1.9.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.9.0...1.9.1) (2026-07-09)
 
 
