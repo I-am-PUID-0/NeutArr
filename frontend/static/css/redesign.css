@@ -2337,8 +2337,16 @@ body #appsSection .app-apps-panel {
         display: none !important;
     }
 
-    .app-stats-grid {
-        grid-template-columns: 1fr !important;
+    .app-stats-grid[data-visible-count] {
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .app-stats-grid[data-visible-count] .app-stats-card {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
     }
 
     .media-stats-container {

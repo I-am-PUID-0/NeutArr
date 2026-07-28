@@ -114,6 +114,9 @@ class FrontendNavigationTests(unittest.TestCase):
         self.assertIn('.app-stats-grid[data-visible-count="2"]', styles)
         self.assertIn("minmax(280px, 620px)", styles)
         self.assertIn('.app-stats-grid[data-visible-count="4"]', styles)
+        self.assertIn(".app-stats-grid[data-visible-count] {", styles)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) !important;", styles)
+        self.assertIn(".app-stats-grid[data-visible-count] .app-stats-card", styles)
         self.assertIn("display: none !important;", styles)
 
     def test_home_dashboard_shows_live_per_app_cycle_countdowns(self):
