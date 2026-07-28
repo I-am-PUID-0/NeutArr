@@ -307,14 +307,27 @@ def _set_hourly_cap(config_data: Dict[str, Any], hourly_cap: int) -> None:
 def _update_scheduled_app_settings(app_type: str, update_callback) -> bool:
     """Apply one update to a validated app target or every schedulable app."""
     target_apps = SCHEDULABLE_APP_TYPES if app_type == "global" else (app_type,)
+    updated_apps = []
 
     for target_app in target_apps:
         settings_file = settings_manager.get_settings_file_path(target_app)
         if not settings_file.exists():
-            scheduler_logger.debug(f"Skipping scheduled update for {target_app}; settings file does not exist")
+            if app_type != "global":
+                scheduler_logger.error(
+                    f"Unable to apply scheduled update for {target_app}; settings file does not exist"
+                )
+                return False
+            scheduler_logger.debug(f"Skipping unconfigured app {target_app} during global scheduled update")
             continue
         if not settings_manager.update_settings(target_app, update_callback):
             return False
+        updated_apps.append(target_app)
+
+    if not updated_apps:
+        scheduler_logger.error(
+            f"Unable to apply scheduled update for {app_type}; no configured app settings were found"
+        )
+        return False
 
     return True
 

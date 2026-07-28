@@ -158,6 +158,63 @@ class SchedulerSettingsTests(unittest.TestCase):
         self.assertEqual(self.read_settings(), {"enabled": True})
         self.assertEqual(scheduler_engine.execution_history[0]["status"], "error")
 
+    def test_missing_app_settings_do_not_report_success_or_suppress_retry(self):
+        action = {
+            "id": "missing-sonarr",
+            "action": "disable",
+            "app": "sonarr-all",
+        }
+
+        result = scheduler_engine.execute_action(action)
+
+        self.assertFalse(result)
+        self.assertFalse(self.settings_file.exists())
+        self.assertEqual(scheduler_engine.last_executed_actions, {})
+        self.assertEqual(scheduler_engine.execution_history[0]["status"], "error")
+        self.assertIn("Error disabling sonarr-all", scheduler_engine.execution_history[0]["message"])
+
+    def test_global_action_fails_when_no_app_settings_exist(self):
+        missing_settings = Path(self.temp_directory.name) / "missing"
+        action = {
+            "id": "missing-global",
+            "action": "disable",
+            "app": "global",
+        }
+
+        with patch.object(
+            settings_manager,
+            "get_settings_file_path",
+            side_effect=lambda app_type: missing_settings / f"{app_type}.json",
+        ):
+            result = scheduler_engine.execute_action(action)
+
+        self.assertFalse(result)
+        self.assertEqual(scheduler_engine.last_executed_actions, {})
+        self.assertEqual(scheduler_engine.execution_history[0]["status"], "error")
+        self.assertIn("Error disabling global", scheduler_engine.execution_history[0]["message"])
+
+    def test_global_action_updates_configured_apps_and_skips_unconfigured_apps(self):
+        self.write_settings({"enabled": True})
+        missing_settings = Path(self.temp_directory.name) / "missing"
+        action = {
+            "id": "partial-global",
+            "action": "disable",
+            "app": "global",
+        }
+
+        with patch.object(
+            settings_manager,
+            "get_settings_file_path",
+            side_effect=lambda app_type: (
+                self.settings_file if app_type == "sonarr" else missing_settings / f"{app_type}.json"
+            ),
+        ):
+            result = scheduler_engine.execute_action(action)
+
+        self.assertTrue(result)
+        self.assertFalse(self.read_settings()["enabled"])
+        self.assertEqual(scheduler_engine.execution_history[0]["status"], "success")
+
     def test_unknown_action_is_rejected_without_marking_it_executed(self):
         self.write_settings({"enabled": True})
         action = {"id": "unknown-action", "action": "erase", "app": "sonarr"}

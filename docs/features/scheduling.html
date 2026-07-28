@@ -139,6 +139,10 @@
                     <li>An entry runs only on its selected weekdays.</li>
                     <li>A four-minute execution window tolerates small startup or processing delays.</li>
                     <li>An entry is not run repeatedly during the same daily execution window.</li>
+                    <li>
+                        A failed settings update is not recorded as successful, allowing NeutArr
+                        to retry it during the remaining execution window.
+                    </li>
                     <li>Deleting a schedule removes it after confirmation.</li>
                     <li>Schedules are stored under <code>/config/scheduler/schedule.json</code>.</li>
                     <li>
