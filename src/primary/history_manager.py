@@ -335,6 +335,30 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
     # Thread-safe operation
     with history_locks[app_type]:
         try:
+            if old_file == new_file:
+                history_data = []
+                if old_file.exists():
+                    try:
+                        with open(old_file, "r") as f:
+                            history_data = json.load(f)
+                    except (json.JSONDecodeError, FileNotFoundError) as e:
+                        logger.warning(f"Error reading history file {old_file}: {e}")
+
+                renamed_entries = 0
+                for entry in history_data:
+                    if entry.get("instance_name") == old_instance_name:
+                        entry["instance_name"] = new_instance_name
+                        renamed_entries += 1
+
+                with open(new_file, "w") as f:
+                    json.dump(history_data, f, indent=2)
+                logger.info(
+                    "Updated %s history entries in place because the old and new instance names share history file %s",
+                    renamed_entries,
+                    new_file,
+                )
+                return True
+
             # Load old data if it exists
             old_data = []
             if old_file.exists():
