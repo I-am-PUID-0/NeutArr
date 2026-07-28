@@ -596,8 +596,8 @@ def _get_trusted_proxy_networks() -> list[ipaddress._BaseNetwork]:
 
     try:
         return [ipaddress.ip_network(entry, strict=False) for entry in entries]
-    except ValueError as exc:
-        logger.warning(f"Invalid {TRUSTED_PROXIES_ENV} configuration; proxy trust disabled: {exc}")
+    except ValueError:
+        logger.warning("Invalid trusted proxy configuration; proxy trust disabled")
         return []
 
 

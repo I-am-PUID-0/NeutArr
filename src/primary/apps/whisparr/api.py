@@ -47,13 +47,13 @@ def arr_request(
 
         # Ensure api_url has a scheme
         if not (api_url.startswith("http://") or api_url.startswith("https://")):
-            whisparr_logger.error(f"Invalid URL format: {api_url} - URL must start with http:// or https://")
+            whisparr_logger.error("Invalid Whisparr URL format; URL must start with http:// or https://")
             return None
 
         # Construct the full URL properly
         full_url = f"{api_url.rstrip('/')}/api/v3/{endpoint.lstrip('/')}"
 
-        whisparr_logger.debug(f"Making {method} request to: {full_url}")
+        whisparr_logger.debug("Making request to the Whisparr API")
 
         # Set up headers with User-Agent to identify NeutArr
         headers = {
@@ -78,14 +78,14 @@ def arr_request(
             elif method.upper() == "DELETE":
                 response = session.delete(full_url, headers=headers, timeout=api_timeout, verify=verify_ssl)
             else:
-                whisparr_logger.error(f"Unsupported HTTP method: {method}")
+                whisparr_logger.error("Unsupported HTTP method for Whisparr API request")
                 return None
 
             # If we get a 404, try with v3 path instead
             if response.status_code == 404:
                 api_base = "api/v3"
                 v3_url = f"{api_url.rstrip('/')}/{api_base}/{endpoint.lstrip('/')}"
-                whisparr_logger.debug(f"Standard path returned 404, trying with V3 path: {v3_url}")
+                whisparr_logger.debug("Standard Whisparr API path returned 404; trying v3 path")
 
                 if method == "GET":
                     response = session.get(v3_url, headers=headers, timeout=api_timeout)
@@ -101,35 +101,31 @@ def arr_request(
             # Check if the request was successful
             try:
                 response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
+            except requests.exceptions.HTTPError:
                 whisparr_logger.error(
-                    f"Error during {method} request to {endpoint}: {e}, Status Code: {response.status_code}"
+                    "Whisparr API request failed with HTTP status %s; response body omitted",
+                    response.status_code,
                 )
-                whisparr_logger.debug(f"Response content: {response.text[:200]}")
                 return None
 
             # Try to parse JSON response
             try:
                 if response.text:
                     result = response.json()
-                    whisparr_logger.debug(
-                        f"Response from {response.url}: Status {response.status_code}, JSON parsed successfully"
-                    )
+                    whisparr_logger.debug("Whisparr API returned valid JSON")
                     return result
                 else:
-                    whisparr_logger.debug(
-                        f"Response from {response.url}: Status {response.status_code}, Empty response"
-                    )
+                    whisparr_logger.debug("Whisparr API returned an empty response")
                     return {}
             except json.JSONDecodeError:
-                whisparr_logger.error(f"Invalid JSON response from API: {response.text[:200]}")
+                whisparr_logger.error("Whisparr API returned invalid JSON; response body omitted")
                 return None
 
-        except requests.exceptions.RequestException as e:
-            whisparr_logger.error(f"Request failed: {e}")
+        except requests.exceptions.RequestException:
+            whisparr_logger.error("Whisparr API request failed; request details omitted")
             return None
-    except Exception as e:
-        whisparr_logger.error(f"Unexpected error during API request: {e}")
+    except Exception:
+        whisparr_logger.error("Unexpected error during Whisparr API request; details omitted")
         return None
 
 
@@ -195,8 +191,8 @@ def get_items_with_missing(api_url: str, api_key: str, api_timeout: int, monitor
         whisparr_logger.debug(f"Found {len(items)} missing items")
         return items
 
-    except Exception as e:
-        whisparr_logger.error(f"Error retrieving missing items: {str(e)}")
+    except Exception:
+        whisparr_logger.error("Error retrieving missing Whisparr items; details omitted")
         return None
 
 
@@ -238,8 +234,8 @@ def get_cutoff_unmet_items(api_url: str, api_key: str, api_timeout: int, monitor
 
         return items
 
-    except Exception as e:
-        whisparr_logger.error(f"Error retrieving cutoff unmet items: {str(e)}")
+    except Exception:
+        whisparr_logger.error("Error retrieving cutoff-unmet Whisparr items; details omitted")
         return None
 
 
@@ -257,7 +253,7 @@ def refresh_item(api_url: str, api_key: str, api_timeout: int, item_id: int) -> 
     Returns:
         A placeholder command ID (123) to simulate success
     """
-    whisparr_logger.debug(f"Refresh functionality disabled for item ID: {item_id}")
+    whisparr_logger.debug("Refresh functionality is disabled for Whisparr items")
     # Return a placeholder command ID to simulate success without actually refreshing
     return 123
 
@@ -276,7 +272,7 @@ def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int
         The command ID if the search command was triggered successfully, None otherwise
     """
     try:
-        whisparr_logger.debug(f"Searching for items with IDs: {item_ids}")
+        whisparr_logger.debug("Searching for %s Whisparr item(s)", len(item_ids))
 
         # Always use the same payload format since we're always using v2 API
         payload = {"name": "EpisodeSearch", "episodeIds": item_ids}
@@ -289,13 +285,14 @@ def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int
         headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
         # Try standard API path first
-        whisparr_logger.debug(f"Attempting command with standard API path: {url}")
+        whisparr_logger.debug("Attempting Whisparr search command with standard API path")
         try:
             response = session.post(url, headers=headers, json=payload, timeout=api_timeout)
             # If we get a 404 or 405, try the v3 path
             if response.status_code in [404, 405]:
                 whisparr_logger.debug(
-                    f"Standard path returned {response.status_code}, trying with V3 path: {backup_url}"
+                    "Standard Whisparr command path returned HTTP %s; trying v3 path",
+                    response.status_code,
                 )
                 response = session.post(backup_url, headers=headers, json=payload, timeout=api_timeout)
 
@@ -304,21 +301,23 @@ def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int
 
             if result and "id" in result:
                 command_id = result["id"]
-                whisparr_logger.debug(f"Search command triggered with ID {command_id}")
+                whisparr_logger.debug("Whisparr search command triggered successfully")
                 return command_id
             else:
                 whisparr_logger.error("Failed to trigger search command - no command ID returned")
                 return None
-        except requests.exceptions.HTTPError as e:
-            whisparr_logger.error(f"HTTP error during search command: {e}, Status Code: {response.status_code}")
-            whisparr_logger.debug(f"Response content: {response.text[:200]}")
+        except requests.exceptions.HTTPError:
+            whisparr_logger.error(
+                "Whisparr search command failed with HTTP status %s; response body omitted",
+                response.status_code,
+            )
             return None
-        except Exception as e:
-            whisparr_logger.error(f"Error sending search command: {e}")
+        except Exception:
+            whisparr_logger.error("Error sending Whisparr search command; details omitted")
             return None
 
-    except Exception as e:
-        whisparr_logger.error(f"Error searching for items: {str(e)}")
+    except Exception:
+        whisparr_logger.error("Error preparing Whisparr item search; details omitted")
         return None
 
 
@@ -348,29 +347,31 @@ def get_command_status(api_url: str, api_key: str, api_timeout: int, command_id:
         headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
         # Try standard API path first
-        whisparr_logger.debug(f"Checking command status with standard API path: {url}")
+        whisparr_logger.debug("Checking Whisparr command status with standard API path")
         try:
             response = session.get(url, headers=headers, timeout=api_timeout)
             # If we get a 404, try the v3 path
             if response.status_code == 404:
-                whisparr_logger.debug(f"Standard path returned 404, trying with V3 path: {backup_url}")
+                whisparr_logger.debug("Standard Whisparr command path returned 404; trying v3 path")
                 response = session.get(backup_url, headers=headers, timeout=api_timeout)
 
             response.raise_for_status()
             result = response.json()
 
-            whisparr_logger.debug(f"Command {command_id} status: {result.get('status', 'unknown')}")
+            whisparr_logger.debug("Retrieved Whisparr command status")
             return result
-        except requests.exceptions.HTTPError as e:
-            whisparr_logger.error(f"HTTP error getting command status: {e}, Status Code: {response.status_code}")
-            whisparr_logger.debug(f"Response content: {response.text[:200]}")
+        except requests.exceptions.HTTPError:
+            whisparr_logger.error(
+                "Whisparr command-status request failed with HTTP status %s; response body omitted",
+                response.status_code,
+            )
             return None
-        except Exception as e:
-            whisparr_logger.error(f"Error getting command status: {e}")
+        except Exception:
+            whisparr_logger.error("Error getting Whisparr command status; details omitted")
             return None
 
-    except Exception as e:
-        whisparr_logger.error(f"Error getting command status for ID {command_id}: {e}")
+    except Exception:
+        whisparr_logger.error("Error preparing Whisparr command-status request; details omitted")
         return None
 
 
@@ -388,7 +389,7 @@ def check_connection(api_url: str, api_key: str, api_timeout: int) -> bool:
     """
     try:
         # For Whisparr V2, we need to handle both regular and v3 API formats
-        whisparr_logger.debug(f"Checking connection to Whisparr V2 instance at {api_url}")
+        whisparr_logger.debug("Checking connection to the Whisparr V2 API")
 
         # First try with standard path
         endpoint = "system/status"
@@ -405,8 +406,8 @@ def check_connection(api_url: str, api_key: str, api_timeout: int) -> bool:
                 resp = session.get(url, headers=headers, timeout=api_timeout)
                 resp.raise_for_status()
                 response = resp.json()
-            except Exception as e:
-                whisparr_logger.debug(f"V3 API path also failed: {str(e)}")
+            except Exception:
+                whisparr_logger.debug("Whisparr v3 API fallback also failed; request details omitted")
                 return False
 
         if response is not None:
@@ -415,15 +416,15 @@ def check_connection(api_url: str, api_key: str, api_timeout: int) -> bool:
 
             # Check if this is a v2.x version
             if version and version.startswith("2"):
-                whisparr_logger.debug(f"Successfully connected to Whisparr V2 API version: {version}")
+                whisparr_logger.debug("Successfully connected to a compatible Whisparr V2 API")
                 return True
             else:
-                whisparr_logger.warning(f"Connected to Whisparr but found unexpected version: {version}, expected 2.x")
+                whisparr_logger.warning("Connected to Whisparr but found an incompatible API version; expected 2.x")
                 return False
         else:
             whisparr_logger.error("Failed to connect to Whisparr V2 API")
             return False
 
-    except Exception as e:
-        whisparr_logger.error(f"Error checking connection to Whisparr V2 API: {str(e)}")
+    except Exception:
+        whisparr_logger.error("Error checking the Whisparr V2 API connection; details omitted")
         return False
