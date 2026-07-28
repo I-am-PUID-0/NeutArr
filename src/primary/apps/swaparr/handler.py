@@ -204,12 +204,37 @@ def get_queue_items(app_name, api_url, api_key, api_timeout=120):
             response.raise_for_status()
             queue_data = response.json()
 
-            if api_version in ["v3"]:  # Radarr, Sonarr, Whisparr use v3
+            if isinstance(queue_data, dict):
                 records = queue_data.get("records", [])
-                total_records = queue_data.get("totalRecords", 0)
-            else:  # Lidarr, Readarr use v1
+                total_records = queue_data.get("totalRecords")
+            elif isinstance(queue_data, list):
                 records = queue_data
                 total_records = len(records)
+            else:
+                swaparr_logger.error(
+                    f"Unexpected queue response for {app_name} (page {page}): "
+                    f"expected an object or list, got {type(queue_data).__name__}"
+                )
+                break
+
+            if not isinstance(records, list):
+                swaparr_logger.error(
+                    f"Unexpected records value for {app_name} (page {page}): "
+                    f"expected a list, got {type(records).__name__}"
+                )
+                break
+
+            if total_records is None:
+                total_records = len(all_records) + len(records)
+            else:
+                try:
+                    total_records = int(total_records)
+                except (TypeError, ValueError):
+                    swaparr_logger.warning(
+                        f"Invalid totalRecords value for {app_name} (page {page}): {total_records!r}; "
+                        "treating the current page as complete"
+                    )
+                    total_records = len(all_records) + len(records)
 
             # Add this page's records to our collection
             all_records.extend(records)
