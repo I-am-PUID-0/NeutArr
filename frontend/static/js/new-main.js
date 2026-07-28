@@ -188,10 +188,9 @@ let neutarrUI = {
         // Navigation
         document.addEventListener('click', (e) => {
             // Navigation link handling
-            if (e.target.matches('.nav-link') || e.target.closest('.nav-link')) {
-                const link = e.target.matches('.nav-link') ? e.target : e.target.closest('.nav-link');
-                e.preventDefault();
-                this.handleNavigation(e);
+            const link = e.target.closest('.nav-item');
+            if (link) {
+                this.handleNavigation(e, link);
             }
             
             // Handle cycle reset button clicks
@@ -454,8 +453,7 @@ let neutarrUI = {
     },
     
     // Navigation handling
-    handleNavigation: function(e) {
-        const targetElement = e.currentTarget; // Get the clicked nav item
+    handleNavigation: function(e, targetElement) {
         const href = targetElement.getAttribute('href');
         const target = targetElement.getAttribute('target');
         
@@ -537,6 +535,7 @@ let neutarrUI = {
         // Update navigation
         this.elements.navItems.forEach(item => {
             item.classList.remove('active');
+            item.removeAttribute('aria-current');
         });
         
         // Show selected section
@@ -686,6 +685,13 @@ let neutarrUI = {
         } else {
             console.warn("[neutarrUI] currentPageTitle element not found during section switch.");
         }
+
+        const activeNavItem = document.getElementById(`${this.currentSection}Nav`);
+        if (activeNavItem) {
+            activeNavItem.classList.add('active');
+            activeNavItem.setAttribute('aria-current', 'page');
+        }
+        document.title = `${newTitle} · NeutArr`;
     },
     
     // App tab switching

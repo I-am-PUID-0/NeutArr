@@ -5,10 +5,11 @@
     <title>NeutArr</title>
 </head>
 <body>
+    <a class="skip-link" href="#mainContent">Skip to main content</a>
     <div class="app-container mobile-optimized">
         {% include 'components/sidebar.html' %}
         
-        <div class="main-content">
+        <main class="main-content" id="mainContent" tabindex="-1">
             {% include 'components/topbar.html' %}
             
             <!-- Home Section -->
@@ -29,7 +30,7 @@
             <!-- Scheduling Section -->
             {% include 'components/scheduling_section.html' %}
             
-        </div>
+        </main>
     </div>
     
     {% include 'components/footer.html' %}

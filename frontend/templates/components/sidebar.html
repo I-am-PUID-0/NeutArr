@@ -1,30 +1,30 @@
-<div class="sidebar" id="sidebar">
+<aside class="sidebar" id="sidebar">
     <div class="sidebar-top-line"></div>
     <div class="logo-container">
-        <span class="logo logo-large" aria-label="NeutArr"><img src="/static/logo/neutarr.svg" alt="NeutArr"></span>
-        <span class="logo logo-small" aria-label="NeutArr"><img src="/static/logo/neutarr.svg" alt="NeutArr"></span>
+        <span class="logo logo-large"><img src="/static/logo/neutarr.svg" alt="NeutArr"></span>
+        <span class="logo logo-small" aria-hidden="true"><img src="/static/logo/neutarr.svg" alt=""></span>
         <h1>NeutArr</h1>
     </div>
     
-    <nav class="nav-menu">
+    <nav class="nav-menu" aria-label="Primary navigation">
         <!-- Core Navigation Group -->
-        <div class="nav-group" style="margin-top: -10px;">
+        <div class="nav-group nav-group--first">
             <div class="nav-group-title">Core</div>
-            <a href="/" class="nav-item" id="homeNav">
+            <a href="#home" class="nav-item" id="homeNav" aria-label="Home">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-home"></i>
+                    <i class="fas fa-home" aria-hidden="true"></i>
                 </div>
                 <span>Home</span>
             </a>
-            <a href="/#apps" class="nav-item" id="appsNav">
+            <a href="#apps" class="nav-item" id="appsNav" aria-label="Apps">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-tools"></i>
+                    <i class="fas fa-tools" aria-hidden="true"></i>
                 </div>
                 <span>Apps</span>
             </a>
-            <a href="/#settings" class="nav-item" id="settingsNav">
+            <a href="#settings" class="nav-item" id="settingsNav" aria-label="Settings">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-cog" aria-hidden="true"></i>
                 </div>
                 <span>Settings</span>
             </a>
@@ -33,28 +33,28 @@
         <!-- Features Group -->
         <div class="nav-group">
             <div class="nav-group-title">Features</div>
-            <a href="#scheduling" class="nav-item" id="schedulingNav">
+            <a href="#scheduling" class="nav-item" id="schedulingNav" aria-label="Scheduling">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-calendar-alt"></i>
+                    <i class="fas fa-calendar-alt" aria-hidden="true"></i>
                 </div>
                 <span>Scheduling</span>
             </a>
-            <a href="/#logs" class="nav-item" id="logsNav">
+            <a href="#logs" class="nav-item" id="logsNav" aria-label="Logs">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-list-alt"></i>
+                    <i class="fas fa-list-alt" aria-hidden="true"></i>
                 </div>
                 <span>Logs</span>
             </a>
-            <a href="/#history" class="nav-item" id="historyNav">
+            <a href="#history" class="nav-item" id="historyNav" aria-label="History">
                 <div class="nav-icon-wrapper">
-                    <i class="fas fa-history"></i>
+                    <i class="fas fa-history" aria-hidden="true"></i>
                 </div>
                 <span>History</span>
             </a>
         </div>
         
     </nav>
-</div>
+</aside>
 
 <style>
     /* Heart icon styling for project sponsors */
@@ -430,41 +430,3 @@
         margin-bottom: 5px;
     }
 </style>
-
-<script>
-    // Function to set active nav item based on the current hash
-    function setActiveNavItem() {
-        // Get all navigation items
-        const navItems = document.querySelectorAll('.nav-item');
-        
-        // Remove active class from all items
-        navItems.forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Get current hash, or default to home if no hash
-        let currentHash = window.location.hash;
-        if (!currentHash) {
-            currentHash = '#home';
-        }
-        
-        // Set the appropriate nav item as active
-        const selector = currentHash === '#home' ? '#homeNav' : 
-                         currentHash === '#history' ? '#historyNav' :
-                         currentHash === '#logs' ? '#logsNav' :
-                         currentHash === '#apps' ? '#appsNav' :
-                         currentHash === '#settings' ? '#settingsNav' :
-                         currentHash === '#scheduling' ? '#schedulingNav' : '#homeNav';
-        
-        const activeItem = document.querySelector(selector);
-        if (activeItem) {
-            activeItem.classList.add('active');
-        }
-    }
-    
-    // Set active on page load
-    document.addEventListener('DOMContentLoaded', setActiveNavItem);
-    
-    // Update active when hash changes
-    window.addEventListener('hashchange', setActiveNavItem);
-</script>

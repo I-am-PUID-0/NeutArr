@@ -2,14 +2,12 @@
     <!-- Add color line at the top of the topbar -->
     <div class="top-color-line"></div>
     <div class="topbar-section left">
-        <div class="page-title" id="currentPageTitle"></div>
-        <span class="topbar-tagline">a neutered fork of <a href="https://github.com/plexguide/Huntarr.io"
-                target="_blank" rel="noopener">Huntarr</a> v6.6.3</span>
+        <h1 class="page-title" id="currentPageTitle">Home</h1>
     </div>
     <div class="topbar-section center">
         <div class="version-bar">
             <div class="version-item">
-                <i class="fas fa-code-branch version-icon"></i>
+                <i class="fas fa-code-branch version-icon" aria-hidden="true"></i>
                 <span>Version <span id="version-value">Loading...</span></span>
             </div>
         </div>
@@ -17,7 +15,9 @@
     <div class="topbar-section right">
         <div class="user-info" id="userInfoContainer">
             <span id="username">User</span>
-            <a href="#" id="logoutLink" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
+            <a href="#" id="logoutLink" class="logout-btn" aria-label="Log out" title="Log out">
+                <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            </a>
         </div>
     </div>
 </div>
