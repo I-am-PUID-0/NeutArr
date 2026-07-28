@@ -7,12 +7,16 @@ import os
 import json
 import time
 import hashlib
-from datetime import datetime, timedelta
+import pathlib
+import stat
+import tempfile
+import threading
+from datetime import UTC, datetime, timedelta
 import requests
 
+from src.primary.instance_storage import instance_storage_key
 from src.primary.utils.logger import get_logger
 from src.primary.settings_manager import load_settings
-from src.primary.state import get_state_file_path
 
 # Create logger
 swaparr_logger = get_logger("swaparr")
@@ -20,6 +24,125 @@ swaparr_logger = get_logger("swaparr")
 # Create state directory for tracking strikes
 SWAPARR_STATE_DIR = os.path.join(os.getenv("NEUTARR_CONFIG_DIR", "/config"), "swaparr")
 SWAPARR_APP_TYPES = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
+swaparr_state_locks = {}
+swaparr_state_locks_guard = threading.Lock()
+swaparr_legacy_migration_lock = threading.Lock()
+
+
+def _get_state_lock(app_name, instance_name):
+    """Return the lock protecting one app instance's complete state cycle."""
+    lock_key = (app_name, instance_storage_key(instance_name))
+    with swaparr_state_locks_guard:
+        return swaparr_state_locks.setdefault(lock_key, threading.RLock())
+
+
+def _get_state_file(app_name, instance_name, filename):
+    """Return a collision-resistant state path for one Swaparr instance."""
+    app_state_dir = pathlib.Path(ensure_state_directory(app_name))
+    instance_state_dir = app_state_dir / instance_storage_key(instance_name)
+    instance_state_dir.mkdir(parents=True, exist_ok=True)
+    return instance_state_dir / filename
+
+
+def _atomic_write_json(file_path, data):
+    """Durably replace Swaparr state without exposing partial JSON."""
+    file_path = pathlib.Path(file_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = stat.S_IMODE(file_path.stat().st_mode) if file_path.exists() else 0o600
+    file_descriptor = None
+    temp_path = None
+
+    try:
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix=f".{file_path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = pathlib.Path(temp_name)
+        os.fchmod(file_descriptor, existing_mode)
+
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as temp_file:
+            file_descriptor = None
+            json.dump(data, temp_file, indent=2)
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        os.replace(temp_path, file_path)
+        temp_path = None
+
+        try:
+            directory_descriptor = os.open(file_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except OSError as error:
+            swaparr_logger.debug(f"Unable to fsync Swaparr state directory {file_path.parent}: {error}")
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def _migrate_legacy_state_file(app_name, instance_name, filename, allow_legacy_migration):
+    """Move app-global state only when it can be assigned to one instance safely."""
+    state_file = _get_state_file(app_name, instance_name, filename)
+    legacy_file = pathlib.Path(ensure_state_directory(app_name)) / filename
+
+    if state_file.exists() or not legacy_file.exists():
+        return state_file
+
+    if not allow_legacy_migration:
+        swaparr_logger.warning(
+            "Ignoring legacy app-global Swaparr state for %s because multiple instances are enabled",
+            app_name,
+        )
+        return state_file
+
+    with swaparr_legacy_migration_lock:
+        if not state_file.exists() and legacy_file.exists():
+            os.replace(legacy_file, state_file)
+            swaparr_logger.info(
+                "Migrated legacy Swaparr %s state to instance %s/%s",
+                filename,
+                app_name,
+                instance_name,
+            )
+
+    return state_file
+
+
+def _load_state_object(file_path, state_label):
+    """Load a state object while preserving malformed documents for recovery."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as state_document:
+            data = json.load(state_document)
+    except FileNotFoundError:
+        return {}
+    except (json.JSONDecodeError, OSError) as error:
+        swaparr_logger.error(f"Error loading {state_label} from {file_path}: {error}")
+        return None
+
+    if not isinstance(data, dict):
+        swaparr_logger.error(f"Error loading {state_label} from {file_path}: expected an object")
+        return None
+
+    return data
+
+
+def _utc_now():
+    """Return a timezone-aware UTC timestamp."""
+    return datetime.now(UTC)
+
+
+def _parse_utc_timestamp(value):
+    """Normalize legacy naive and offset timestamps to timezone-aware UTC."""
+    parsed_timestamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed_timestamp.tzinfo is None:
+        parsed_timestamp = parsed_timestamp.replace(tzinfo=UTC)
+    return parsed_timestamp.astimezone(UTC)
 
 
 def is_enabled_for_app(app_name, swaparr_settings):
@@ -63,60 +186,50 @@ def ensure_state_directory(app_name):
     return app_state_dir
 
 
-def load_strike_data(app_name):
-    """Load strike data for a specific app"""
-    app_state_dir = ensure_state_directory(app_name)
-    strike_file = os.path.join(app_state_dir, "strikes.json")
-
-    if not os.path.exists(strike_file):
-        return {}
-
-    try:
-        with open(strike_file, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        swaparr_logger.error(f"Error loading strike data for {app_name}: {str(e)}")
-        return {}
+def load_strike_data(app_name, instance_name="Default", allow_legacy_migration=True):
+    """Load strike data for a specific app instance."""
+    strike_file = _migrate_legacy_state_file(
+        app_name,
+        instance_name,
+        "strikes.json",
+        allow_legacy_migration,
+    )
+    return _load_state_object(strike_file, f"strike data for {app_name}/{instance_name}")
 
 
-def save_strike_data(app_name, strike_data):
-    """Save strike data for a specific app"""
-    app_state_dir = ensure_state_directory(app_name)
-    strike_file = os.path.join(app_state_dir, "strikes.json")
+def save_strike_data(app_name, strike_data, instance_name="Default"):
+    """Save strike data for a specific app instance."""
+    strike_file = _get_state_file(app_name, instance_name, "strikes.json")
 
     try:
-        with open(strike_file, "w") as f:
-            json.dump(strike_data, f, indent=2)
-    except IOError as e:
-        swaparr_logger.error(f"Error saving strike data for {app_name}: {str(e)}")
+        _atomic_write_json(strike_file, strike_data)
+        return True
+    except (OSError, TypeError, ValueError) as error:
+        swaparr_logger.error(f"Error saving strike data for {app_name}/{instance_name}: {error}")
+        return False
 
 
-def load_removed_items(app_name):
-    """Load list of permanently removed items"""
-    app_state_dir = ensure_state_directory(app_name)
-    removed_file = os.path.join(app_state_dir, "removed_items.json")
-
-    if not os.path.exists(removed_file):
-        return {}
-
-    try:
-        with open(removed_file, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        swaparr_logger.error(f"Error loading removed items for {app_name}: {str(e)}")
-        return {}
+def load_removed_items(app_name, instance_name="Default", allow_legacy_migration=True):
+    """Load permanently removed items for a specific app instance."""
+    removed_file = _migrate_legacy_state_file(
+        app_name,
+        instance_name,
+        "removed_items.json",
+        allow_legacy_migration,
+    )
+    return _load_state_object(removed_file, f"removed items for {app_name}/{instance_name}")
 
 
-def save_removed_items(app_name, removed_items):
-    """Save list of permanently removed items"""
-    app_state_dir = ensure_state_directory(app_name)
-    removed_file = os.path.join(app_state_dir, "removed_items.json")
+def save_removed_items(app_name, removed_items, instance_name="Default"):
+    """Save permanently removed items for a specific app instance."""
+    removed_file = _get_state_file(app_name, instance_name, "removed_items.json")
 
     try:
-        with open(removed_file, "w") as f:
-            json.dump(removed_items, f, indent=2)
-    except IOError as e:
-        swaparr_logger.error(f"Error saving removed items for {app_name}: {str(e)}")
+        _atomic_write_json(removed_file, removed_items)
+        return True
+    except (OSError, TypeError, ValueError) as error:
+        swaparr_logger.error(f"Error saving removed items for {app_name}/{instance_name}: {error}")
+        return False
 
 
 def generate_item_hash(item):
@@ -335,8 +448,17 @@ def delete_download(app_name, api_url, api_key, download_id, remove_from_client=
         return False
 
 
+def _legacy_migration_is_safe(app_name, swaparr_settings):
+    """Return whether app-global state can be assigned to one enabled instance."""
+    app_instances = swaparr_settings.get("app_instances", {}) if swaparr_settings else {}
+    instance_toggles = app_instances.get(app_name, {}) if isinstance(app_instances, dict) else {}
+    if not isinstance(instance_toggles, dict):
+        return False
+    return sum(value is True for value in instance_toggles.values()) <= 1
+
+
 def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
-    """Process stalled downloads for a specific app instance"""
+    """Process one app instance while serializing its state transition."""
     if not swaparr_settings:
         swaparr_settings = load_settings("swaparr")
 
@@ -352,6 +474,13 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
         )
         return
 
+    instance_name = app_settings.get("instance_name") or app_settings.get("name") or "Default"
+    with _get_state_lock(app_name, instance_name):
+        return _process_stalled_downloads(app_name, app_settings, swaparr_settings)
+
+
+def _process_stalled_downloads(app_name, app_settings, swaparr_settings):
+    """Run a Swaparr cycle with the instance state lock already held."""
     swaparr_logger.info(
         f"Processing stalled downloads for {app_name} instance: {app_settings.get('instance_name', 'Unknown')}"
     )
@@ -373,16 +502,32 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
         )
         return
 
+    instance_name = app_settings.get("instance_name") or app_settings.get("name") or "Default"
+    allow_legacy_migration = _legacy_migration_is_safe(app_name, swaparr_settings)
+
     # Load existing strike data
-    strike_data = load_strike_data(app_name)
+    strike_data = load_strike_data(app_name, instance_name, allow_legacy_migration)
 
     # Load list of permanently removed items
-    removed_items = load_removed_items(app_name)
+    removed_items = load_removed_items(app_name, instance_name, allow_legacy_migration)
+
+    if strike_data is None or removed_items is None:
+        swaparr_logger.error(
+            "Refusing to process %s/%s because its persisted Swaparr state is malformed",
+            app_name,
+            instance_name,
+        )
+        return
 
     # Clean up expired removed items (older than 30 days)
-    now = datetime.utcnow()
+    now = _utc_now()
     for item_hash in list(removed_items.keys()):
-        removed_date = datetime.fromisoformat(removed_items[item_hash]["removed_time"].replace("Z", "+00:00"))
+        try:
+            removed_date = _parse_utc_timestamp(removed_items[item_hash]["removed_time"])
+        except (KeyError, TypeError, ValueError):
+            swaparr_logger.warning(f"Discarding malformed removed-item state for {app_name}/{instance_name}")
+            del removed_items[item_hash]
+            continue
         if (now - removed_date) > timedelta(days=30):
             swaparr_logger.debug(f"Removing expired entry from removed items list: {removed_items[item_hash]['name']}")
             del removed_items[item_hash]
@@ -413,7 +558,7 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
 
         # Check if this item has been previously removed
         if item_hash in removed_items:
-            last_removed_date = datetime.fromisoformat(removed_items[item_hash]["removed_time"].replace("Z", "+00:00"))
+            last_removed_date = _parse_utc_timestamp(removed_items[item_hash]["removed_time"])
             days_since_removal = (now - last_removed_date).days
 
             # Re-remove it automatically if it's been less than 7 days since last removal
@@ -426,7 +571,7 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
                     if delete_download(app_name, api_url, api_key, item["id"], remove_from_client, api_timeout):
                         swaparr_logger.info(f"Re-removed previously removed download: {item['name']}")
                         # Update the removal time
-                        removed_items[item_hash]["removed_time"] = datetime.utcnow().isoformat()
+                        removed_items[item_hash]["removed_time"] = _utc_now().isoformat()
                 else:
                     swaparr_logger.info(f"DRY RUN: Would have re-removed previously removed download: {item['name']}")
 
@@ -454,7 +599,12 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
         if item["status"] == "queued" and not metadata_issue:
             # For regular queued items, check how long they've been in strike data
             if item_id in strike_data and "first_strike_time" in strike_data[item_id]:
-                first_strike = datetime.fromisoformat(strike_data[item_id]["first_strike_time"].replace("Z", "+00:00"))
+                try:
+                    first_strike = _parse_utc_timestamp(strike_data[item_id]["first_strike_time"])
+                except (TypeError, ValueError):
+                    first_strike = now
+                    strike_data[item_id]["first_strike_time"] = now.isoformat()
+                    swaparr_logger.warning(f"Reset malformed first-strike timestamp for {app_name}/{instance_name}")
                 if (now - first_strike) < timedelta(hours=1):
                     # Skip if it's been less than 1 hour since first seeing it
                     swaparr_logger.debug(f"Ignoring recently queued download: {item['name']}")
@@ -466,7 +616,7 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
                     strike_data[item_id] = {
                         "strikes": 0,
                         "name": item["name"],
-                        "first_strike_time": datetime.utcnow().isoformat(),
+                        "first_strike_time": _utc_now().isoformat(),
                         "last_strike_time": None,
                     }
                 swaparr_logger.debug(f"Monitoring new queued download: {item['name']}")
@@ -478,7 +628,7 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
             strike_data[item_id] = {
                 "strikes": 0,
                 "name": item["name"],
-                "first_strike_time": datetime.utcnow().isoformat(),
+                "first_strike_time": _utc_now().isoformat(),
                 "last_strike_time": None,
             }
 
@@ -500,10 +650,10 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
         # If we should strike this item, add a strike
         if should_strike:
             strike_data[item_id]["strikes"] += 1
-            strike_data[item_id]["last_strike_time"] = datetime.utcnow().isoformat()
+            strike_data[item_id]["last_strike_time"] = _utc_now().isoformat()
 
             if strike_data[item_id]["first_strike_time"] is None:
-                strike_data[item_id]["first_strike_time"] = datetime.utcnow().isoformat()
+                strike_data[item_id]["first_strike_time"] = _utc_now().isoformat()
 
             current_strikes = strike_data[item_id]["strikes"]
             swaparr_logger.info(
@@ -520,13 +670,13 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
 
                         # Keep the item in strike data for reference but mark as removed
                         strike_data[item_id]["removed"] = True
-                        strike_data[item_id]["removed_time"] = datetime.utcnow().isoformat()
+                        strike_data[item_id]["removed_time"] = _utc_now().isoformat()
 
                         # Add to removed items list for persistent tracking
                         removed_items[item_hash] = {
                             "name": item["name"],
                             "size": item["size"],
-                            "removed_time": datetime.utcnow().isoformat(),
+                            "removed_time": _utc_now().isoformat(),
                             "reason": strike_reason,
                         }
                 else:
@@ -539,10 +689,14 @@ def process_stalled_downloads(app_name, app_settings, swaparr_settings=None):
         swaparr_logger.debug(f"Processed download: {item['name']} - State: {item_state}")
 
     # Save updated strike data
-    save_strike_data(app_name, strike_data)
+    strike_saved = save_strike_data(app_name, strike_data, instance_name)
 
     # Save updated removed items list
-    save_removed_items(app_name, removed_items)
+    removed_saved = save_removed_items(app_name, removed_items, instance_name)
+
+    if not strike_saved or not removed_saved:
+        swaparr_logger.error(f"Failed to persist complete Swaparr state for {app_name}/{instance_name}")
+        return
 
     swaparr_logger.info(
         f"Finished processing stalled downloads for {app_name} instance: {app_settings.get('instance_name', 'Unknown')}"
