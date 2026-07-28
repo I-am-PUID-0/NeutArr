@@ -45,6 +45,7 @@ from src.primary.utils.logger import (
     update_logging_levels,
 )  # Import get_logger, LOG_DIR, and update_logging_levels
 from src.primary.utils.version import get_runtime_version
+from src.primary.log_redaction import redact_sensitive_data
 from src.primary.auth import (
     INSTANCE_STORAGE_KEY,
     authenticate_request,
@@ -358,14 +359,14 @@ def logs_stream():
                                         stripped = line.strip()
                                         if stripped:
                                             prefix = f"[{name.upper()}] " if app_type == "all" else ""
-                                            yield f"data: {prefix}{stripped}\n\n"
+                                            yield f"data: {prefix}{redact_sensitive_data(stripped)}\n\n"
 
                         except FileNotFoundError:
                             web_logger.warning(f"Log file {path} disappeared during read.")
                             positions[name] = -1
                         except Exception as e:
                             web_logger.error(f"Error reading {path}: {e}")
-                            yield f"data: ERROR: Problem reading log: {str(e)}\n\n"
+                            yield f"data: ERROR: Problem reading log: {redact_sensitive_data(e)}\n\n"
 
                     except Exception as e:
                         web_logger.error(f"Error processing {name}: {e}")
@@ -390,7 +391,7 @@ def logs_stream():
             )
             try:
                 # Ensure error message is properly formatted for SSE
-                yield f"event: error\ndata: ERROR: Log streaming failed unexpectedly: {str(e)}\n\n"
+                yield (f"event: error\ndata: ERROR: Log streaming failed unexpectedly: {redact_sensitive_data(e)}\n\n")
             except Exception as yield_err:
                 web_logger.error(f"Error yielding final error message to client {client_id}: {yield_err}")
         finally:
@@ -407,7 +408,7 @@ def logs_stream():
 
     # Return the SSE response with appropriate headers for better streaming
     response = Response(stream_with_context(generate()), mimetype="text/event-stream")  # Use stream_with_context
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Cache-Control"] = "no-store"
     response.headers["X-Accel-Buffering"] = "no"  # Disable nginx buffering if using nginx
     return response
 

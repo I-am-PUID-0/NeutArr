@@ -10,6 +10,8 @@ import sys
 import signal
 import logging  # Use standard logging for initial setup
 
+from src.primary.log_redaction import install_sensitive_data_filter
+
 # Ensure the 'src' directory is in the Python path
 # This allows importing modules from 'src.primary' etc.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
@@ -20,6 +22,7 @@ log_level = logging.DEBUG if os.environ.get("DEBUG", "false").lower() == "true" 
 logging.basicConfig(
     level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
+install_sensitive_data_filter()
 root_logger = logging.getLogger("NeutArrRoot")  # Specific logger for this entry point
 root_logger.info("--- NeutArr Main Process Starting ---")
 root_logger.info(f"Python sys.path: {sys.path}")

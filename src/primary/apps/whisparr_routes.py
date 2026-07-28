@@ -3,9 +3,9 @@
 from flask import Blueprint, request, jsonify
 import datetime, os, requests
 from src.primary.state import get_state_file_path, reset_state_file
+from src.primary.log_redaction import redact_sensitive_data
 from src.primary.utils.logger import get_logger, APP_LOG_FILES
 from src.primary.settings_manager import load_settings, get_ssl_verify_setting
-import traceback
 import socket
 from urllib.parse import urlparse
 from src.primary.apps.whisparr import api as whisparr_api
@@ -311,13 +311,13 @@ def get_logs():
         # Read the log file (last 200 lines)
         with open(log_file, "r") as f:
             lines = f.readlines()
-            log_content = "".join(lines[-200:])
+            log_content = redact_sensitive_data("".join(lines[-200:]))
 
-        return jsonify({"success": True, "logs": log_content})
+        response = jsonify({"success": True, "logs": log_content})
+        response.headers["Cache-Control"] = "no-store"
+        return response
     except Exception as e:
-        error_message = f"Error fetching Whisparr logs: {str(e)}"
-        whisparr_logger.error(error_message)
-        traceback.print_exc()
+        whisparr_logger.exception(f"Error fetching Whisparr logs: {e}")
         return jsonify({"success": False, "message": "Failed to fetch Whisparr logs"}), 500
 
 

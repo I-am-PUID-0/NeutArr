@@ -10,6 +10,8 @@ import os
 import pathlib
 from typing import Dict, Optional
 
+from src.primary.log_redaction import add_sensitive_data_filter, install_sensitive_data_filter
+
 # Create log directory
 LOG_DIR = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,10 +68,12 @@ def setup_main_logger(debug_mode=None):
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if use_debug_mode else logging.INFO)
+    add_sensitive_data_filter(console_handler)
 
     # Create file handler
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG if use_debug_mode else logging.INFO)
+    add_sensitive_data_filter(file_handler)
 
     # Set format for the main logger
     log_format = "%(asctime)s - neutarr - %(levelname)s - %(message)s"
@@ -135,11 +139,13 @@ def get_logger(app_type: str) -> logging.Logger:
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+    add_sensitive_data_filter(console_handler)
 
     # Create file handler for the specific app log file
     log_file = APP_LOG_FILES[app_type]
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
+    add_sensitive_data_filter(file_handler)
 
     # Set a distinct format for this app log
     log_format = f"%(asctime)s - neutarr.{app_type} - %(levelname)s - %(message)s"
@@ -234,4 +240,5 @@ def debug_log(message: str, data: object = None, app_type: Optional[str] = None)
 
 
 # Initialize the main logger instance when the module is imported
+install_sensitive_data_filter()
 logger = setup_main_logger()

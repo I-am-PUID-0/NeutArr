@@ -118,7 +118,7 @@ The Docker image now uses this endpoint for a native container `HEALTHCHECK`, so
 
 ## Authentication
 
-NeutArr ships a JWT dual-token auth system (bcrypt + PyJWT, stateless):
+NeutArr ships a revocable JWT dual-token auth system (bcrypt + PyJWT):
 
 | Mode | When to use |
 |:-----|:------------|
@@ -175,6 +175,14 @@ Update integrations that previously used URLs such as `/api/settings?apikey=...`
 curl -H "X-Api-Key: ${NEUTARR_API_KEY}" http://neutarr.example/api/settings
 ```
 
+### Log redaction
+
+NeutArr’s configured console and file handlers redact common credential shapes before emission, including API keys, passwords, access and refresh tokens, JWTs, authorization headers, cookies, client secrets, URL query credentials, and passwords embedded in URLs. The live SSE log viewer and Whisparr log API apply the same sanitizer while reading files so pre-upgrade log entries are not returned verbatim through the web interface.
+
+Response-time redaction does not rewrite historical files already stored under `/config/logs`. After upgrading, remove or rotate old log files if they may contain credentials, and rotate any credential suspected of prior exposure.
+
+The one-time first-run setup token remains intentionally visible through the documented startup-log workflow until account creation consumes it. Treat access to NeutArr’s logs as administrative access while initial setup is incomplete.
+
 ## Configuration
 
 All configuration is done through the web UI. Settings are persisted to `/config/`.
@@ -219,6 +227,7 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 - pip-audit clean pass: waitress upgraded to `>=3.0.1` (patched PYSEC-2024-210 + PYSEC-2024-211)
 - Flask constraint raised to `>=3.1.3` (patched CVE-2026-27205)
 - XSS hardening across the main and Swaparr log renderers plus Swaparr status/reset displays; log-derived values are rendered as text rather than executable HTML
+- Central log redaction protects configured handlers and sanitizes historical lines returned by log-view APIs
 - Dead code removed: unregistered blueprints, unreachable routes, legacy helper files
 - GitHub Actions pinned to immutable commit SHAs; Dependabot monitors both `pip` and `github-actions` weekly
 - See [SECURITY-AUDIT-COMPARISON.md](SECURITY-AUDIT-COMPARISON.md) for a finding-by-finding comparison against the Huntarr.io security audit (20 findings: 8 resolved, 11 N/A, 0 open)

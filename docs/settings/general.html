@@ -116,6 +116,10 @@
             </ul>
             
             <h2>Logging</h2>
+
+            <h3>Credential Redaction</h3>
+            <p>NeutArr redacts common API keys, passwords, JWTs, authorization headers, cookies, client secrets, and URL credentials before writing configured console and file logs. The web log viewer applies the same protection when reading older files.</p>
+            <p>Redaction in the web viewer does not rewrite historical files under <code>/config/logs</code>. Remove or rotate pre-upgrade logs if they may contain credentials, and rotate any credential suspected of exposure. The one-time first-run setup token remains visible in startup logs until account creation consumes it, so protect log access while setup is incomplete.</p>
             
             <h3>Log Level</h3>
             <p>Select how detailed the logs should be:</p>
@@ -153,4 +157,4 @@
         </div>
     </div>
 </body>
-</html> 
+</html>

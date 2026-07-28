@@ -15,8 +15,11 @@ import time
 import time as time_module
 from typing import Any, Dict, List, Optional
 
+from src.primary.log_redaction import install_sensitive_data_filter, redact_sensitive_data
+
 # Create a simple logger for settings_manager
 logging.basicConfig(level=logging.INFO)
+install_sensitive_data_filter()
 settings_logger = logging.getLogger("settings_manager")
 
 # Settings directory setup - Root config directory can be overridden by environment variable, defaulting to /config
@@ -345,7 +348,7 @@ if __name__ == "__main__":
 
     # Test loading Sonarr settings
     sonarr_settings = load_settings("sonarr")
-    settings_logger.info(f"Loaded Sonarr settings: {json.dumps(sonarr_settings, indent=2)}")
+    settings_logger.info(f"Loaded Sonarr settings: {redact_sensitive_data(json.dumps(sonarr_settings, indent=2))}")
 
     # Test getting a specific setting
     sonarr_sleep = get_setting("sonarr", "sleep_duration", 999)
@@ -356,11 +359,14 @@ if __name__ == "__main__":
         sonarr_settings["sleep_duration"] = 850
         save_settings("sonarr", sonarr_settings)
         reloaded_sonarr_settings = load_settings("sonarr")
-        settings_logger.info(f"Reloaded Sonarr settings after save: {json.dumps(reloaded_sonarr_settings, indent=2)}")
+        settings_logger.info(
+            f"Reloaded Sonarr settings after save: "
+            f"{redact_sensitive_data(json.dumps(reloaded_sonarr_settings, indent=2))}"
+        )
 
     # Test getting all settings
     all_app_settings = get_all_settings()
-    settings_logger.info(f"All loaded settings: {json.dumps(all_app_settings, indent=2)}")
+    settings_logger.info(f"All loaded settings: {redact_sensitive_data(json.dumps(all_app_settings, indent=2))}")
 
     # Test getting configured apps
     configured_list = get_configured_apps()

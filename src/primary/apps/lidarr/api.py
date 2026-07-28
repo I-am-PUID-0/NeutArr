@@ -6,10 +6,8 @@ Handles all communication with the Lidarr API (v1)
 
 import requests
 import json
-import sys
 import time
 import datetime
-import traceback
 import logging
 from typing import List, Dict, Any, Optional, Union
 from src.primary.utils.logger import get_logger
@@ -120,12 +118,7 @@ def arr_request(
         return None
 
     except Exception as e:
-        # Catch all exceptions and log them with traceback
-        error_msg = f"CRITICAL ERROR in Lidarr arr_request: {str(e)}"
-        lidarr_logger.error(error_msg)
-        lidarr_logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(error_msg, file=sys.stderr)
-        print(traceback.format_exc(), file=sys.stderr)
+        lidarr_logger.exception(f"CRITICAL ERROR in Lidarr arr_request: {e}")
         return None
 
 

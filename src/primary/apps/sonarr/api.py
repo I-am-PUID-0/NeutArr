@@ -6,10 +6,8 @@ Handles all communication with the Sonarr API
 
 import requests
 import json
-import sys
 import time
 import datetime
-import traceback
 from typing import List, Dict, Any, Optional, Union, Callable
 
 # Correct the import path
@@ -112,12 +110,7 @@ def arr_request(
             sonarr_logger.error(f"Error during {method} request to {endpoint}: {error_details}")
             return None
     except Exception as e:
-        # Catch all exceptions and log them with traceback
-        error_msg = f"CRITICAL ERROR in arr_request: {str(e)}"
-        sonarr_logger.error(error_msg)
-        sonarr_logger.error(f"Full traceback: {traceback.format_exc()}")
-        print(error_msg, file=sys.stderr)
-        print(traceback.format_exc(), file=sys.stderr)
+        sonarr_logger.exception(f"CRITICAL ERROR in arr_request: {e}")
         return None
 
 
