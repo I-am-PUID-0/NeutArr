@@ -1,13 +1,12 @@
 /**
  * NeutArr Auth Manager
  *
- * Handles JWT token storage, Authorization header injection, automatic token
- * refresh on 401, and logout. Include this before all other JS files.
+ * Handles the browser's HttpOnly cookie session, automatic token refresh on
+ * 401, and logout. Include this before all other JS files.
  *
  * Token storage:
- *   - Access token: localStorage (neutarr_access_token) + neutarr_token cookie
- *     (cookie is set by server on login/refresh for browser page-request auth)
- *   - Refresh token: localStorage (neutarr_refresh_token) for explicit refresh calls
+ *   - Access and refresh JWTs: HttpOnly cookies managed by the server
+ *   - Username only: localStorage, scoped per NeutArr instance
  *
  * Usage:
  *   authFetch('/api/something', { method: 'POST', body: JSON.stringify(data) })
@@ -32,28 +31,28 @@ const AuthManager = (() => {
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
   let _bootstrapPromise = null;
   let _bypassActive = false;
-
-  function getAccessToken() {
-    return localStorage.getItem(ACCESS_KEY);
-  }
-
-  function getRefreshToken() {
-    return localStorage.getItem(REFRESH_KEY);
-  }
+  let _legacyTokenMigrationPending = false;
 
   function getUsername() {
     return localStorage.getItem(USERNAME_KEY);
   }
 
-  function setTokens(accessToken, refreshToken, username) {
-    if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken);
-    if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  function clearLegacyBrowserTokens() {
+    for (const key of [ACCESS_KEY, REFRESH_KEY, 'neutarr_access_token', 'neutarr_refresh_token']) {
+      if (localStorage.getItem(key)) {
+        _legacyTokenMigrationPending = true;
+      }
+      localStorage.removeItem(key);
+    }
+  }
+
+  function setSession(username) {
+    clearLegacyBrowserTokens();
     if (username) localStorage.setItem(USERNAME_KEY, username);
   }
 
-  function clearTokens() {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+  function clearSession() {
+    clearLegacyBrowserTokens();
     localStorage.removeItem(USERNAME_KEY);
     _bypassActive = false;
   }
@@ -71,6 +70,10 @@ const AuthManager = (() => {
           return false;
         }
         _bypassActive = Boolean(data.proxy_request_authenticated || data.local_client_bypass);
+        if (_legacyTokenMigrationPending) {
+          _legacyTokenMigrationPending = false;
+          await refresh();
+        }
         return _bypassActive;
       } catch {
         _bypassActive = false;
@@ -87,24 +90,18 @@ const AuthManager = (() => {
     // Deduplicate: if a refresh is already in flight, return the same promise
     if (_refreshPromise) return _refreshPromise;
 
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) return false;
-
     _refreshPromise = (async () => {
       try {
-      const response = await nativeFetch('/api/auth/refresh', {
+        const response = await nativeFetch('/api/auth/refresh', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
         });
 
         if (!response.ok) {
-          clearTokens();
           return false;
         }
 
         const data = await response.json();
-        setTokens(data.access_token, data.refresh_token, data.username);
+        setSession(data.username);
         return true;
       } catch {
         return false;
@@ -121,7 +118,7 @@ const AuthManager = (() => {
     try {
       await nativeFetch('/api/auth/logout', { method: 'POST' });
     } catch { /* ignore network errors on logout */ }
-    clearTokens();
+    clearSession();
     if (bootstrapped) {
       window.location.href = '/';
       return;
@@ -129,92 +126,84 @@ const AuthManager = (() => {
     window.location.href = '/login';
   }
 
-  return { getAccessToken, getRefreshToken, getUsername, setTokens, clearTokens, bootstrap, refresh, logout };
+  function isBypassActive() {
+    return _bypassActive;
+  }
+
+  clearLegacyBrowserTokens();
+
+  return { getUsername, setSession, clearSession, bootstrap, refresh, logout, isBypassActive };
 })();
 
 
 /**
- * authFetch — drop-in replacement for fetch() that:
- *   1. Adds Authorization: Bearer <token> header
- *   2. On 401: tries one token refresh then retries
- *   3. On second 401: redirects to /login
+ * authFetch — drop-in replacement for fetch() that adds a JSON content type
+ * when appropriate. The global fetch wrapper handles cookie refresh.
  *
  * @param {string} url
  * @param {RequestInit} [options]
  * @returns {Promise<Response>}
  */
 async function authFetch(url, options = {}) {
-  await AuthManager.bootstrap();
-
-  const token = AuthManager.getAccessToken();
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  let response = await nativeFetch(url, { ...options, headers });
-
-  // On 401, attempt token refresh then retry once
-  if (response.status === 401 && token) {
-    const refreshed = await AuthManager.refresh();
-    if (refreshed) {
-      const newToken = AuthManager.getAccessToken();
-      if (newToken) headers.set('Authorization', `Bearer ${newToken}`);
-      response = await nativeFetch(url, { ...options, headers });
-    }
-
-    // Still 401 after refresh — redirect to login
-    if (response.status === 401) {
-      AuthManager.logout();
-      return response; // unreachable but satisfies linters
-    }
-  }
-
-  return response;
+  return window.fetch(url, { ...options, headers });
 }
 
-function shouldAttachApiAuth(input) {
+function getSameOriginApiPath(input) {
   const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
 
   if (/^https?:\/\//i.test(url)) {
     try {
       const parsed = new URL(url, window.location.origin);
-      if (parsed.origin !== window.location.origin) return false;
-      return parsed.pathname.startsWith('/api/');
+      if (parsed.origin !== window.location.origin || !parsed.pathname.startsWith('/api/')) return null;
+      return parsed.pathname;
     } catch {
-      return false;
+      return null;
     }
   }
 
-  return url.startsWith('/api/');
+  if (!url.startsWith('/api/')) return null;
+  return new URL(url, window.location.origin).pathname;
 }
 
 window.fetch = async function(input, init = undefined) {
-  if (!shouldAttachApiAuth(input)) {
+  const apiPath = getSameOriginApiPath(input);
+  if (!apiPath) {
     return nativeFetch(input, init);
   }
 
   await AuthManager.bootstrap();
 
   const originalRequest = input instanceof Request ? input : null;
-  const requestInit = init ? { ...init } : {};
-  const headers = new Headers(
-    requestInit.headers || (originalRequest ? originalRequest.headers : undefined) || undefined
-  );
+  const retryInput = originalRequest ? originalRequest.clone() : input;
+  let response = await nativeFetch(input, init);
 
-  const token = AuthManager.getAccessToken();
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
+  const refreshExcluded = new Set([
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/auth/refresh',
+    '/api/auth/setup',
+    '/api/auth/status',
+    '/api/auth/verify',
+  ]);
+  if (
+    response.status !== 401 ||
+    response.headers.get('X-NeutArr-Auth-Required') !== '1' ||
+    refreshExcluded.has(apiPath) ||
+    AuthManager.isBypassActive()
+  ) {
+    return response;
   }
 
-  requestInit.headers = headers;
-
-  if (originalRequest) {
-    return nativeFetch(new Request(originalRequest, requestInit));
+  if (await AuthManager.refresh()) {
+    response = await nativeFetch(retryInput, init);
   }
 
-  return nativeFetch(input, requestInit);
+  if (response.status === 401) {
+    AuthManager.logout();
+  }
+  return response;
 };

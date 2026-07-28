@@ -489,8 +489,8 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        // Store tokens — we're now authenticated
-                        AuthManager.setTokens(data.access_token, data.refresh_token, data.username);
+                        // The server set HttpOnly session cookies.
+                        AuthManager.setSession(data.username);
                         goToStep(2);
                     } else {
                         showError(accountError, data.error || 'Failed to create account.');

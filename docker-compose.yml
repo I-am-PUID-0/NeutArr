@@ -19,4 +19,7 @@ services:
       # and configure the header that your proxy sets after authentication.
       # - TRUSTED_PROXIES=172.20.0.0/16
       # - NEUTARR_PROXY_AUTH_HEADER=Remote-User
+      # Optional: force Secure session cookies when NeutArr is served only over
+      # HTTPS and proxy scheme detection is unavailable.
+      # - NEUTARR_SECURE_COOKIES=true
     restart: unless-stopped

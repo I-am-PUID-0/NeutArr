@@ -77,10 +77,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                // Server issues new tokens with the new username — store them
-                if (data.access_token && data.refresh_token) {
-                    AuthManager.setTokens(data.access_token, data.refresh_token, data.username || newUsername);
-                }
+                AuthManager.setSession(data.username || newUsername);
                 showStatus(statusElement, 'Username updated successfully', 'success');
                 updateUsernameElements(newUsername);
                 document.getElementById('newUsername').value = '';

@@ -288,7 +288,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    AuthManager.setTokens(data.access_token, data.refresh_token, data.username);
+                    AuthManager.setSession(data.username);
                     window.location.href = '/';
                 } else {
                     showError(data.error || 'Invalid username or password.');

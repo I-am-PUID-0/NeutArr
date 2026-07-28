@@ -63,8 +63,8 @@ def get_instance_storage_key() -> str:
 
 
 INSTANCE_STORAGE_KEY = get_instance_storage_key()
-ACCESS_COOKIE = f"neutarr_token_{INSTANCE_STORAGE_KEY}"  # non-httponly; JS-readable for AJAX
-REFRESH_COOKIE = f"neutarr_refresh_{INSTANCE_STORAGE_KEY}"  # httponly; auto-sent to refresh endpoint
+ACCESS_COOKIE = f"neutarr_token_{INSTANCE_STORAGE_KEY}"
+REFRESH_COOKIE = f"neutarr_refresh_{INSTANCE_STORAGE_KEY}"
 
 # Private RFC-1918 + loopback CIDR ranges for local access bypass
 DEFAULT_LOCAL_BYPASS_CIDRS = [
@@ -378,30 +378,61 @@ def create_token_pair(username: str) -> tuple:
 
 
 def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
-    """Set access (non-httponly) and refresh (httponly) cookies on response."""
+    """Set browser session cookies without exposing JWTs to JavaScript."""
+    secure = _use_secure_cookies()
     response.set_cookie(
         ACCESS_COOKIE,
         access_token,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        httponly=False,  # JS-readable so frontend can add Authorization headers
-        samesite="Lax",
+        httponly=True,
+        secure=secure,
+        samesite="Strict",
         path="/",
     )
     response.set_cookie(
         REFRESH_COOKIE,
         refresh_token,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 86400,
-        httponly=True,  # Not readable by JS — only auto-sent to refresh endpoint
-        samesite="Lax",
+        httponly=True,
+        secure=secure,
+        samesite="Strict",
         path="/api/auth/refresh",
     )
+    _delete_auth_cookie(response, LEGACY_ACCESS_COOKIE, "/")
+    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, "/api/auth/refresh")
+
+
+def _use_secure_cookies() -> bool:
+    """Determine whether session cookies should carry the Secure attribute."""
+    configured = os.environ.get("NEUTARR_SECURE_COOKIES", "").strip().casefold()
+    if configured in {"1", "true", "yes", "on"}:
+        return True
+    if configured in {"0", "false", "no", "off"}:
+        return False
+
+    if request.is_secure:
+        return True
+    if _is_trusted_proxy_source():
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip().casefold()
+        return forwarded_proto == "https"
+    return False
 
 
 def clear_auth_cookies(response) -> None:
-    response.delete_cookie(ACCESS_COOKIE, path="/")
-    response.delete_cookie(REFRESH_COOKIE, path="/api/auth/refresh")
-    response.delete_cookie(LEGACY_ACCESS_COOKIE, path="/")
-    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/api/auth/refresh")
+    _delete_auth_cookie(response, ACCESS_COOKIE, "/")
+    _delete_auth_cookie(response, REFRESH_COOKIE, "/api/auth/refresh")
+    _delete_auth_cookie(response, LEGACY_ACCESS_COOKIE, "/")
+    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, "/api/auth/refresh")
+
+
+def _delete_auth_cookie(response, name: str, path: str) -> None:
+    response.delete_cookie(
+        name,
+        path=path,
+        httponly=True,
+        secure=_use_secure_cookies(),
+        samesite="Strict",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -676,7 +707,10 @@ def authenticate_request():
 
     # 5. API requests require explicit credentials or an eligible bypass.
     if is_api:
-        return jsonify({"error": "Authentication required"}), 401
+        response = jsonify({"error": "Authentication required"})
+        response.status_code = 401
+        response.headers["X-NeutArr-Auth-Required"] = "1"
+        return response
 
     # 6. Reject page request — send to login
     return redirect("/login")

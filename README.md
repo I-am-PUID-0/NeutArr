@@ -122,7 +122,7 @@ NeutArr ships a JWT dual-token auth system (bcrypt + PyJWT, stateless):
 
 | Mode | When to use |
 |:-----|:------------|
-| **Standard** | Username/password login; access token (1h) + refresh token (30d) via cookies |
+| **Standard** | Username/password login; access token (1h) + refresh token (30d) in HttpOnly cookies |
 | **Local access bypass** | Requests from trusted CIDR ranges skip the web login — for LAN-only deployments |
 | **Proxy authentication** | Trust identity assertions only from explicitly configured SSO proxy networks |
 | **API key** | `X-Api-Key` header or `?apikey=` query param; for automation and integrations |
@@ -154,6 +154,14 @@ NeutArr applies process-local sliding-window limits to credential-verification e
 | Token verification | 30 consecutive attempts per client every minute |
 
 Successful authentication clears the applicable attempt buckets. Rejected requests return HTTP `429` with a `Retry-After` header. Limits reset when the NeutArr process restarts and complement—not replace—rate limiting at an internet-facing reverse proxy.
+
+### Browser session cookies
+
+Browser JWTs are stored only in server-managed, `HttpOnly`, `SameSite=Strict` cookies; NeutArr does not persist or inject them through JavaScript or localStorage. When upgrading, the frontend removes legacy localStorage tokens, refreshes an existing session into protected cookies, and expires legacy cookie names.
+
+Cookies receive the `Secure` attribute automatically for direct HTTPS requests and for `X-Forwarded-Proto: https` requests from peers in `TRUSTED_PROXIES`. Set `NEUTARR_SECURE_COOKIES=true` to force secure cookies when HTTPS termination cannot be detected. Do not enable that override for plain-HTTP access because browsers will not return Secure cookies over HTTP.
+
+The login and refresh APIs continue returning JWTs in their JSON responses for non-browser clients that use `Authorization: Bearer`. The bundled frontend ignores those token values and relies on its HttpOnly cookie session.
 
 ## Configuration
 
@@ -189,6 +197,7 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 - `X-Forwarded-For` is only trusted when the immediate peer is in `TRUSTED_PROXIES`
 - API key auth: auto-generated, timing-safe comparison, rotate endpoint
 - Thread-safe, bounded rate limiting protects login, current-password, setup-token, refresh-token, and token-verification endpoints
+- Browser JWTs remain in HttpOnly, strict same-site cookies with trusted-proxy-aware Secure handling and legacy localStorage cleanup
 - 2FA removed
 - Standalone `User` page removed; account controls now live in `Settings -> Account & API`
 

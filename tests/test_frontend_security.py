@@ -26,6 +26,17 @@ class FrontendSecurityTests(unittest.TestCase):
             source,
         )
 
+    def test_browser_auth_does_not_persist_or_inject_jwts(self):
+        source = (_REPO_ROOT / "frontend" / "static" / "js" / "auth.js").read_text()
+
+        self.assertNotIn("localStorage.setItem(ACCESS_KEY", source)
+        self.assertNotIn("localStorage.setItem(REFRESH_KEY", source)
+        self.assertNotIn("headers.set('Authorization'", source)
+        self.assertIn("clearLegacyBrowserTokens();", source)
+        self.assertIn("_legacyTokenMigrationPending = true;", source)
+        self.assertIn("await AuthManager.refresh()", source)
+        self.assertIn("response.headers.get('X-NeutArr-Auth-Required') !== '1'", source)
+
 
 if __name__ == "__main__":
     unittest.main()
