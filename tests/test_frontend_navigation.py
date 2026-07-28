@@ -107,8 +107,13 @@ class FrontendNavigationTests(unittest.TestCase):
         self.assertIn("Open app integrations", template)
         self.assertIn("appBox.hidden = !isConfigured;", script)
         self.assertIn("this.updateHomeAppsState(false)", script)
+        self.assertIn("grid.dataset.visibleCount = String(configuredCount);", script)
         self.assertIn("statsContainer.insertAdjacentHTML(", script)
         self.assertIn(".app-stats-card[hidden]", styles)
+        self.assertIn('.app-stats-grid[data-visible-count="1"]', styles)
+        self.assertIn('.app-stats-grid[data-visible-count="2"]', styles)
+        self.assertIn("minmax(280px, 620px)", styles)
+        self.assertIn('.app-stats-grid[data-visible-count="4"]', styles)
         self.assertIn("display: none !important;", styles)
 
     def test_home_dashboard_shows_live_per_app_cycle_countdowns(self):

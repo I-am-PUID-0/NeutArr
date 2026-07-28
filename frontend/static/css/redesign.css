@@ -785,10 +785,28 @@ button:focus-visible,
 
 .app-stats-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 310px)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
     gap: 14px !important;
     align-items: start;
-    justify-content: start;
+    justify-content: center;
+}
+
+.app-stats-grid[data-visible-count="1"] {
+    grid-template-columns: minmax(280px, 620px) !important;
+}
+
+.app-stats-grid[data-visible-count="2"] {
+    grid-template-columns: repeat(2, minmax(280px, 620px)) !important;
+}
+
+.app-stats-grid[data-visible-count="3"],
+.app-stats-grid[data-visible-count="5"],
+.app-stats-grid[data-visible-count="6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.app-stats-grid[data-visible-count="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
 .app-stats-card {
@@ -2097,6 +2115,13 @@ body #appsSection .app-apps-panel {
 
     #appsSection .instance-item {
         max-width: none;
+    }
+
+    .app-stats-grid[data-visible-count="3"],
+    .app-stats-grid[data-visible-count="4"],
+    .app-stats-grid[data-visible-count="5"],
+    .app-stats-grid[data-visible-count="6"] {
+        grid-template-columns: repeat(2, minmax(260px, 1fr)) !important;
     }
 }
 

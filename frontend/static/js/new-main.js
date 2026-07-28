@@ -2095,6 +2095,7 @@ let neutarrUI = {
         const configuredCount = Object.values(this.configuredApps).filter(Boolean).length;
         const allChecksFailed = this.appStatusErrors.size === Object.keys(this.configuredApps).length;
 
+        grid.dataset.visibleCount = String(configuredCount);
         grid.hidden = configuredCount === 0;
         if (resetButton) resetButton.hidden = configuredCount === 0;
         if (!state) return;
