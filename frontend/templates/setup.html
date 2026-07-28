@@ -357,14 +357,14 @@
                     <select id="auth_mode">
                         <option value="login" selected>Login Mode (recommended)</option>
                         <option value="local_bypass">Local Bypass Mode</option>
-                        <option value="no_login">No Login Mode</option>
+                        <option value="no_login">Proxy Auth Mode</option>
                     </select>
                     <div class="auth-mode-description" id="authModeDescription">
                         Standard login required for all connections.
                     </div>
                     <div class="warning-text" id="authModeWarning" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i>
-                        Only use this if your reverse proxy is properly securing access.
+                        Configure both required environment variables before relying on proxy authentication.
                     </div>
                 </div>
                 <div class="form-actions">
@@ -412,7 +412,7 @@
             const modeDescriptions = {
                 login: 'Standard login required for all connections.',
                 local_bypass: 'Local network connections (192.168.x.x, 10.x.x.x, 172.16.x.x) bypass authentication. Remote connections still require login.',
-                no_login: 'Authentication is completely disabled. Only use this when running behind a properly configured reverse proxy with its own auth.'
+                no_login: 'Trust authentication asserted by a configured reverse proxy. TRUSTED_PROXIES and NEUTARR_PROXY_AUTH_HEADER are required.'
             };
 
             authModeSelect.addEventListener('change', function() {

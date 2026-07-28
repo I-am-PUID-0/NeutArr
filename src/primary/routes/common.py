@@ -11,6 +11,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 
 from ..utils.logger import logger
 from .. import settings_manager
+from ..auth import _is_local_bypass_request, _is_proxy_authenticated_request
 
 common_bp = Blueprint("common", __name__)
 
@@ -45,12 +46,12 @@ def logo_files(filename):
 
 @common_bp.route("/api/get_local_access_bypass_status", methods=["GET"])
 def get_local_access_bypass_status_route():
-    """Return whether any auth bypass mode is active (hides user menu in UI)."""
+    """Return whether this request is currently authorized by a bypass mode."""
     try:
-        local_access_bypass = settings_manager.get_setting("general", "local_access_bypass", False)
-        proxy_auth_bypass = settings_manager.get_setting("general", "proxy_auth_bypass", False)
+        local_access_bypass = _is_local_bypass_request()
+        proxy_auth_bypass = _is_proxy_authenticated_request()
         bypass_enabled = local_access_bypass or proxy_auth_bypass
-        logger.debug(f"Bypass status: local={local_access_bypass}, proxy={proxy_auth_bypass}")
+        logger.debug(f"Request bypass status: local={local_access_bypass}, proxy={proxy_auth_bypass}")
         return jsonify({"isEnabled": bypass_enabled})
     except Exception as e:
         logger.error(f"Error retrieving bypass status: {e}", exc_info=True)

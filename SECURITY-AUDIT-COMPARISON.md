@@ -72,7 +72,7 @@ No `/api/setup/clear` or skip-setup endpoint exists. Initial account creation th
 
 **Status: RESOLVED**
 
-`X-Forwarded-For` is only read when the `TRUSTED_PROXIES` environment variable is set. Without it, only `request.remote_addr` is used for local bypass checks (`src/primary/auth.py`).
+`X-Forwarded-For` is only read when the immediate peer is inside a network configured by `TRUSTED_PROXIES`. Without it, only `request.remote_addr` is used for local bypass checks. Proxy Auth Mode also requires that trusted peer to provide the non-empty identity header named by `NEUTARR_PROXY_AUTH_HEADER`; it fails closed when either setting is absent or invalid (`src/primary/auth.py`).
 
 ### #9 — Windows service/install scripts grant `Everyone:(OI)(CI)F` recursively
 

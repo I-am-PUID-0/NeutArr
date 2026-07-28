@@ -22,9 +22,9 @@ import logging
 from flask import Blueprint, request, jsonify, make_response, redirect, render_template
 
 from ..auth import (
-    _get_client_ip,
     _get_local_bypass,
-    _is_local_ip,
+    _is_local_bypass_request,
+    _is_proxy_authenticated_request,
     normalize_local_bypass_cidrs,
     reset_bypass_caches,
     LEGACY_REFRESH_COOKIE,
@@ -58,15 +58,15 @@ auth_bp = Blueprint("auth", __name__)
 
 
 def _is_privileged() -> bool:
-    """Return True if request carries valid JWT or valid API key credentials.
+    """Return True for explicit credentials or authenticated reverse-proxy users.
 
-    Used inside route handlers that must not be accessible via bypass modes
-    alone — e.g. reading or rotating the API key.
+    Local CIDR bypass alone is intentionally not enough to read or rotate the
+    durable API key.
     """
     if get_current_user():
         return True
     api_key = get_api_key_from_request()
-    return bool(api_key and validate_api_key(api_key))
+    return bool((api_key and validate_api_key(api_key)) or _is_proxy_authenticated_request())
 
 
 def _get_authenticated_username() -> str | None:
@@ -77,7 +77,8 @@ def _get_authenticated_username() -> str | None:
 
     api_key = get_api_key_from_request()
     if not api_key or not validate_api_key(api_key):
-        return None
+        if not _is_proxy_authenticated_request():
+            return None
 
     for user in auth_config.config.get("users", []):
         if not user.get("disabled", False) and user.get("username"):
@@ -116,8 +117,8 @@ def auth_status():
     except Exception:
         local_bypass = False
 
-    client_ip = _get_client_ip()
-    local_client = bool(client_ip and _is_local_ip(client_ip))
+    proxy_request_authenticated = _is_proxy_authenticated_request()
+    local_client_bypass = _is_local_bypass_request()
 
     data = {
         "has_users": auth_config.has_users(),
@@ -126,14 +127,10 @@ def auth_status():
         "local_access_bypass": local_bypass,
         "setup_skipped": False,
         "setup_token_required": not auth_config.has_users(),
-        "auth_enabled": auth_config.has_users() and not proxy_bypass,
+        "auth_enabled": auth_config.has_users() and not (proxy_request_authenticated or local_client_bypass),
+        "proxy_request_authenticated": proxy_request_authenticated,
+        "local_client_bypass": local_client_bypass,
     }
-
-    # Frontend-bypass modes still authenticate API calls using the instance API
-    # key instead of JWT. Only expose the key when this request is currently
-    # eligible to bypass the web login page.
-    if auth_config.has_users() and (proxy_bypass or (local_bypass and local_client)):
-        data["frontend_api_key"] = auth_config.get_api_key()
 
     return jsonify(data)
 
@@ -413,11 +410,8 @@ def auth_mode():
 def login_page():
     if not auth_config.has_users():
         return redirect("/setup")
-    try:
-        if settings_manager.get_setting("general", "proxy_auth_bypass", False):
-            return redirect("/")
-    except Exception:
-        pass
+    if _is_proxy_authenticated_request() or _is_local_bypass_request():
+        return redirect("/")
     return render_template("login.html")
 
 

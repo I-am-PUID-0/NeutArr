@@ -17,6 +17,15 @@ class FrontendSecurityTests(unittest.TestCase):
         self.assertIn("configPanel.replaceChildren(config);", source)
         self.assertIn("tableView.replaceChildren(table);", source)
 
+    def test_proxy_auth_requirements_only_show_for_proxy_mode(self):
+        source = (_REPO_ROOT / "frontend" / "static" / "js" / "settings_forms.js").read_text()
+
+        self.assertIn('id="proxy_auth_requirements"', source)
+        self.assertIn(
+            "proxyAuthRequirements.style.display = authModeSelect.value === 'no_login' ? '' : 'none';",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

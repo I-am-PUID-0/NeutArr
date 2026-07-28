@@ -4,8 +4,8 @@ Authentication module for NeutArr.
 
 JWT dual-token auth (access 60min / refresh 30 days) backed by bcrypt password
 hashing. Config persisted in /config/users.json. Supports two bypass modes:
-  - proxy_auth_bypass: disable all auth when behind an SSO reverse proxy
-  - local_access_bypass: LAN IPs skip auth (proper ipaddress CIDR validation)
+  - proxy_auth_bypass: trust authenticated identity headers from configured proxies
+  - local_access_bypass: configured client CIDRs skip auth
 
 API key auth: an auto-generated key stored in users.json is always a valid
 credential via X-Api-Key header or ?apikey= query param, independent of
@@ -20,6 +20,7 @@ import secrets
 import time
 import hashlib
 import hmac
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -41,6 +42,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 JWT_ALGORITHM = "HS256"
 MIN_SETUP_TOKEN_LENGTH = 16
+PROXY_AUTH_HEADER_ENV = "NEUTARR_PROXY_AUTH_HEADER"
+TRUSTED_PROXIES_ENV = "TRUSTED_PROXIES"
+_HTTP_HEADER_NAME_PATTERN = re.compile(r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")
 
 LEGACY_ACCESS_COOKIE = "neutarr_token"
 LEGACY_REFRESH_COOKIE = "neutarr_refresh"
@@ -468,20 +472,62 @@ def _get_client_ip() -> Optional[str]:
     X-Forwarded-For is only trusted when TRUSTED_PROXIES env var is set,
     preventing spoofing when the app is directly internet-exposed.
     """
-    trusted_proxies_env = os.environ.get("TRUSTED_PROXIES", "")
-    if trusted_proxies_env:
-        trusted = [p.strip() for p in trusted_proxies_env.split(",") if p.strip()]
-        remote = request.remote_addr or ""
-        try:
-            remote_ip = ipaddress.ip_address(remote)
-            is_trusted = any(remote_ip in ipaddress.ip_network(cidr, strict=False) for cidr in trusted)
-            if is_trusted:
-                xff = request.headers.get("X-Forwarded-For", "")
-                if xff:
-                    return xff.split(",")[0].strip()
-        except ValueError:
-            pass
+    if _is_trusted_proxy_source():
+        xff = request.headers.get("X-Forwarded-For", "")
+        if xff:
+            return xff.split(",")[0].strip()
     return request.remote_addr
+
+
+def _get_trusted_proxy_networks() -> list[ipaddress._BaseNetwork]:
+    """Return configured proxy networks, failing closed on any invalid entry."""
+    configured = os.environ.get(TRUSTED_PROXIES_ENV, "")
+    entries = [entry.strip() for entry in configured.split(",") if entry.strip()]
+    if not entries:
+        return []
+
+    try:
+        return [ipaddress.ip_network(entry, strict=False) for entry in entries]
+    except ValueError as exc:
+        logger.warning(f"Invalid {TRUSTED_PROXIES_ENV} configuration; proxy trust disabled: {exc}")
+        return []
+
+
+def _is_trusted_proxy_source() -> bool:
+    """Return whether the immediate TCP peer is a configured trusted proxy."""
+    try:
+        remote_ip = ipaddress.ip_address(request.remote_addr or "")
+    except ValueError:
+        return False
+    return any(remote_ip in network for network in _get_trusted_proxy_networks())
+
+
+def _get_proxy_identity() -> Optional[str]:
+    """Return a proxy-asserted identity only for a request from a trusted proxy."""
+    if not _is_trusted_proxy_source():
+        return None
+
+    header_name = os.environ.get(PROXY_AUTH_HEADER_ENV, "").strip()
+    if not header_name or not _HTTP_HEADER_NAME_PATTERN.fullmatch(header_name):
+        return None
+
+    identity = request.headers.get(header_name, "").strip()
+    if not identity or len(identity) > 512:
+        return None
+    return identity
+
+
+def _is_proxy_authenticated_request() -> bool:
+    """Return whether proxy bypass is enabled and this request is authenticated."""
+    return _get_proxy_bypass() and _get_proxy_identity() is not None
+
+
+def _is_local_bypass_request() -> bool:
+    """Return whether local bypass is enabled and the resolved client is allowed."""
+    if not _get_local_bypass():
+        return False
+    client_ip = _get_client_ip()
+    return bool(client_ip and _is_local_ip(client_ip))
 
 
 def normalize_local_bypass_cidrs(value, *, use_defaults_when_empty: bool = True) -> list[str]:
@@ -599,9 +645,8 @@ def authenticate_request():
       1. Always-public paths (static, /login, /setup, /api/auth/*)
       2. Valid JWT access token OR valid API key (explicit credentials always win)
       3. No users → force the token-protected setup flow
-      4. API requests: always require credentials — bypass modes do not exempt
-      5. Page requests: proxy_auth_bypass OR (local_access_bypass + LAN IP)
-         removes the login redirect — the web UI is accessible without logging in.
+      4. Request-scoped proxy or local bypass authorization
+      5. API requests without credentials or an eligible bypass are rejected
       6. Reject: redirect /login for page requests
     """
     path = request.path
@@ -624,18 +669,14 @@ def authenticate_request():
             return jsonify({"error": "Setup required", "setup_required": True}), 401
         return redirect("/setup")
 
-    # 4. API requests always require credentials (JWT or API key).
-    #    Bypass modes do not exempt API calls — they only skip the web UI login.
+    # 4. Bypass modes authorize only requests that meet their trust boundary.
+    #    No durable credential is disclosed to the browser.
+    if _is_proxy_authenticated_request() or _is_local_bypass_request():
+        return None
+
+    # 5. API requests require explicit credentials or an eligible bypass.
     if is_api:
         return jsonify({"error": "Authentication required"}), 401
-
-    # 5. Page requests: bypass modes remove the login redirect
-    if _get_proxy_bypass():
-        return None
-    if _get_local_bypass():
-        client_ip = _get_client_ip()
-        if client_ip and _is_local_ip(client_ip):
-            return None
 
     # 6. Reject page request — send to login
     return redirect("/login")

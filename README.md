@@ -127,10 +127,19 @@ NeutArr ships a JWT dual-token auth system (bcrypt + PyJWT, stateless):
 | **Proxy auth bypass** | Skip auth entirely when behind a trusted SSO proxy (Authelia, Authentik, etc.) |
 | **API key** | `X-Api-Key` header or `?apikey=` query param; for automation and integrations |
 
-Auth mode is selected during the first-run setup wizard and can be changed in Settings. The API key is shown in `Settings -> Account & API` with rotate, show/hide, and copy controls.
+Auth mode is selected during the first-run setup wizard and can be changed in Settings. The API key is shown in `Settings -> Account & API` with rotate, show/hide, and copy controls when the request has a JWT, valid API key, or trusted proxy identity; local CIDR bypass alone cannot reveal or rotate it.
 Local access bypass CIDR ranges can be edited in `Settings -> Security`; defaults cover loopback, RFC-1918 private networks, and IPv6 ULA.
 
-> **Note:** Initial account creation requires the one-time setup token. There is no unauthenticated skip-setup mode. After setup, `/api/*` endpoints always require JWT or API key regardless of bypass mode; bypass modes only skip the web UI login redirect.
+> **Note:** Initial account creation requires the one-time setup token. There is no unauthenticated skip-setup mode. After setup, JWT and API key credentials work in every mode. Local and proxy bypass authorize both UI and API requests only when the current request satisfies the configured trust boundary; the durable API key is never returned by the public auth-status endpoint.
+
+### Reverse-proxy authentication
+
+Proxy Auth Mode delegates login to an authenticating reverse proxy without disabling NeutArr's request checks. Both environment variables are required:
+
+- `TRUSTED_PROXIES` — comma-separated IP addresses or CIDRs for the immediate reverse-proxy peers, such as `172.20.0.0/16`
+- `NEUTARR_PROXY_AUTH_HEADER` — the identity header set by that proxy after successful authentication, such as `Remote-User` or `X-authentik-username`
+
+Requests are authorized only when their immediate source is in `TRUSTED_PROXIES` and the configured identity header is non-empty. Missing or invalid configuration fails closed. Configure the proxy to remove any client-supplied copy of the identity header before setting its trusted value, and replace—not append to—client-supplied `X-Forwarded-For`.
 
 ## Configuration
 
@@ -161,8 +170,9 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 
 **Auth:**
 - JWT dual-token auth (bcrypt hashing, stateless sessions) replaces SHA-256 + server-side sessions
-- Auth modes: standard / local-bypass (GUI-configurable CIDR ranges) / proxy-bypass, with proper `ipaddress` network validation
-- `X-Forwarded-For` only trusted when `TRUSTED_PROXIES` env var is set
+- Auth modes: standard / local-bypass (GUI-configurable CIDR ranges) / proxy-auth, with proper `ipaddress` network validation
+- Proxy-auth requests require both a trusted immediate proxy (`TRUSTED_PROXIES`) and a non-empty configured identity header (`NEUTARR_PROXY_AUTH_HEADER`)
+- `X-Forwarded-For` is only trusted when the immediate peer is in `TRUSTED_PROXIES`
 - API key auth: auto-generated, timing-safe comparison, rotate endpoint
 - 2FA removed
 - Standalone `User` page removed; account controls now live in `Settings -> Account & API`

@@ -31,7 +31,7 @@ const AuthManager = (() => {
 
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
   let _bootstrapPromise = null;
-  let _apiKey = null;
+  let _bypassActive = false;
 
   function getAccessToken() {
     return localStorage.getItem(ACCESS_KEY);
@@ -45,10 +45,6 @@ const AuthManager = (() => {
     return localStorage.getItem(USERNAME_KEY);
   }
 
-  function getApiKey() {
-    return _apiKey;
-  }
-
   function setTokens(accessToken, refreshToken, username) {
     if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken);
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
@@ -59,15 +55,7 @@ const AuthManager = (() => {
     localStorage.removeItem(ACCESS_KEY);
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USERNAME_KEY);
-    _apiKey = null;
-  }
-
-  function setApiKey(apiKey) {
-    if (apiKey) {
-      _apiKey = apiKey;
-    } else {
-      _apiKey = null;
-    }
+    _bypassActive = false;
   }
 
   async function bootstrap() {
@@ -82,14 +70,10 @@ const AuthManager = (() => {
         if (data.instance_storage_key && data.instance_storage_key !== storageNamespace) {
           return false;
         }
-        if (data.frontend_api_key) {
-          setApiKey(data.frontend_api_key);
-          return true;
-        }
-
-        setApiKey(null);
-        return false;
+        _bypassActive = Boolean(data.proxy_request_authenticated || data.local_client_bypass);
+        return _bypassActive;
       } catch {
+        _bypassActive = false;
         return false;
       } finally {
         _bootstrapPromise = null;
@@ -135,12 +119,7 @@ const AuthManager = (() => {
   async function logout() {
     const bootstrapped = await bootstrap();
     try {
-      const headers = {};
-      if (bootstrapped) {
-        const apiKey = getApiKey();
-        if (apiKey) headers['X-Api-Key'] = apiKey;
-      }
-      await nativeFetch('/api/auth/logout', { method: 'POST', headers });
+      await nativeFetch('/api/auth/logout', { method: 'POST' });
     } catch { /* ignore network errors on logout */ }
     clearTokens();
     if (bootstrapped) {
@@ -150,7 +129,7 @@ const AuthManager = (() => {
     window.location.href = '/login';
   }
 
-  return { getAccessToken, getRefreshToken, getUsername, getApiKey, setTokens, clearTokens, setApiKey, bootstrap, refresh, logout };
+  return { getAccessToken, getRefreshToken, getUsername, setTokens, clearTokens, bootstrap, refresh, logout };
 })();
 
 
@@ -168,16 +147,12 @@ async function authFetch(url, options = {}) {
   await AuthManager.bootstrap();
 
   const token = AuthManager.getAccessToken();
-  const apiKey = AuthManager.getApiKey();
-
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
-  } else if (apiKey) {
-    headers.set('X-Api-Key', apiKey);
   }
 
   let response = await nativeFetch(url, { ...options, headers });
@@ -231,12 +206,8 @@ window.fetch = async function(input, init = undefined) {
   );
 
   const token = AuthManager.getAccessToken();
-  const apiKey = AuthManager.getApiKey();
-
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
-  } else if (apiKey && !headers.has('X-Api-Key')) {
-    headers.set('X-Api-Key', apiKey);
   }
 
   requestInit.headers = headers;

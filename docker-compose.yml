@@ -15,4 +15,8 @@ services:
       # Optional: set a 16+ character first-run token. When omitted, retrieve
       # the generated token from the container log or ./config/.setup-token.
       # - NEUTARR_SETUP_TOKEN=replace-with-a-long-random-token
+      # Required only for Proxy Auth Mode. Trust the narrowest proxy network,
+      # and configure the header that your proxy sets after authentication.
+      # - TRUSTED_PROXIES=172.20.0.0/16
+      # - NEUTARR_PROXY_AUTH_HEADER=Remote-User
     restart: unless-stopped

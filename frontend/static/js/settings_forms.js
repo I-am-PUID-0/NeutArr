@@ -1403,14 +1403,14 @@ const SettingsForms = {
                     <select id="auth_mode" name="auth_mode" style="width: 300px; padding: 8px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background-color: #1f2937; color: #d1d5db; background-image: url('data:image/svg+xml;utf8,<svg fill=\'white\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/><path d=\'M0 0h24v24H0z\' fill=\'none\'/></svg>'); background-repeat: no-repeat; background-position: right 8px center; -webkit-appearance: none; -moz-appearance: none; appearance: none;">
                         <option value="login" ${(settings.auth_mode === 'login' || (!settings.auth_mode && !settings.local_access_bypass && !settings.proxy_auth_bypass)) ? 'selected' : ''}>Login Mode</option>
                         <option value="local_bypass" ${(settings.auth_mode === 'local_bypass' || (!settings.auth_mode && settings.local_access_bypass === true && !settings.proxy_auth_bypass)) ? 'selected' : ''}>Local Bypass Mode</option>
-                        <option value="no_login" ${(settings.auth_mode === 'no_login' || (!settings.auth_mode && settings.proxy_auth_bypass === true)) ? 'selected' : ''}>No Login Mode</option>
+                        <option value="no_login" ${(settings.auth_mode === 'no_login' || (!settings.auth_mode && settings.proxy_auth_bypass === true)) ? 'selected' : ''}>Proxy Auth Mode</option>
                     </select>
                     <p class="setting-help" style="margin-left: -3ch !important;">
                         <strong>Login Mode:</strong> Standard login required for all connections<br>
                         <strong>Local Bypass Mode:</strong> Connections from the CIDR ranges below bypass login<br>
-                        <strong>No Login Mode:</strong> Completely disable authentication when running behind your own reverse proxy
+                        <strong>Proxy Auth Mode:</strong> Trust an identity header only from reverse proxies listed in <code>TRUSTED_PROXIES</code>
                     </p>
-                    <p class="setting-help warning" style="color: #ff6b6b; margin-left: -3ch !important;"><strong>Warning:</strong> Only use No Login Mode if your reverse proxy (e.g., Cloudflare, Nginx) is properly securing access!</p>
+                    <p id="proxy_auth_requirements" class="setting-help warning" style="color: #ff6b6b; margin-left: -3ch !important; display: ${(settings.auth_mode === 'no_login' || (!settings.auth_mode && settings.proxy_auth_bypass === true)) ? 'block' : 'none'};"><strong>Required for Proxy Auth Mode:</strong> Set <code>NEUTARR_PROXY_AUTH_HEADER</code>, configure <code>TRUSTED_PROXIES</code>, and make the proxy strip client-supplied copies of that header before setting it after authentication.</p>
                 </div>
                 <div class="setting-item" id="local_bypass_cidrs_container">
                     <label for="local_bypass_cidrs"><span class="info-icon" title="CIDR ranges allowed to skip the web login when Local Bypass Mode is selected"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Local Bypass CIDRs:</label>
@@ -1472,13 +1472,19 @@ const SettingsForms = {
 
         const authModeSelect = container.querySelector('#auth_mode');
         const localBypassCidrsContainer = container.querySelector('#local_bypass_cidrs_container');
-        const updateLocalBypassCidrsVisibility = () => {
-            if (!authModeSelect || !localBypassCidrsContainer) return;
-            localBypassCidrsContainer.style.display = authModeSelect.value === 'local_bypass' ? '' : 'none';
+        const proxyAuthRequirements = container.querySelector('#proxy_auth_requirements');
+        const updateAuthModeVisibility = () => {
+            if (!authModeSelect) return;
+            if (localBypassCidrsContainer) {
+                localBypassCidrsContainer.style.display = authModeSelect.value === 'local_bypass' ? '' : 'none';
+            }
+            if (proxyAuthRequirements) {
+                proxyAuthRequirements.style.display = authModeSelect.value === 'no_login' ? '' : 'none';
+            }
         };
         if (authModeSelect) {
-            authModeSelect.addEventListener('change', updateLocalBypassCidrsVisibility);
-            updateLocalBypassCidrsVisibility();
+            authModeSelect.addEventListener('change', updateAuthModeVisibility);
+            updateAuthModeVisibility();
         }
         
         // Load stateful management info
