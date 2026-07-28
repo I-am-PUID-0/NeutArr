@@ -20,6 +20,7 @@ from src.primary.auth import (
     LEGACY_ACCESS_COOKIE,
     LEGACY_REFRESH_COOKIE,
     REFRESH_COOKIE,
+    REFRESH_COOKIE_PATH,
     auth_config,
     reset_bypass_caches,
 )
@@ -87,7 +88,7 @@ class AuthenticationCookieSecurityTests(unittest.TestCase):
             self.assertIn("HttpOnly", cookie)
             self.assertIn("SameSite=Strict", cookie)
         self.assertIn("Path=/", access_cookie)
-        self.assertIn("Path=/api/auth/refresh", refresh_cookie)
+        self.assertIn(f"Path={REFRESH_COOKIE_PATH}", refresh_cookie)
         self.assertNotIn("Secure", access_cookie)
         for legacy_cookie in (LEGACY_ACCESS_COOKIE, LEGACY_REFRESH_COOKIE):
             deletion = self._cookie_header(response, legacy_cookie)

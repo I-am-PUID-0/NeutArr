@@ -48,6 +48,8 @@ _HTTP_HEADER_NAME_PATTERN = re.compile(r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")
 
 LEGACY_ACCESS_COOKIE = "neutarr_token"
 LEGACY_REFRESH_COOKIE = "neutarr_refresh"
+REFRESH_COOKIE_PATH = "/api/auth"
+LEGACY_REFRESH_COOKIE_PATH = "/api/auth/refresh"
 
 
 def get_instance_storage_key() -> str:
@@ -188,6 +190,7 @@ class AuthConfigManager:
                 "username": username,
                 "password": hashed,
                 "disabled": False,
+                "session_version": 0,
             }
             self.config.setdefault("users", []).append(user)
             if not self._save():
@@ -197,12 +200,25 @@ class AuthConfigManager:
             return True
 
     def update_password(self, username: str, new_password: str) -> bool:
-        for user in self.config.get("users", []):
-            if user.get("username") == username:
-                user["password"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(rounds=12)).decode()
-                self._save()
+        new_password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(rounds=12)).decode()
+        with self._lock:
+            user = self.get_user(username)
+            if not user:
+                return False
+
+            previous_password = user.get("password")
+            previous_version = user.get("session_version")
+            user["password"] = new_password_hash
+            user["session_version"] = self._get_user_session_version(user) + 1
+            if self._save():
                 return True
-        return False
+
+            user["password"] = previous_password
+            if previous_version is None:
+                user.pop("session_version", None)
+            else:
+                user["session_version"] = previous_version
+            return False
 
     def update_username(self, old_username: str, new_username: str) -> bool:
         if self.get_user(new_username):
@@ -229,6 +245,40 @@ class AuthConfigManager:
         self.config["api_key"] = key
         self._save()
         return key
+
+    @staticmethod
+    def _get_user_session_version(user: dict) -> int:
+        """Return a safe session generation for legacy or current user records."""
+        value = user.get("session_version", 0)
+        if type(value) is int and value >= 0:
+            return value
+        return 0
+
+    def get_session_version(self, username: str) -> Optional[int]:
+        """Return the current session generation for an enabled user."""
+        with self._lock:
+            user = self.get_user(username)
+            if not user or user.get("disabled", False):
+                return None
+            return self._get_user_session_version(user)
+
+    def revoke_user_sessions(self, username: str) -> bool:
+        """Invalidate every JWT session previously issued to a user."""
+        with self._lock:
+            user = self.get_user(username)
+            if not user:
+                return False
+
+            previous_version = user.get("session_version")
+            user["session_version"] = self._get_user_session_version(user) + 1
+            if self._save():
+                return True
+
+            if previous_version is None:
+                user.pop("session_version", None)
+            else:
+                user["session_version"] = previous_version
+            return False
 
 
 auth_config = AuthConfigManager()
@@ -340,19 +390,29 @@ def validate_password_strength(password: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def create_access_token(username: str) -> str:
+def create_access_token(username: str, session_version: Optional[int] = None) -> str:
+    if session_version is None:
+        session_version = auth_config.get_session_version(username)
+    if session_version is None:
+        raise ValueError("Cannot create a token for an unknown or disabled user")
     payload = {
         "sub": username,
         "type": "access",
+        "session_version": session_version,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, auth_config.get_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(username: str) -> str:
+def create_refresh_token(username: str, session_version: Optional[int] = None) -> str:
+    if session_version is None:
+        session_version = auth_config.get_session_version(username)
+    if session_version is None:
+        raise ValueError("Cannot create a token for an unknown or disabled user")
     payload = {
         "sub": username,
         "type": "refresh",
+        "session_version": session_version,
         "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     }
     return jwt.encode(payload, auth_config.get_jwt_secret(), algorithm=JWT_ALGORITHM)
@@ -367,9 +427,34 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-def create_token_pair(username: str) -> tuple:
+def create_token_pair(username: str) -> tuple[str, str]:
     """Return (access_token, refresh_token)."""
-    return create_access_token(username), create_refresh_token(username)
+    session_version = auth_config.get_session_version(username)
+    if session_version is None:
+        raise ValueError("Cannot create tokens for an unknown or disabled user")
+    return (
+        create_access_token(username, session_version),
+        create_refresh_token(username, session_version),
+    )
+
+
+def get_valid_token_username(payload: Optional[dict], expected_type: Optional[str] = None) -> Optional[str]:
+    """Return the enabled user for a JWT whose session generation is current."""
+    if not payload or (expected_type and payload.get("type") != expected_type):
+        return None
+
+    username = payload.get("sub")
+    if not isinstance(username, str) or not username:
+        return None
+
+    token_version = payload.get("session_version", 0)
+    if type(token_version) is not int or token_version < 0:
+        return None
+
+    current_version = auth_config.get_session_version(username)
+    if current_version is None or token_version != current_version:
+        return None
+    return username
 
 
 # ---------------------------------------------------------------------------
@@ -396,10 +481,11 @@ def set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
         httponly=True,
         secure=secure,
         samesite="Strict",
-        path="/api/auth/refresh",
+        path=REFRESH_COOKIE_PATH,
     )
     _delete_auth_cookie(response, LEGACY_ACCESS_COOKIE, "/")
-    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, "/api/auth/refresh")
+    _delete_auth_cookie(response, REFRESH_COOKIE, LEGACY_REFRESH_COOKIE_PATH)
+    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, LEGACY_REFRESH_COOKIE_PATH)
 
 
 def _use_secure_cookies() -> bool:
@@ -420,9 +506,11 @@ def _use_secure_cookies() -> bool:
 
 def clear_auth_cookies(response) -> None:
     _delete_auth_cookie(response, ACCESS_COOKIE, "/")
-    _delete_auth_cookie(response, REFRESH_COOKIE, "/api/auth/refresh")
+    _delete_auth_cookie(response, REFRESH_COOKIE, REFRESH_COOKIE_PATH)
+    _delete_auth_cookie(response, REFRESH_COOKIE, LEGACY_REFRESH_COOKIE_PATH)
     _delete_auth_cookie(response, LEGACY_ACCESS_COOKIE, "/")
-    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, "/api/auth/refresh")
+    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, REFRESH_COOKIE_PATH)
+    _delete_auth_cookie(response, LEGACY_REFRESH_COOKIE, LEGACY_REFRESH_COOKIE_PATH)
 
 
 def _delete_auth_cookie(response, name: str, path: str) -> None:
@@ -467,15 +555,7 @@ def get_current_user() -> Optional[str]:
     if not token:
         return None
     payload = decode_token(token)
-    if not payload or payload.get("type") != "access":
-        return None
-    username = payload.get("sub")
-    if not username:
-        return None
-    user = auth_config.get_user(username)
-    if not user or user.get("disabled", False):
-        return None
-    return username
+    return get_valid_token_username(payload, expected_type="access")
 
 
 # ---------------------------------------------------------------------------

@@ -69,6 +69,9 @@ class AuthenticationRateLimitingTests(unittest.TestCase):
         self.client = app.test_client()
         if not auth_config.has_users():
             self.assertTrue(auth_config.create_user("rate-test-user", "StrongPassword123!"))
+        self.username = next(
+            user["username"] for user in auth_config.config["users"] if not user.get("disabled", False)
+        )
         settings_manager.save_settings(
             "general",
             {
@@ -130,7 +133,7 @@ class AuthenticationRateLimitingTests(unittest.TestCase):
             responses = [
                 self.client.post(
                     "/api/auth/login",
-                    json={"username": "rate-test-user", "password": "candidate"},
+                    json={"username": self.username, "password": "candidate"},
                     environ_base={"REMOTE_ADDR": "192.0.2.20"},
                 )
                 for _ in outcomes

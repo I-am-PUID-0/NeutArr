@@ -45,6 +45,8 @@ from ..auth import (
     validate_setup_token,
     clear_auth_cookies,
     get_current_user,
+    get_token_from_request,
+    get_valid_token_username,
     get_api_key_from_request,
     validate_api_key,
 )
@@ -254,9 +256,32 @@ def auth_login():
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
-    """Clear auth cookies."""
+    """Revoke the authenticated user's JWT sessions and clear auth cookies."""
+    username = None
+    access_token = get_token_from_request()
+    if access_token:
+        username = get_valid_token_username(decode_token(access_token), expected_type="access")
+
+    if not username:
+        data = request.get_json(silent=True) or {}
+        refresh_token = (
+            request.cookies.get(REFRESH_COOKIE)
+            or request.cookies.get(LEGACY_REFRESH_COOKIE)
+            or data.get("refresh_token")
+        )
+        if refresh_token:
+            username = get_valid_token_username(decode_token(refresh_token), expected_type="refresh")
+
+    if username and not auth_config.revoke_user_sessions(username):
+        logger.error("Failed to persist JWT session revocation during logout.")
+        response = make_response(jsonify({"error": "Failed to revoke active sessions"}), 500)
+        clear_auth_cookies(response)
+        return response
+
     response = make_response(jsonify({"success": True}))
     clear_auth_cookies(response)
+    if username:
+        logger.info("User logged out and active JWT sessions were revoked.")
     return response
 
 
@@ -285,10 +310,9 @@ def auth_refresh():
     if not payload or payload.get("type") != "refresh":
         return jsonify({"error": "Invalid or expired refresh token"}), 401
 
-    username = payload.get("sub")
-    user = auth_config.get_user(username)
-    if not user or user.get("disabled", False):
-        return jsonify({"error": "User not found or disabled"}), 401
+    username = get_valid_token_username(payload, expected_type="refresh")
+    if not username:
+        return jsonify({"error": "Invalid or expired refresh token"}), 401
 
     REFRESH_RATE_LIMITER.reset(rate_limit_keys)
     logger.debug(f"Token refreshed for user '{username}'.")
@@ -322,9 +346,8 @@ def auth_verify():
     if not payload or payload.get("type") != "access":
         return jsonify({"valid": False})
 
-    username = payload.get("sub")
-    user = auth_config.get_user(username)
-    if not user or user.get("disabled", False):
+    username = get_valid_token_username(payload, expected_type="access")
+    if not username:
         return jsonify({"valid": False})
 
     VERIFY_RATE_LIMITER.reset(rate_limit_keys)
@@ -351,6 +374,7 @@ def auth_change_password():
     username = _get_authenticated_username()
     if not username:
         return jsonify({"error": "Not authenticated"}), 401
+    was_jwt_authenticated = bool(get_current_user())
 
     data = request.get_json(silent=True) or {}
     current_password = data.get("current_password") or ""
@@ -376,7 +400,9 @@ def auth_change_password():
         return jsonify({"error": "Failed to update password"}), 500
 
     PASSWORD_RATE_LIMITER.reset(rate_limit_keys)
-    logger.info(f"Password changed for user '{username}'.")
+    logger.info(f"Password changed and prior JWT sessions revoked for user '{username}'.")
+    if was_jwt_authenticated:
+        return _token_response(username)
     return jsonify({"success": True})
 
 

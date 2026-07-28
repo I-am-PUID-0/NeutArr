@@ -119,7 +119,11 @@
             const data = await response.json();
 
             if (response.ok) {
-                showStatus(statusElement, 'Password updated successfully', 'success');
+                showStatus(
+                    statusElement,
+                    'Password updated successfully. Other signed-in sessions were revoked.',
+                    'success'
+                );
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';
                 document.getElementById('confirmPassword').value = '';

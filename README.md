@@ -163,6 +163,8 @@ Cookies receive the `Secure` attribute automatically for direct HTTPS requests a
 
 The login and refresh APIs continue returning JWTs in their JSON responses for non-browser clients that use `Authorization: Bearer`. The bundled frontend ignores those token values and relies on its HttpOnly cookie session.
 
+Access and refresh tokens carry a persisted per-user session generation. Logging out invalidates all JWT sessions for that user, including copied bearer and refresh tokens. Changing the password performs the same revocation and issues the password-changing browser a replacement session. API-key and trusted-proxy credentials remain independent of JWT session revocation.
+
 ### API-key transport
 
 Send automation credentials only through the `X-Api-Key` request header. NeutArr rejects `?apikey=` query parameters with HTTP `400` and code `api_key_query_unsupported` because URL credentials can be retained in browser history, reverse-proxy and access logs, monitoring systems, and referrer data.
@@ -201,13 +203,14 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 ## Changes from Upstream
 
 **Auth:**
-- JWT dual-token auth (bcrypt hashing, stateless sessions) replaces SHA-256 + server-side sessions
+- JWT dual-token auth with bcrypt hashing and persisted session-generation revocation replaces SHA-256 + server-side sessions
 - Auth modes: standard / local-bypass (GUI-configurable CIDR ranges) / proxy-auth, with proper `ipaddress` network validation
 - Proxy-auth requests require both a trusted immediate proxy (`TRUSTED_PROXIES`) and a non-empty configured identity header (`NEUTARR_PROXY_AUTH_HEADER`)
 - `X-Forwarded-For` is only trusted when the immediate peer is in `TRUSTED_PROXIES`
 - API key auth: auto-generated, timing-safe comparison, header-only transport, and rotate endpoint
 - Thread-safe, bounded rate limiting protects login, current-password, setup-token, refresh-token, and token-verification endpoints
 - Browser JWTs remain in HttpOnly, strict same-site cookies with trusted-proxy-aware Secure handling and legacy localStorage cleanup
+- Logout and password changes persistently revoke previously issued access and refresh tokens
 - 2FA removed
 - Standalone `User` page removed; account controls now live in `Settings -> Account & API`
 
