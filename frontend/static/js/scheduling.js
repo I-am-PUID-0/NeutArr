@@ -680,29 +680,49 @@ function renderSchedules() {
             }
         }
         
-        // Build the schedule item HTML (checkbox removed but layout preserved)
-        scheduleItem.innerHTML = `
-            <div class="schedule-item-checkbox"></div>
-            <div class="schedule-item-time">${formattedTime}</div>
-            <div class="schedule-item-days">${daysText}</div>
-            <div class="schedule-item-action">${actionText}</div>
-            <div class="schedule-item-app">${appText}</div>
-            <div class="schedule-item-actions">
-                <button class="icon-button delete-schedule" data-id="${schedule.id}" data-app-type="${schedule.appType}"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
-        
-        // Checkbox removed but empty div kept for layout preservation
-        
-        // Add event listeners for edit and delete buttons
-        const editButton = scheduleItem.querySelector('.edit-schedule');
-        if (editButton) {
-            editButton.addEventListener('click', function() {
-                editSchedule(this.getAttribute('data-id'), this.getAttribute('data-app-type'));
-            });
-        }
-        
-        // No individual delete button handlers - all handled by the document level listener
+        const checkboxPlaceholder = document.createElement('div');
+        checkboxPlaceholder.className = 'schedule-item-checkbox';
+
+        const timeElement = document.createElement('div');
+        timeElement.className = 'schedule-item-time';
+        timeElement.textContent = formattedTime;
+
+        const daysElement = document.createElement('div');
+        daysElement.className = 'schedule-item-days';
+        daysElement.textContent = daysText;
+
+        const actionElement = document.createElement('div');
+        actionElement.className = 'schedule-item-action';
+        actionElement.textContent = actionText;
+
+        const appElement = document.createElement('div');
+        appElement.className = 'schedule-item-app';
+        appElement.textContent = appText;
+
+        const actionsElement = document.createElement('div');
+        actionsElement.className = 'schedule-item-actions';
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'icon-button delete-schedule';
+        deleteButton.dataset.id = String(schedule.id ?? '');
+        deleteButton.dataset.appType = String(schedule.appType ?? 'global');
+        deleteButton.setAttribute('aria-label', 'Delete schedule');
+
+        const deleteIcon = document.createElement('i');
+        deleteIcon.className = 'fas fa-trash';
+        deleteIcon.setAttribute('aria-hidden', 'true');
+        deleteButton.appendChild(deleteIcon);
+        actionsElement.appendChild(deleteButton);
+
+        scheduleItem.append(
+            checkboxPlaceholder,
+            timeElement,
+            daysElement,
+            actionElement,
+            appElement,
+            actionsElement
+        );
         
         // Add to container
         schedulesContainer.appendChild(scheduleItem);

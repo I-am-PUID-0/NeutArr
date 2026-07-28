@@ -26,6 +26,19 @@ class FrontendSecurityTests(unittest.TestCase):
             source,
         )
 
+    def test_scheduler_rows_do_not_interpolate_persisted_values_as_html(self):
+        source = (_REPO_ROOT / "frontend" / "static" / "js" / "scheduling.js").read_text()
+
+        self.assertNotIn("scheduleItem.innerHTML", source)
+        self.assertNotIn('data-id="${schedule.id}"', source)
+        self.assertNotIn('data-app-type="${schedule.appType}"', source)
+        self.assertIn("timeElement.textContent = formattedTime;", source)
+        self.assertIn("daysElement.textContent = daysText;", source)
+        self.assertIn("actionElement.textContent = actionText;", source)
+        self.assertIn("appElement.textContent = appText;", source)
+        self.assertIn("deleteButton.dataset.id = String(schedule.id ?? '');", source)
+        self.assertIn("deleteButton.dataset.appType = String(schedule.appType ?? 'global');", source)
+
     def test_browser_auth_does_not_persist_or_inject_jwts(self):
         source = (_REPO_ROOT / "frontend" / "static" / "js" / "auth.js").read_text()
 
