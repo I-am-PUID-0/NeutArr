@@ -2,6 +2,8 @@ import json
 import logging
 import os
 import pathlib
+import stat
+import tempfile
 import threading
 import time
 from datetime import datetime
@@ -24,6 +26,81 @@ history_locks = {
     "eros": threading.Lock(),
     "swaparr": threading.Lock(),
 }
+
+
+def _atomic_write_history_file(file_path, entries):
+    """Durably replace a history document without exposing a partial write."""
+    file_path.parent.mkdir(exist_ok=True, parents=True)
+    existing_mode = stat.S_IMODE(file_path.stat().st_mode) if file_path.exists() else 0o600
+    file_descriptor = None
+    temp_path = None
+
+    try:
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix=f".{file_path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = pathlib.Path(temp_name)
+        os.fchmod(file_descriptor, existing_mode)
+
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as temp_file:
+            file_descriptor = None
+            json.dump(entries, temp_file, indent=2)
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        os.replace(temp_path, file_path)
+        temp_path = None
+
+        try:
+            directory_descriptor = os.open(file_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except OSError as error:
+            logger.debug(f"Unable to fsync history directory {file_path.parent}: {error}")
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def _load_history_entries(file_path):
+    """Load usable history entries, preserving wholly malformed documents."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as history_document:
+            data = json.load(history_document)
+    except FileNotFoundError:
+        return []
+    except (json.JSONDecodeError, OSError) as error:
+        logger.warning(f"Could not read history file {file_path}: {error}")
+        return None
+
+    if not isinstance(data, list):
+        logger.warning(f"Could not read history file {file_path}: expected a list")
+        return None
+
+    entries = []
+    for index, entry in enumerate(data):
+        if not isinstance(entry, dict):
+            logger.warning(f"Skipping non-object history entry {index} in {file_path}")
+            continue
+
+        try:
+            timestamp = int(entry["date_time"])
+        except (KeyError, TypeError, ValueError):
+            logger.warning(f"Skipping history entry {index} with an invalid timestamp in {file_path}")
+            continue
+
+        normalized_entry = dict(entry)
+        normalized_entry["date_time"] = timestamp
+        entries.append(normalized_entry)
+
+    return entries
 
 
 def ensure_history_dir():
@@ -56,15 +133,8 @@ def _migrate_legacy_history_file(app_type, instance_name):
     if history_file == legacy_file or history_file.exists() or not legacy_file.exists():
         return history_file
 
-    try:
-        with open(legacy_file, "r") as f:
-            legacy_data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        logger.warning(f"Could not migrate legacy history file {legacy_file}: {e}")
-        return history_file
-
-    if not isinstance(legacy_data, list):
-        logger.warning(f"Could not migrate legacy history file {legacy_file}: expected a list")
+    legacy_data = _load_history_entries(legacy_file)
+    if legacy_data is None:
         return history_file
 
     matching_entries = []
@@ -80,15 +150,16 @@ def _migrate_legacy_history_file(app_type, instance_name):
             legacy_file.unlink(missing_ok=True)
         return history_file
 
-    history_file.parent.mkdir(exist_ok=True, parents=True)
-    with open(history_file, "w") as f:
-        json.dump(matching_entries, f, indent=2)
+    try:
+        _atomic_write_history_file(history_file, matching_entries)
 
-    if remaining_entries:
-        with open(legacy_file, "w") as f:
-            json.dump(remaining_entries, f, indent=2)
-    else:
-        legacy_file.unlink(missing_ok=True)
+        if remaining_entries:
+            _atomic_write_history_file(legacy_file, remaining_entries)
+        else:
+            legacy_file.unlink(missing_ok=True)
+    except OSError as error:
+        logger.warning(f"Could not migrate legacy history file {legacy_file}: {error}")
+        return history_file
 
     logger.info(
         "Migrated %s history entries for %s/%s from legacy storage",
@@ -149,22 +220,19 @@ def add_history_entry(app_type, entry_data):
     # Thread-safe file operation
     with history_locks[app_type]:
         history_file = _migrate_legacy_history_file(app_type, instance_name)
-        try:
-            if history_file.exists():
-                with open(history_file, "r") as f:
-                    history_data = json.load(f)
-            else:
-                history_data = []
-        except (json.JSONDecodeError, FileNotFoundError):
-            # If file doesn't exist or is corrupt, start with empty list
-            history_data = []
+        history_data = _load_history_entries(history_file)
+        if history_data is None:
+            logger.error(f"Refusing to overwrite malformed history file: {history_file}")
+            return None
 
         # Add new entry at the beginning for most recent first
         history_data.insert(0, entry)
 
-        # Write back to file
-        with open(history_file, "w") as f:
-            json.dump(history_data, f, indent=2)
+        try:
+            _atomic_write_history_file(history_file, history_data)
+        except OSError as error:
+            logger.error(f"Could not persist history entry to {history_file}: {error}")
+            return None
 
     logger.info(f"Added history entry for {app_type}-{instance_name}: {entry_data['name']}")
     return entry
@@ -201,13 +269,10 @@ def get_history(app_type, search_query=None, page=1, page_size=20):
             # Find and read all instance files
             if app_dir.exists():
                 for history_file in app_dir.glob("*.json"):
-                    try:
-                        with open(history_file, "r") as f:
-                            instance_history = json.load(f)
-                            result.extend(instance_history)
-                            logger.debug(f"Read {len(instance_history)} entries from {history_file}")
-                    except (json.JSONDecodeError, FileNotFoundError) as e:
-                        logger.warning(f"Error reading instance history file {history_file}: {str(e)}")
+                    instance_history = _load_history_entries(history_file)
+                    if instance_history is not None:
+                        result.extend(instance_history)
+                        logger.debug(f"Read {len(instance_history)} entries from {history_file}")
     else:
         # Get history for specific app - combine all instances
         app_dir = HISTORY_BASE_PATH / app_type
@@ -223,13 +288,10 @@ def get_history(app_type, search_query=None, page=1, page_size=20):
             )
 
             for history_file in instance_files:
-                try:
-                    with open(history_file, "r") as f:
-                        instance_history = json.load(f)
-                        result.extend(instance_history)
-                        logger.debug(f"Read {len(instance_history)} entries from {history_file}")
-                except (json.JSONDecodeError, FileNotFoundError) as e:
-                    logger.warning(f"Error reading instance history file {history_file}: {e}")
+                instance_history = _load_history_entries(history_file)
+                if instance_history is not None:
+                    result.extend(instance_history)
+                    logger.debug(f"Read {len(instance_history)} entries from {history_file}")
 
     # Sort by date_time in descending order
     result = sorted(result, key=lambda x: x["date_time"], reverse=True)
@@ -240,8 +302,8 @@ def get_history(app_type, search_query=None, page=1, page_size=20):
         result = [
             entry
             for entry in result
-            if search_query in entry.get("processed_info", "").lower()
-            or search_query in entry.get("instance_name", "").lower()
+            if search_query in str(entry.get("processed_info", "")).lower()
+            or search_query in str(entry.get("instance_name", "")).lower()
             or search_query in str(entry.get("id", "")).lower()
         ]
 
@@ -317,13 +379,13 @@ def clear_history(app_type):
                 # Ensure directory exists
                 app_dir.mkdir(exist_ok=True, parents=True)
 
-                if app_dir.exists():
-                    instance_files = list(app_dir.glob("*.json"))
-                    logger.debug(f"Found {len(instance_files)} instance files to clear for {app}")
+                with history_locks[app]:
+                    if app_dir.exists():
+                        instance_files = list(app_dir.glob("*.json"))
+                        logger.debug(f"Found {len(instance_files)} instance files to clear for {app}")
 
-                    for history_file in instance_files:
-                        with open(history_file, "w") as f:
-                            json.dump([], f)
+                        for history_file in instance_files:
+                            _atomic_write_history_file(history_file, [])
                             logger.debug(f"Cleared instance history file: {history_file}")
         else:
             # Clear all instance files for specific app
@@ -331,13 +393,13 @@ def clear_history(app_type):
             # Ensure directory exists
             app_dir.mkdir(exist_ok=True, parents=True)
 
-            if app_dir.exists():
-                instance_files = list(app_dir.glob("*.json"))
-                logger.debug(f"Found {len(instance_files)} instance files to clear for {app_type}")
+            with history_locks[app_type]:
+                if app_dir.exists():
+                    instance_files = list(app_dir.glob("*.json"))
+                    logger.debug(f"Found {len(instance_files)} instance files to clear for {app_type}")
 
-                for history_file in instance_files:
-                    with open(history_file, "w") as f:
-                        json.dump([], f)
+                    for history_file in instance_files:
+                        _atomic_write_history_file(history_file, [])
                         logger.debug(f"Cleared instance history file: {history_file}")
 
         logger.info(f"Successfully cleared history for {app_type}")
@@ -387,13 +449,10 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
             new_file = _migrate_legacy_history_file(app_type, new_instance_name)
 
             if old_file == new_file:
-                history_data = []
-                if old_file.exists():
-                    try:
-                        with open(old_file, "r") as f:
-                            history_data = json.load(f)
-                    except (json.JSONDecodeError, FileNotFoundError) as e:
-                        logger.warning(f"Error reading history file {old_file}: {e}")
+                history_data = _load_history_entries(old_file)
+                if history_data is None:
+                    logger.error(f"Refusing to overwrite malformed history file: {old_file}")
+                    return False
 
                 renamed_entries = 0
                 for entry in history_data:
@@ -401,8 +460,7 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
                         entry["instance_name"] = new_instance_name
                         renamed_entries += 1
 
-                with open(new_file, "w") as f:
-                    json.dump(history_data, f, indent=2)
+                _atomic_write_history_file(new_file, history_data)
                 logger.info(
                     "Updated %s history entries in place because the old and new instance names share history file %s",
                     renamed_entries,
@@ -411,28 +469,22 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
                 return True
 
             # Load old data if it exists
-            old_data = []
-            if old_file.exists():
-                try:
-                    with open(old_file, "r") as f:
-                        old_data = json.load(f)
-                    logger.info(f"Loaded {len(old_data)} history entries from {old_file}")
-                except (json.JSONDecodeError, FileNotFoundError) as e:
-                    logger.warning(f"Error reading old history file {old_file}: {e}")
+            old_data = _load_history_entries(old_file)
+            if old_data is None:
+                logger.error(f"Refusing to overwrite malformed history file: {old_file}")
+                return False
+            logger.info(f"Loaded {len(old_data)} history entries from {old_file}")
 
             # Update instance_name in all entries
             for entry in old_data:
                 entry["instance_name"] = new_instance_name
 
             # Create or load new file
-            new_data = []
-            if new_file.exists():
-                try:
-                    with open(new_file, "r") as f:
-                        new_data = json.load(f)
-                    logger.info(f"Loaded {len(new_data)} existing history entries from {new_file}")
-                except (json.JSONDecodeError, FileNotFoundError) as e:
-                    logger.warning(f"Error reading new history file {new_file}: {e}")
+            new_data = _load_history_entries(new_file)
+            if new_data is None:
+                logger.error(f"Refusing to overwrite malformed history file: {new_file}")
+                return False
+            logger.info(f"Loaded {len(new_data)} existing history entries from {new_file}")
 
             # Merge data, avoiding duplicates
             existing_keys = {(entry.get("id", ""), entry.get("date_time", 0)) for entry in new_data}
@@ -445,8 +497,7 @@ def handle_instance_rename(app_type, old_instance_name, new_instance_name):
             new_data = sorted(new_data, key=lambda x: x.get("date_time", 0), reverse=True)
 
             # Save merged data to new file
-            with open(new_file, "w") as f:
-                json.dump(new_data, f, indent=2)
+            _atomic_write_history_file(new_file, new_data)
             logger.info(f"Saved {len(new_data)} history entries to {new_file}")
 
             # Optionally delete old file if it exists
@@ -487,8 +538,7 @@ def initialize_instance_history(app_type, instance_name):
             history_file.parent.mkdir(exist_ok=True, parents=True)
 
             if not history_file.exists():
-                with open(history_file, "w") as f:
-                    json.dump([], f)
+                _atomic_write_history_file(history_file, [])
                 logger.info(f"Created history file for {app_type}/{instance_name}: {history_file}")
 
             return str(history_file)
@@ -529,13 +579,12 @@ def sync_history_files_with_instances():
                         logger.info(f"Found instance for {app_type}: {instance_name}")
 
                         # Create history file for this instance if it doesn't exist
-                        history_file = get_history_file_path(app_type, instance_name)
-                        if not history_file.exists():
-                            history_file.parent.mkdir(exist_ok=True, parents=True)
-                            with open(history_file, "w") as f:
-                                json.dump([], f)
-                            logger.info(f"Created history file for {app_type}/{instance_name}: {history_file}")
-                            result["created_files"].append(str(history_file))
+                        with history_locks[app_type]:
+                            history_file = get_history_file_path(app_type, instance_name)
+                            if not history_file.exists():
+                                _atomic_write_history_file(history_file, [])
+                                logger.info(f"Created history file for {app_type}/{instance_name}: {history_file}")
+                                result["created_files"].append(str(history_file))
                     except Exception as e:
                         logger.error(f"Error processing instance file {instance_file}: {e}")
 

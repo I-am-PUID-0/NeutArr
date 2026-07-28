@@ -87,6 +87,87 @@ class HistoryManagerTests(unittest.TestCase):
         entries = json.loads(new_file.read_text(encoding="utf-8"))
         self.assertEqual([entry["instance_name"] for entry in entries], [new_name, new_name])
 
+    def test_failed_history_write_preserves_existing_document_and_mode(self):
+        instance_name = "Primary"
+        history_file = history_manager.get_history_file_path("sonarr", instance_name)
+        history_file.parent.mkdir(parents=True)
+        original_entries = [
+            {
+                "id": 1,
+                "date_time": 10,
+                "instance_name": instance_name,
+                "processed_info": "Existing",
+            }
+        ]
+        history_file.write_text(json.dumps(original_entries), encoding="utf-8")
+        history_file.chmod(0o640)
+
+        def fail_after_partial_write(_entries, destination, **_kwargs):
+            destination.write('{"partial":')
+            raise OSError("simulated interrupted write")
+
+        with patch.object(history_manager.json, "dump", side_effect=fail_after_partial_write):
+            result = history_manager.add_history_entry(
+                "sonarr",
+                {"name": "New", "instance_name": instance_name, "id": 2},
+            )
+
+        self.assertIsNone(result)
+        self.assertEqual(json.loads(history_file.read_text(encoding="utf-8")), original_entries)
+        self.assertEqual(history_file.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(list(history_file.parent.glob(f".{history_file.name}.*.tmp")), [])
+
+    def test_add_refuses_to_replace_wholly_malformed_history(self):
+        instance_name = "Primary"
+        history_file = history_manager.get_history_file_path("radarr", instance_name)
+        history_file.parent.mkdir(parents=True)
+        malformed_document = '{"incomplete":'
+        history_file.write_text(malformed_document, encoding="utf-8")
+
+        result = history_manager.add_history_entry(
+            "radarr",
+            {"name": "New", "instance_name": instance_name, "id": 2},
+        )
+
+        self.assertIsNone(result)
+        self.assertEqual(history_file.read_text(encoding="utf-8"), malformed_document)
+
+    def test_get_history_skips_bad_records_without_hiding_valid_entries(self):
+        history_file = history_manager.get_history_file_path("lidarr", "Primary")
+        history_file.parent.mkdir(parents=True)
+        history_file.write_text(
+            json.dumps(
+                [
+                    {
+                        "id": 1,
+                        "date_time": 10,
+                        "instance_name": "Primary",
+                        "processed_info": "Older",
+                    },
+                    {
+                        "id": 2,
+                        "date_time": "20",
+                        "instance_name": "Primary",
+                        "processed_info": 123,
+                    },
+                    "not an object",
+                    {"id": 3, "instance_name": "Primary"},
+                    {"id": 4, "date_time": "invalid", "instance_name": "Primary"},
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = history_manager.get_history("lidarr")
+
+        self.assertEqual(result["total_entries"], 2)
+        self.assertEqual([entry["id"] for entry in result["entries"]], [2, 1])
+        self.assertEqual(result["entries"][0]["date_time"], 20)
+
+        search_result = history_manager.get_history("lidarr", search_query="123")
+        self.assertEqual(search_result["total_entries"], 1)
+        self.assertEqual(search_result["entries"][0]["id"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
