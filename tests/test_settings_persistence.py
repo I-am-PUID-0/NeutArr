@@ -74,6 +74,22 @@ class SettingsPersistenceTests(unittest.TestCase):
 
         self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), {"enabled": True})
 
+    def test_failed_update_preserves_persisted_and_cached_settings(self):
+        original_settings = {"enabled": True, "hourly_cap": 20}
+        self.settings_file.write_text(json.dumps(original_settings), encoding="utf-8")
+        settings_manager.load_settings("sonarr", use_cache=False)
+        persisted_before_update = json.loads(self.settings_file.read_text(encoding="utf-8"))
+
+        with patch.object(settings_manager, "_atomic_write_json", side_effect=OSError("simulated replace failure")):
+            updated = settings_manager.update_settings(
+                "sonarr",
+                lambda settings: settings.update({"hourly_cap": 5}),
+            )
+
+        self.assertFalse(updated)
+        self.assertEqual(json.loads(self.settings_file.read_text(encoding="utf-8")), persisted_before_update)
+        self.assertEqual(settings_manager.load_settings("sonarr"), persisted_before_update)
+
     def test_general_settings_route_rejects_non_object_json(self):
         with app.test_request_context("/api/settings/general", method="POST", json=[]):
             response, status = save_general_settings()

@@ -16,7 +16,8 @@ import tempfile
 import threading
 import time
 import time as time_module
-from typing import Any, Dict, List, Optional
+from copy import deepcopy
+from typing import Any, Callable, Dict, List, Optional
 
 from src.primary.log_redaction import install_sensitive_data_filter, redact_sensitive_data
 
@@ -258,6 +259,35 @@ def save_settings(app_name: str, settings_data: Dict[str, Any]) -> bool:
             return True
     except Exception as e:
         settings_logger.error(f"Error saving settings for {app_name} to {settings_file}: {e}")
+        return False
+
+
+def update_settings(app_name: str, update_callback: Callable[[Dict[str, Any]], None]) -> bool:
+    """Atomically apply an in-process read/modify/write settings update."""
+    if not _validate_app_type(app_name):
+        settings_logger.error(f"Attempted to update settings for unknown app type: {app_name}")
+        return False
+
+    if not callable(update_callback):
+        settings_logger.error(f"Refused non-callable settings update for {app_name}")
+        return False
+
+    settings_file = get_settings_file_path(app_name)
+    try:
+        with _settings_write_lock:
+            current_settings = load_settings(app_name, use_cache=False)
+            if not isinstance(current_settings, dict):
+                settings_logger.error(f"Refused to update non-object settings for {app_name}")
+                return False
+
+            updated_settings = deepcopy(current_settings)
+            update_callback(updated_settings)
+            _atomic_write_json(settings_file, updated_settings)
+            settings_logger.info(f"Settings updated successfully for {app_name} at {settings_file}")
+            clear_cache(app_name)
+            return True
+    except Exception as e:
+        settings_logger.error(f"Error updating settings for {app_name} at {settings_file}: {e}")
         return False
 
 

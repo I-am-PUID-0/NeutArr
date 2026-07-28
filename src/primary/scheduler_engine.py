@@ -13,8 +13,8 @@ import traceback
 from typing import Dict, List, Any
 import collections
 
-# Import settings_manager to handle cache refreshing
-from src.primary.settings_manager import clear_cache
+# Import settings_manager for validated, atomic configuration updates
+from src.primary import settings_manager
 
 from src.primary.utils.logger import get_logger
 
@@ -25,7 +25,7 @@ scheduler_logger = get_logger("scheduler")
 SCHEDULE_CHECK_INTERVAL = 60  # Check schedule every minute
 SCHEDULE_DIR = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "scheduler")
 SCHEDULE_FILE = os.path.join(SCHEDULE_DIR, "schedule.json")
-_CONFIG_DIR = os.environ.get("NEUTARR_CONFIG_DIR", "/config")
+SCHEDULABLE_APP_TYPES = ("sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros")
 
 # Track last executed actions to prevent duplicates
 last_executed_actions = {}
@@ -36,6 +36,36 @@ execution_history = collections.deque(maxlen=max_history_entries)
 
 stop_event = threading.Event()
 scheduler_thread = None
+
+
+def _set_enabled(config_data: Dict[str, Any], enabled: bool) -> None:
+    """Apply a scheduled enabled state to an app and each configured instance."""
+    config_data["enabled"] = enabled
+    instances = config_data.get("instances")
+    if isinstance(instances, list):
+        for instance in instances:
+            if isinstance(instance, dict):
+                instance["enabled"] = enabled
+
+
+def _set_hourly_cap(config_data: Dict[str, Any], hourly_cap: int) -> None:
+    """Apply a scheduled hourly API cap."""
+    config_data["hourly_cap"] = hourly_cap
+
+
+def _update_scheduled_app_settings(app_type: str, update_callback) -> bool:
+    """Apply one update to a validated app target or every schedulable app."""
+    target_apps = SCHEDULABLE_APP_TYPES if app_type == "global" else (app_type,)
+
+    for target_app in target_apps:
+        settings_file = settings_manager.get_settings_file_path(target_app)
+        if not settings_file.exists():
+            scheduler_logger.debug(f"Skipping scheduled update for {target_app}; settings file does not exist")
+            continue
+        if not settings_manager.update_settings(target_app, update_callback):
+            return False
+
+    return True
 
 
 def load_schedule():
@@ -136,9 +166,25 @@ def add_to_history(action_entry, status, message):
 
 def execute_action(action_entry):
     """Execute a scheduled action"""
+    if not isinstance(action_entry, dict):
+        scheduler_logger.error("Refused malformed scheduler action: expected an object")
+        return False
+
     action_type = action_entry.get("action")
     app_type = action_entry.get("app")
     app_id = action_entry.get("id")
+
+    if not isinstance(action_type, str):
+        message = "Invalid scheduler action type"
+        scheduler_logger.error(message)
+        add_to_history(action_entry, "error", message)
+        return False
+
+    if app_type not in {*SCHEDULABLE_APP_TYPES, "global"}:
+        message = f"Invalid scheduler app target: {app_type}"
+        scheduler_logger.error(message)
+        add_to_history(action_entry, "error", message)
+        return False
 
     # Generate a unique key for this action to track execution
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -154,123 +200,39 @@ def execute_action(action_entry):
     try:
         # Handle both old "pause" and new "disable" terminology
         if action_type == "pause" or action_type == "disable":
-            # Disable logic for global or specific app
             if app_type == "global":
                 message = "Executing global pause action"
-                scheduler_logger.info(message)
-                try:
-                    apps = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
-                    for app in apps:
-                        config_file = f"{_CONFIG_DIR}/{app}.json"
-                        if os.path.exists(config_file):
-                            with open(config_file, "r") as f:
-                                config_data = json.load(f)
-                            # Update root level enabled field
-                            config_data["enabled"] = False
-                            # Also update enabled field in instances array if it exists
-                            if "instances" in config_data and isinstance(config_data["instances"], list):
-                                for instance in config_data["instances"]:
-                                    if isinstance(instance, dict):
-                                        instance["enabled"] = False
-                            with open(config_file, "w") as f:
-                                json.dump(config_data, f, indent=2)
-                            # Clear cache for this app to ensure the UI refreshes
-                            clear_cache(app)
-                    result_message = "All apps disabled successfully"
-                    scheduler_logger.info(result_message)
-                    add_to_history(action_entry, "success", result_message)
-                except Exception as e:
-                    error_message = f"Error disabling all apps: {str(e)}"
-                    scheduler_logger.error(error_message)
-                    add_to_history(action_entry, "error", error_message)
-                    return False
+                result_message = "All apps disabled successfully"
             else:
                 message = f"Executing disable action for {app_type}"
-                scheduler_logger.info(message)
-                try:
-                    config_file = f"{_CONFIG_DIR}/{app_type}.json"
-                    if os.path.exists(config_file):
-                        with open(config_file, "r") as f:
-                            config_data = json.load(f)
-                        # Update root level enabled field
-                        config_data["enabled"] = False
-                        # Also update enabled field in instances array if it exists
-                        if "instances" in config_data and isinstance(config_data["instances"], list):
-                            for instance in config_data["instances"]:
-                                if isinstance(instance, dict):
-                                    instance["enabled"] = False
-                        with open(config_file, "w") as f:
-                            json.dump(config_data, f, indent=2)
-                        # Clear cache for this app to ensure the UI refreshes
-                        clear_cache(app_type)
-                    result_message = f"{app_type} disabled successfully"
-                    scheduler_logger.info(result_message)
-                    add_to_history(action_entry, "success", result_message)
-                except Exception as e:
-                    error_message = f"Error disabling {app_type}: {str(e)}"
-                    scheduler_logger.error(error_message)
-                    add_to_history(action_entry, "error", error_message)
-                    return False
+                result_message = f"{app_type} disabled successfully"
+
+            scheduler_logger.info(message)
+            if not _update_scheduled_app_settings(app_type, lambda config: _set_enabled(config, False)):
+                error_message = f"Error disabling {app_type}"
+                scheduler_logger.error(error_message)
+                add_to_history(action_entry, "error", error_message)
+                return False
+            scheduler_logger.info(result_message)
+            add_to_history(action_entry, "success", result_message)
 
         # Handle both old "resume" and new "enable" terminology
         elif action_type == "resume" or action_type == "enable":
-            # Enable logic for global or specific app
             if app_type == "global":
                 message = "Executing global enable action"
-                scheduler_logger.info(message)
-                try:
-                    apps = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
-                    for app in apps:
-                        config_file = f"{_CONFIG_DIR}/{app}.json"
-                        if os.path.exists(config_file):
-                            with open(config_file, "r") as f:
-                                config_data = json.load(f)
-                            # Update root level enabled field
-                            config_data["enabled"] = True
-                            # Also update enabled field in instances array if it exists
-                            if "instances" in config_data and isinstance(config_data["instances"], list):
-                                for instance in config_data["instances"]:
-                                    if isinstance(instance, dict):
-                                        instance["enabled"] = True
-                            with open(config_file, "w") as f:
-                                json.dump(config_data, f, indent=2)
-                            # Clear cache for this app to ensure the UI refreshes
-                            clear_cache(app)
-                    result_message = "All apps enabled successfully"
-                    scheduler_logger.info(result_message)
-                    add_to_history(action_entry, "success", result_message)
-                except Exception as e:
-                    error_message = f"Error enabling all apps: {str(e)}"
-                    scheduler_logger.error(error_message)
-                    add_to_history(action_entry, "error", error_message)
-                    return False
+                result_message = "All apps enabled successfully"
             else:
                 message = f"Executing enable action for {app_type}"
-                scheduler_logger.info(message)
-                try:
-                    config_file = f"{_CONFIG_DIR}/{app_type}.json"
-                    if os.path.exists(config_file):
-                        with open(config_file, "r") as f:
-                            config_data = json.load(f)
-                        # Update root level enabled field
-                        config_data["enabled"] = True
-                        # Also update enabled field in instances array if it exists
-                        if "instances" in config_data and isinstance(config_data["instances"], list):
-                            for instance in config_data["instances"]:
-                                if isinstance(instance, dict):
-                                    instance["enabled"] = True
-                        with open(config_file, "w") as f:
-                            json.dump(config_data, f, indent=2)
-                        # Clear cache for this app to ensure the UI refreshes
-                        clear_cache(app_type)
-                    result_message = f"{app_type} enabled successfully"
-                    scheduler_logger.info(result_message)
-                    add_to_history(action_entry, "success", result_message)
-                except Exception as e:
-                    error_message = f"Error enabling {app_type}: {str(e)}"
-                    scheduler_logger.error(error_message)
-                    add_to_history(action_entry, "error", error_message)
-                    return False
+                result_message = f"{app_type} enabled successfully"
+
+            scheduler_logger.info(message)
+            if not _update_scheduled_app_settings(app_type, lambda config: _set_enabled(config, True)):
+                error_message = f"Error enabling {app_type}"
+                scheduler_logger.error(error_message)
+                add_to_history(action_entry, "error", error_message)
+                return False
+            scheduler_logger.info(result_message)
+            add_to_history(action_entry, "success", result_message)
 
         # Handle the API limit actions based on the predefined values
         elif action_type.startswith("api-") or action_type.startswith("API Limits "):
@@ -284,49 +246,33 @@ def execute_action(action_entry):
 
                 if app_type == "global":
                     message = f"Setting global API cap to {api_limit}"
-                    scheduler_logger.info(message)
-                    try:
-                        apps = ["sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]
-                        for app in apps:
-                            config_file = f"{_CONFIG_DIR}/{app}.json"
-                            if os.path.exists(config_file):
-                                with open(config_file, "r") as f:
-                                    config_data = json.load(f)
-                                config_data["hourly_cap"] = api_limit
-                                with open(config_file, "w") as f:
-                                    json.dump(config_data, f, indent=2)
-                        result_message = f"API cap set to {api_limit} for all apps"
-                        scheduler_logger.info(result_message)
-                        add_to_history(action_entry, "success", result_message)
-                    except Exception as e:
-                        error_message = f"Error setting global API cap to {api_limit}: {str(e)}"
-                        scheduler_logger.error(error_message)
-                        add_to_history(action_entry, "error", error_message)
-                        return False
+                    result_message = f"API cap set to {api_limit} for all apps"
                 else:
                     message = f"Setting API cap for {app_type} to {api_limit}"
-                    scheduler_logger.info(message)
-                    try:
-                        config_file = f"{_CONFIG_DIR}/{app_type}.json"
-                        if os.path.exists(config_file):
-                            with open(config_file, "r") as f:
-                                config_data = json.load(f)
-                            config_data["hourly_cap"] = api_limit
-                            with open(config_file, "w") as f:
-                                json.dump(config_data, f, indent=2)
-                        result_message = f"API cap set to {api_limit} for {app_type}"
-                        scheduler_logger.info(result_message)
-                        add_to_history(action_entry, "success", result_message)
-                    except Exception as e:
-                        error_message = f"Error setting API cap for {app_type} to {api_limit}: {str(e)}"
-                        scheduler_logger.error(error_message)
-                        add_to_history(action_entry, "error", error_message)
-                        return False
+                    result_message = f"API cap set to {api_limit} for {app_type}"
+
+                scheduler_logger.info(message)
+                if not _update_scheduled_app_settings(
+                    app_type,
+                    lambda config: _set_hourly_cap(config, api_limit),
+                ):
+                    error_message = f"Error setting API cap for {app_type} to {api_limit}"
+                    scheduler_logger.error(error_message)
+                    add_to_history(action_entry, "error", error_message)
+                    return False
+                scheduler_logger.info(result_message)
+                add_to_history(action_entry, "success", result_message)
             except ValueError:
                 error_message = f"Invalid API limit format: {action_type}"
                 scheduler_logger.error(error_message)
                 add_to_history(action_entry, "error", error_message)
                 return False
+
+        else:
+            error_message = f"Invalid scheduler action: {action_type}"
+            scheduler_logger.error(error_message)
+            add_to_history(action_entry, "error", error_message)
+            return False
 
         # Mark this action as executed for today
         last_executed_actions[execution_key] = datetime.datetime.now()
