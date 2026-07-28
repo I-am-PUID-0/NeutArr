@@ -263,9 +263,9 @@ def get_configured_apps() -> List[str]:
 def apply_timezone(timezone: str) -> bool:
     """Apply the specified timezone for the current process.
 
-    Updating /etc/localtime is best-effort because many containers run with a
-    read-only or non-root-owned /etc. NeutArr should still honor TZ when Python
-    can apply it with time.tzset().
+    The Docker entrypoint updates the container's system timezone before
+    dropping privileges. At runtime NeutArr only needs to update TZ and notify
+    the Python process through time.tzset().
     """
     requested_timezone = timezone or "UTC"
     zoneinfo_path = f"/usr/share/zoneinfo/{requested_timezone}"
@@ -283,20 +283,6 @@ def apply_timezone(timezone: str) -> bool:
     except Exception as e:
         settings_logger.error(f"Error applying process timezone {resolved_timezone}: {str(e)}")
         return False
-
-    try:
-        if os.path.lexists("/etc/localtime"):
-            os.remove("/etc/localtime")
-        os.symlink(zoneinfo_path, "/etc/localtime")
-
-        with open("/etc/timezone", "w") as f:
-            f.write(f"{resolved_timezone}\n")
-    except PermissionError as e:
-        settings_logger.warning(
-            f"Timezone applied via TZ={resolved_timezone}; skipping /etc timezone update due to permissions: {e}"
-        )
-    except OSError as e:
-        settings_logger.warning(f"Timezone applied via TZ={resolved_timezone}; skipping /etc timezone update: {e}")
 
     settings_logger.info(f"Timezone set to {resolved_timezone}")
     return True
