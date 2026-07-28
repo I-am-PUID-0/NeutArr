@@ -612,13 +612,13 @@ def hourly_cap_scheduler_loop():
     logger.info("Starting hourly API cap scheduler loop")
 
     try:
-        from src.primary.stats_manager import reset_hourly_caps
+        from src.primary.stats_manager import check_hourly_reset
 
         # Initial check in case we're starting right at the top of an hour
         current_time = datetime.datetime.now()
         if current_time.minute == 0:
             logger.info(f"Initial hourly reset triggered at {current_time.hour}:00")
-            reset_hourly_caps()
+            check_hourly_reset()
 
         # Main monitoring loop
         while not stop_event.is_set():
@@ -633,12 +633,9 @@ def hourly_cap_scheduler_loop():
                 # Check if it's the top of the hour (00 minute mark)
                 current_time = datetime.datetime.now()
                 if current_time.minute == 0:
-                    logger.info(f"Hourly reset triggered at {current_time.hour}:00")
-                    success = reset_hourly_caps()
-                    if success:
+                    reset_performed = check_hourly_reset()
+                    if reset_performed:
                         logger.info(f"Successfully reset hourly API caps at {current_time.hour}:00")
-                    else:
-                        logger.error(f"Failed to reset hourly API caps at {current_time.hour}:00")
 
             except Exception as e:
                 logger.error(f"Error in hourly cap scheduler: {e}")

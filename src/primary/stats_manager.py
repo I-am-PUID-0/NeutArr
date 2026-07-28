@@ -7,8 +7,10 @@ and monitoring hourly API usage for rate limiting
 
 import os
 import json
-import time
 import datetime
+import pathlib
+import stat
+import tempfile
 import threading
 from typing import Dict, Any, Optional
 from src.primary.utils.logger import get_logger
@@ -27,7 +29,7 @@ STATS_DIRS = [
 
 # Lock for thread-safe operations
 stats_lock = threading.Lock()
-hourly_lock = threading.Lock()
+hourly_lock = threading.RLock()
 
 
 def find_writable_stats_dir():
@@ -71,8 +73,52 @@ else:
 # Store the last hour we checked for resetting hourly caps
 last_hour_checked = None
 
-# Schedule the next hourly reset check
-next_reset_check = None
+
+def _atomic_write_json(file_path, data):
+    """Durably replace a statistics document without exposing partial JSON."""
+    file_path = pathlib.Path(file_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = stat.S_IMODE(file_path.stat().st_mode) if file_path.exists() else 0o600
+    file_descriptor = None
+    temp_path = None
+
+    try:
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix=f".{file_path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = pathlib.Path(temp_name)
+        os.fchmod(file_descriptor, existing_mode)
+
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as temp_file:
+            file_descriptor = None
+            json.dump(data, temp_file, indent=2)
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        os.replace(temp_path, file_path)
+        temp_path = None
+
+        try:
+            directory_descriptor = os.open(file_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except OSError as error:
+            logger.debug(f"Unable to fsync statistics directory {file_path.parent}: {error}")
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def _hour_key(current_time):
+    """Return a date-aware identifier for one local clock hour."""
+    return current_time.strftime("%Y-%m-%dT%H")
 
 
 def ensure_stats_dir():
@@ -199,15 +245,7 @@ def save_hourly_caps(caps: Dict[str, Dict[str, int]]) -> bool:
 
     try:
         logger.debug(f"Saving hourly caps to: {HOURLY_CAP_FILE}")
-        # First write to a temp file, then move it to avoid partial writes
-        temp_file = f"{HOURLY_CAP_FILE}.tmp"
-        with open(temp_file, "w") as f:
-            json.dump(caps, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-
-        # Move the temp file to the actual file
-        os.replace(temp_file, HOURLY_CAP_FILE)
+        _atomic_write_json(HOURLY_CAP_FILE, caps)
 
         logger.debug(f"Hourly caps saved successfully: {caps}")
         return True
@@ -223,24 +261,19 @@ def reset_hourly_caps() -> bool:
     Returns:
         True if successful, False otherwise
     """
-    logger.info("=== RESETTING HOURLY API CAPS ===")
-    try:
-        if os.path.exists(HOURLY_CAP_FILE):
-            os.remove(HOURLY_CAP_FILE)
-            logger.info(f"Deleted hourly caps file at {HOURLY_CAP_FILE} to reset all API caps")
+    global last_hour_checked
 
-        # Create a fresh hourly caps file
+    with hourly_lock:
+        logger.info("=== RESETTING HOURLY API CAPS ===")
         caps = get_default_hourly_caps()
         save_success = save_hourly_caps(caps)
 
         if save_success:
+            last_hour_checked = _hour_key(datetime.datetime.now())
             logger.info("Successfully reset all hourly API caps to zero")
             return True
-        else:
-            logger.error("Failed to save reset hourly caps")
-            return False
-    except Exception as e:
-        logger.error(f"Error resetting hourly API caps: {e}")
+
+        logger.error("Failed to save reset hourly caps")
         return False
 
 
@@ -248,20 +281,21 @@ def check_hourly_reset():
     """
     Check if we need to reset hourly caps based on the current hour
     """
-    global last_hour_checked, next_reset_check
+    global last_hour_checked
 
     current_time = datetime.datetime.now()
-    current_hour = current_time.hour
-
-    # Skip if we've already checked this hour
-    if last_hour_checked == current_hour:
-        return
+    current_hour = _hour_key(current_time)
 
     # Only reset at the top of the hour (00 minute mark)
-    if current_time.minute == 0:
-        logger.info(f"Hour changed to {current_hour}:00, resetting hourly API caps")
-        reset_hourly_caps()
-        last_hour_checked = current_hour
+    if current_time.minute != 0:
+        return False
+
+    with hourly_lock:
+        if last_hour_checked == current_hour:
+            return False
+
+        logger.info(f"Hour changed to {current_time.hour}:00, resetting hourly API caps")
+        return reset_hourly_caps()
 
 
 def increment_hourly_cap(app_type: str, count: int = 1) -> bool:
@@ -394,15 +428,7 @@ def save_stats(stats: Dict[str, Dict[str, int]]) -> bool:
 
     try:
         logger.debug(f"Saving stats to: {STATS_FILE}")
-        # First write to a temp file, then move it to avoid partial writes
-        temp_file = f"{STATS_FILE}.tmp"
-        with open(temp_file, "w") as f:
-            json.dump(stats, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-
-        # Move the temp file to the actual file
-        os.replace(temp_file, STATS_FILE)
+        _atomic_write_json(STATS_FILE, stats)
 
         logger.info(f"===> Successfully wrote stats to file: {STATS_FILE}")
         logger.debug(f"Stats saved successfully: {stats}")
@@ -516,7 +542,7 @@ if STATS_DIR:
         logger.info(f"Creating new hourly caps file at: {HOURLY_CAP_FILE}")
         save_hourly_caps(get_default_hourly_caps())
 
-    # Set up the initial hour check
-    last_hour_checked = datetime.datetime.now().hour
+    # The first top-of-hour check must remain eligible after process startup.
+    last_hour_checked = None
 else:
     logger.debug(f"Stats system initialized. Using file: {STATS_FILE}")
