@@ -141,6 +141,11 @@
                     <li>An entry is not run repeatedly during the same daily execution window.</li>
                     <li>Deleting a schedule removes it after confirmation.</li>
                     <li>Schedules are stored under <code>/config/scheduler/schedule.json</code>.</li>
+                    <li>
+                        NeutArr validates the complete schedule list and replaces the file
+                        atomically, so an invalid or interrupted save does not erase the last
+                        working configuration.
+                    </li>
                 </ul>
             </div>
 
@@ -173,6 +178,10 @@
                     <li>Allow for the scheduler's one-minute checks and four-minute execution window.</li>
                     <li>Confirm the selected app has a saved configuration.</li>
                     <li>Review NeutArr logs for rejected targets or failed settings updates.</li>
+                    <li>
+                        If NeutArr repairs an invalid schedule file, look beside
+                        <code>schedule.json</code> for the timestamped backup.
+                    </li>
                 </ul>
             </div>
         </div>

@@ -4,14 +4,19 @@ Scheduler API Routes
 Handles API endpoints for scheduler management
 """
 
-import os
 import json
 import logging
 from flask import Blueprint, jsonify, request, Response
 from datetime import datetime
 
-# Import the scheduler engine to get execution history
-from src.primary.scheduler_engine import get_execution_history
+# Import the scheduler engine to share validated schedule persistence
+from src.primary.scheduler_engine import (
+    SCHEDULE_FILE,
+    ScheduleValidationError,
+    get_execution_history,
+    load_schedule,
+    save_schedule,
+)
 
 # Create logger
 scheduler_logger = logging.getLogger("scheduler")
@@ -19,37 +24,13 @@ scheduler_logger = logging.getLogger("scheduler")
 # Create blueprint
 scheduler_api = Blueprint("scheduler_api", __name__)
 
-# Configuration file path
-CONFIG_DIR = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "scheduler")
-SCHEDULE_FILE = os.path.join(CONFIG_DIR, "schedule.json")
-
-
-def ensure_config_dir():
-    """Ensure the config directory exists"""
-    if not os.path.exists(CONFIG_DIR):
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        scheduler_logger.info(f"Created config directory: {CONFIG_DIR}")
-
 
 @scheduler_api.route("/api/scheduler/load", methods=["GET"])
 def load_schedules():
     """Load schedules from the JSON file"""
     try:
-        ensure_config_dir()
-
-        # Default empty schedules
-        schedules = {"global": [], "sonarr": [], "radarr": [], "lidarr": [], "readarr": []}
-
-        # Load from file if it exists
-        if os.path.exists(SCHEDULE_FILE):
-            with open(SCHEDULE_FILE, "r") as f:
-                loaded_data = json.load(f)
-                if loaded_data and isinstance(loaded_data, dict):
-                    # Update with data from file, keeping default structure
-                    schedules.update(loaded_data)
-            scheduler_logger.info(f"Loaded schedules from {SCHEDULE_FILE}")
-        else:
-            scheduler_logger.info(f"No schedule file found at {SCHEDULE_FILE}, returning empty schedules")
+        schedules = load_schedule()
+        scheduler_logger.info(f"Loaded schedules from {SCHEDULE_FILE}")
 
         # Add CORS headers
         response = Response(json.dumps(schedules))
@@ -86,17 +67,8 @@ def get_scheduler_history():
 def save_schedules():
     """Save schedules to the JSON file"""
     try:
-        ensure_config_dir()
-
-        # Get schedule data from request
-        schedules = request.json
-
-        if not schedules or not isinstance(schedules, dict):
-            return jsonify({"error": "Invalid schedule data format"}), 400
-
-        # Save to file
-        with open(SCHEDULE_FILE, "w") as f:
-            json.dump(schedules, f, indent=2)
+        schedules = request.get_json(silent=True)
+        save_schedule(schedules)
 
         scheduler_logger.info(f"Saved schedules to {SCHEDULE_FILE}")
 
@@ -114,6 +86,9 @@ def save_schedules():
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
 
+    except ScheduleValidationError as error:
+        scheduler_logger.warning(f"Rejected invalid schedule data: {error}")
+        return jsonify({"error": str(error)}), 400
     except Exception as e:
         error_msg = f"Error saving schedules: {str(e)}"
         scheduler_logger.error(error_msg)

@@ -10,6 +10,11 @@ import threading
 import datetime
 import time
 import traceback
+import pathlib
+import shutil
+import stat
+import tempfile
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 import collections
 
@@ -26,6 +31,17 @@ SCHEDULE_CHECK_INTERVAL = 60  # Check schedule every minute
 SCHEDULE_DIR = os.path.join(os.environ.get("NEUTARR_CONFIG_DIR", "/config"), "scheduler")
 SCHEDULE_FILE = os.path.join(SCHEDULE_DIR, "schedule.json")
 SCHEDULABLE_APP_TYPES = ("sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros")
+SCHEDULE_GROUPS = ("global", *SCHEDULABLE_APP_TYPES)
+SCHEDULE_DAYS = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+MAX_SCHEDULE_ENTRIES = 1000
 
 # Track last executed actions to prevent duplicates
 last_executed_actions = {}
@@ -36,6 +52,195 @@ execution_history = collections.deque(maxlen=max_history_entries)
 
 stop_event = threading.Event()
 scheduler_thread = None
+_schedule_file_lock = threading.RLock()
+
+
+class ScheduleValidationError(ValueError):
+    """Raised when a schedule payload cannot be persisted safely."""
+
+
+def _empty_schedule() -> Dict[str, List[Dict[str, Any]]]:
+    """Return a new schedule structure with every supported group."""
+    return {group: [] for group in SCHEDULE_GROUPS}
+
+
+def _normalize_schedule_days(days: Any, entry_label: str) -> List[str]:
+    """Validate and normalize full or abbreviated weekday names."""
+    if not isinstance(days, list):
+        raise ScheduleValidationError(f"{entry_label}.days must be an array")
+
+    normalized_days = []
+    for day in days:
+        if not isinstance(day, str):
+            raise ScheduleValidationError(f"{entry_label}.days must contain only strings")
+        normalized_day = day.strip().lower()
+        matches = [weekday for weekday in SCHEDULE_DAYS if weekday.startswith(normalized_day)]
+        if len(normalized_day) < 3 or len(matches) != 1:
+            raise ScheduleValidationError(f"{entry_label}.days contains an invalid weekday")
+        weekday = matches[0]
+        if weekday not in normalized_days:
+            normalized_days.append(weekday)
+    return normalized_days
+
+
+def _normalize_schedule_time(schedule: Dict[str, Any], entry_label: str) -> Dict[str, int]:
+    """Validate current and legacy schedule time representations."""
+    schedule_time = schedule.get("time")
+    if isinstance(schedule_time, str):
+        try:
+            hour_text, minute_text = schedule_time.split(":", maxsplit=1)
+            hour = int(hour_text)
+            minute = int(minute_text)
+        except (TypeError, ValueError):
+            raise ScheduleValidationError(f"{entry_label}.time must use HH:MM") from None
+    elif isinstance(schedule_time, dict):
+        hour = schedule_time.get("hour")
+        minute = schedule_time.get("minute")
+    elif "hour" in schedule or "minute" in schedule:
+        hour = schedule.get("hour")
+        minute = schedule.get("minute")
+    else:
+        raise ScheduleValidationError(f"{entry_label}.time is required")
+
+    if (
+        isinstance(hour, bool)
+        or not isinstance(hour, int)
+        or isinstance(minute, bool)
+        or not isinstance(minute, int)
+        or not 0 <= hour <= 23
+        or not 0 <= minute <= 59
+    ):
+        raise ScheduleValidationError(f"{entry_label}.time must contain a valid hour and minute")
+    return {"hour": hour, "minute": minute}
+
+
+def _validate_schedule_action(action: Any, entry_label: str) -> str:
+    """Validate supported current and legacy scheduler actions."""
+    if not isinstance(action, str):
+        raise ScheduleValidationError(f"{entry_label}.action must be a string")
+    if action in {"enable", "disable", "pause", "resume"}:
+        return action
+
+    prefix = "api-" if action.startswith("api-") else "API Limits " if action.startswith("API Limits ") else None
+    if prefix is None:
+        raise ScheduleValidationError(f"{entry_label}.action is not supported")
+    try:
+        api_limit = int(action.removeprefix(prefix))
+    except ValueError:
+        raise ScheduleValidationError(f"{entry_label}.action has an invalid API limit") from None
+    if not 1 <= api_limit <= 500:
+        raise ScheduleValidationError(f"{entry_label}.action API limit must be between 1 and 500")
+    return action
+
+
+def validate_schedule_data(schedule_data: Any) -> Dict[str, List[Dict[str, Any]]]:
+    """Validate and normalize a complete schedule document."""
+    if not isinstance(schedule_data, dict):
+        raise ScheduleValidationError("Schedule data must be a JSON object")
+    if not schedule_data:
+        raise ScheduleValidationError("Schedule data must contain at least one application group")
+
+    unknown_groups = set(schedule_data) - set(SCHEDULE_GROUPS)
+    if unknown_groups:
+        raise ScheduleValidationError("Schedule data contains an unsupported application group")
+
+    normalized_data = _empty_schedule()
+    seen_ids = set()
+    entry_count = 0
+
+    for group in SCHEDULE_GROUPS:
+        entries = schedule_data.get(group, [])
+        if not isinstance(entries, list):
+            raise ScheduleValidationError(f"{group} schedules must be an array")
+
+        for index, schedule in enumerate(entries):
+            entry_count += 1
+            if entry_count > MAX_SCHEDULE_ENTRIES:
+                raise ScheduleValidationError(f"Schedule data may contain at most {MAX_SCHEDULE_ENTRIES} entries")
+
+            entry_label = f"{group}[{index}]"
+            if not isinstance(schedule, dict):
+                raise ScheduleValidationError(f"{entry_label} must be an object")
+
+            schedule_id = schedule.get("id")
+            if not isinstance(schedule_id, str) or not schedule_id.strip() or len(schedule_id) > 128:
+                raise ScheduleValidationError(f"{entry_label}.id must be a non-empty string up to 128 characters")
+            schedule_id = schedule_id.strip()
+            if schedule_id in seen_ids:
+                raise ScheduleValidationError(f"{entry_label}.id must be unique")
+            seen_ids.add(schedule_id)
+
+            target = schedule.get("app")
+            if _resolve_schedule_target(target) is None:
+                raise ScheduleValidationError(f"{entry_label}.app is not a supported target")
+
+            enabled = schedule.get("enabled", True)
+            if not isinstance(enabled, bool):
+                raise ScheduleValidationError(f"{entry_label}.enabled must be true or false")
+
+            normalized_data[group].append(
+                {
+                    "id": schedule_id,
+                    "time": _normalize_schedule_time(schedule, entry_label),
+                    "days": _normalize_schedule_days(schedule.get("days", []), entry_label),
+                    "action": _validate_schedule_action(schedule.get("action"), entry_label),
+                    "app": target,
+                    "enabled": enabled,
+                    "appType": group,
+                }
+            )
+
+    return normalized_data
+
+
+def _atomic_write_schedule(schedule_data: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Durably replace schedule.json without exposing a partial document."""
+    schedule_file = pathlib.Path(SCHEDULE_FILE)
+    schedule_file.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = stat.S_IMODE(schedule_file.stat().st_mode) if schedule_file.exists() else 0o600
+    file_descriptor = None
+    temp_path = None
+
+    try:
+        file_descriptor, temp_name = tempfile.mkstemp(
+            dir=schedule_file.parent,
+            prefix=f".{schedule_file.name}.",
+            suffix=".tmp",
+        )
+        temp_path = pathlib.Path(temp_name)
+        os.fchmod(file_descriptor, existing_mode)
+
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as temp_file:
+            file_descriptor = None
+            json.dump(schedule_data, temp_file, indent=2)
+            temp_file.write("\n")
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+
+        os.replace(temp_path, schedule_file)
+        temp_path = None
+
+        try:
+            directory_descriptor = os.open(schedule_file.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except OSError as error:
+            scheduler_logger.debug(f"Unable to fsync scheduler directory {schedule_file.parent}: {error}")
+    finally:
+        if file_descriptor is not None:
+            os.close(file_descriptor)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def save_schedule(schedule_data: Any) -> Dict[str, List[Dict[str, Any]]]:
+    """Validate and atomically persist a complete schedule document."""
+    normalized_data = validate_schedule_data(deepcopy(schedule_data))
+    with _schedule_file_lock:
+        _atomic_write_schedule(normalized_data)
+    return normalized_data
 
 
 def _resolve_schedule_target(target: Any) -> Optional[Tuple[str, Optional[int]]]:
@@ -115,79 +320,35 @@ def _update_scheduled_app_settings(app_type: str, update_callback) -> bool:
 
 
 def load_schedule():
-    """Load the schedule configuration from file"""
+    """Load and validate schedule.json, repairing malformed files safely."""
+    default_schedule = _empty_schedule()
+    schedule_file = pathlib.Path(SCHEDULE_FILE)
+
     try:
-        os.makedirs(SCHEDULE_DIR, exist_ok=True)  # Ensure directory exists
-
-        if os.path.exists(SCHEDULE_FILE):
-            try:
-                # Check if file is empty
-                if os.path.getsize(SCHEDULE_FILE) == 0:
-                    return {
-                        "global": [],
-                        "sonarr": [],
-                        "radarr": [],
-                        "lidarr": [],
-                        "readarr": [],
-                        "whisparr": [],
-                        "eros": [],
-                    }
-
-                # Attempt to load JSON
-                with open(SCHEDULE_FILE, "r") as f:
-                    content = f.read()
-                    scheduler_logger.debug(f"Schedule file content (first 100 chars): {content[:100]}...")
-                    schedule_data = json.loads(content)
-
-                    # Ensure the schedule data has the expected structure
-                    for app_type in ["global", "sonarr", "radarr", "lidarr", "readarr", "whisparr", "eros"]:
-                        if app_type not in schedule_data:
-                            schedule_data[app_type] = []
-
-                    return schedule_data
-            except json.JSONDecodeError as json_err:
-                scheduler_logger.error(f"Invalid JSON in schedule file: {json_err}")
-                scheduler_logger.error(f"Attempting to repair JSON file...")
-
-                # Backup the corrupted file
-                backup_file = f"{SCHEDULE_FILE}.backup.{int(time.time())}"
-                os.rename(SCHEDULE_FILE, backup_file)
-                scheduler_logger.info(f"Backed up corrupted file to {backup_file}")
-
-                # Create a new empty schedule file
-                default_schedule = {
-                    "global": [],
-                    "sonarr": [],
-                    "radarr": [],
-                    "lidarr": [],
-                    "readarr": [],
-                    "whisparr": [],
-                    "eros": [],
-                }
-                with open(SCHEDULE_FILE, "w") as f:
-                    json.dump(default_schedule, f, indent=2)
-                scheduler_logger.info(f"Created new empty schedule file")
-
+        with _schedule_file_lock:
+            schedule_file.parent.mkdir(parents=True, exist_ok=True)
+            if not schedule_file.exists():
+                _atomic_write_schedule(default_schedule)
+                scheduler_logger.info("Created new schedule file with default structure")
                 return default_schedule
-        else:
-            # Create the default schedule file
-            default_schedule = {
-                "global": [],
-                "sonarr": [],
-                "radarr": [],
-                "lidarr": [],
-                "readarr": [],
-                "whisparr": [],
-                "eros": [],
-            }
-            with open(SCHEDULE_FILE, "w") as f:
-                json.dump(default_schedule, f, indent=2)
-            scheduler_logger.info(f"Created new schedule file with default structure")
-            return default_schedule
+
+            try:
+                content = schedule_file.read_text(encoding="utf-8")
+                if not content.strip():
+                    raise ScheduleValidationError("Schedule file is empty")
+                return validate_schedule_data(json.loads(content))
+            except (json.JSONDecodeError, ScheduleValidationError) as error:
+                scheduler_logger.error(f"Invalid schedule file: {error}")
+                backup_file = schedule_file.with_name(f"{schedule_file.name}.backup.{time.time_ns()}")
+                shutil.copy2(schedule_file, backup_file)
+                _atomic_write_schedule(default_schedule)
+                scheduler_logger.info(f"Backed up invalid schedule file to {backup_file}")
+                scheduler_logger.info("Created new empty schedule file")
+                return default_schedule
     except Exception as e:
         scheduler_logger.error(f"Error loading schedule: {e}")
         scheduler_logger.error(traceback.format_exc())
-        return {"global": [], "sonarr": [], "radarr": [], "lidarr": [], "readarr": [], "whisparr": [], "eros": []}
+        return default_schedule
 
 
 def add_to_history(action_entry, status, message):
