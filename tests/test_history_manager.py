@@ -168,6 +168,41 @@ class HistoryManagerTests(unittest.TestCase):
         self.assertEqual(search_result["total_entries"], 1)
         self.assertEqual(search_result["entries"][0]["id"], 2)
 
+    def test_untrusted_app_type_cannot_select_a_history_directory(self):
+        outside_directory = Path(self.temp_directory.name) / "outside"
+
+        with self.assertRaises(ValueError):
+            history_manager.get_history_file_path("../outside", "Primary")
+
+        self.assertFalse(outside_directory.exists())
+        self.assertEqual(history_manager.get_history("../outside")["entries"], [])
+        self.assertFalse(history_manager.clear_history("../outside"))
+
+    def test_instance_name_with_path_separators_remains_app_scoped(self):
+        history_file = history_manager.get_history_file_path(
+            "sonarr",
+            "../../outside/Primary",
+        )
+        app_directory = (self.history_directory / "sonarr").resolve()
+
+        self.assertEqual(history_file.parent, app_directory)
+        self.assertTrue(history_file.name.endswith(".json"))
+        self.assertNotIn("/", history_file.name)
+
+    def test_symlinked_app_directory_cannot_escape_history_root(self):
+        outside_directory = Path(self.temp_directory.name) / "outside"
+        outside_directory.mkdir()
+        self.history_directory.mkdir()
+        (self.history_directory / "radarr").symlink_to(
+            outside_directory,
+            target_is_directory=True,
+        )
+
+        self.assertFalse(history_manager.ensure_history_dir())
+        with self.assertRaises(ValueError):
+            history_manager.get_history_file_path("radarr", "Primary")
+        self.assertEqual(list(outside_directory.iterdir()), [])
+
 
 if __name__ == "__main__":
     unittest.main()

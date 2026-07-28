@@ -16,16 +16,40 @@ logger = logging.getLogger(__name__)
 # Path controlled by NEUTARR_CONFIG_DIR env var
 HISTORY_BASE_PATH = pathlib.Path(os.environ.get("NEUTARR_CONFIG_DIR", "/config")) / "history"
 
-# Lock to prevent race conditions during file operations
-history_locks = {
-    "sonarr": threading.Lock(),
-    "radarr": threading.Lock(),
-    "lidarr": threading.Lock(),
-    "readarr": threading.Lock(),
-    "whisparr": threading.Lock(),
-    "eros": threading.Lock(),
-    "swaparr": threading.Lock(),
+HISTORY_APP_DIRECTORY_NAMES = {
+    "sonarr": "sonarr",
+    "radarr": "radarr",
+    "lidarr": "lidarr",
+    "readarr": "readarr",
+    "whisparr": "whisparr",
+    "eros": "eros",
+    "swaparr": "swaparr",
 }
+
+# Lock to prevent race conditions during file operations
+history_locks = {app_type: threading.Lock() for app_type in HISTORY_APP_DIRECTORY_NAMES}
+
+
+def _get_history_app_dir(app_type):
+    """Select a trusted app directory and enforce containment under history."""
+    directory_name = HISTORY_APP_DIRECTORY_NAMES.get(app_type)
+    if directory_name is None:
+        raise ValueError(f"Unsupported history app type: {app_type}")
+
+    history_root = HISTORY_BASE_PATH.resolve()
+    app_dir = (history_root / directory_name).resolve()
+    if app_dir.parent != history_root:
+        raise ValueError(f"History directory escapes configured root for {app_type}")
+    return app_dir
+
+
+def _get_contained_history_file(app_type, filename):
+    """Return a history file only when its resolved path remains app-scoped."""
+    app_dir = _get_history_app_dir(app_type)
+    history_file = (app_dir / filename).resolve()
+    if history_file.parent != app_dir:
+        raise ValueError(f"History file escapes app directory for {app_type}")
+    return history_file
 
 
 def _atomic_write_history_file(file_path, entries):
@@ -111,7 +135,7 @@ def ensure_history_dir():
 
         # Create app-specific directories
         for app in history_locks.keys():
-            app_dir = HISTORY_BASE_PATH / app
+            app_dir = _get_history_app_dir(app)
             app_dir.mkdir(exist_ok=True, parents=True)
 
         return True
@@ -122,13 +146,19 @@ def ensure_history_dir():
 
 def get_history_file_path(app_type, instance_name=None):
     """Get the appropriate history file path based on app type and instance name"""
-    return HISTORY_BASE_PATH / app_type / f"{instance_storage_key(instance_name)}.json"
+    return _get_contained_history_file(
+        app_type,
+        f"{instance_storage_key(instance_name)}.json",
+    )
 
 
 def _migrate_legacy_history_file(app_type, instance_name):
     """Move matching entries out of a legacy filename without affecting collisions."""
     history_file = get_history_file_path(app_type, instance_name)
-    legacy_file = HISTORY_BASE_PATH / app_type / f"{legacy_instance_storage_key(instance_name)}.json"
+    legacy_file = _get_contained_history_file(
+        app_type,
+        f"{legacy_instance_storage_key(instance_name)}.json",
+    )
 
     if history_file == legacy_file or history_file.exists() or not legacy_file.exists():
         return history_file
@@ -264,7 +294,7 @@ def get_history(app_type, search_query=None, page=1, page_size=20):
     if app_type == "all":
         # Combine histories from all apps and their instances
         for app in history_locks.keys():
-            app_dir = HISTORY_BASE_PATH / app
+            app_dir = _get_history_app_dir(app)
 
             # Find and read all instance files
             if app_dir.exists():
@@ -275,7 +305,7 @@ def get_history(app_type, search_query=None, page=1, page_size=20):
                         logger.debug(f"Read {len(instance_history)} entries from {history_file}")
     else:
         # Get history for specific app - combine all instances
-        app_dir = HISTORY_BASE_PATH / app_type
+        app_dir = _get_history_app_dir(app_type)
 
         # Make sure app directory exists
         app_dir.mkdir(exist_ok=True, parents=True)
@@ -375,7 +405,7 @@ def clear_history(app_type):
             # Clear all history files for all apps
             for app in history_locks.keys():
                 # Clear all instance files
-                app_dir = HISTORY_BASE_PATH / app
+                app_dir = _get_history_app_dir(app)
                 # Ensure directory exists
                 app_dir.mkdir(exist_ok=True, parents=True)
 
@@ -389,7 +419,7 @@ def clear_history(app_type):
                             logger.debug(f"Cleared instance history file: {history_file}")
         else:
             # Clear all instance files for specific app
-            app_dir = HISTORY_BASE_PATH / app_type
+            app_dir = _get_history_app_dir(app_type)
             # Ensure directory exists
             app_dir.mkdir(exist_ok=True, parents=True)
 
@@ -563,7 +593,7 @@ def sync_history_files_with_instances():
 
         # Load settings for each app type to find instances
         for app_type in history_locks.keys():
-            app_dir = HISTORY_BASE_PATH / app_type
+            app_dir = _get_history_app_dir(app_type)
             app_dir.mkdir(exist_ok=True, parents=True)
 
             result["app_instances"][app_type] = []
