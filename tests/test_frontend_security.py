@@ -85,6 +85,20 @@ class FrontendSecurityTests(unittest.TestCase):
         self.assertIn("await AuthManager.refresh()", source)
         self.assertIn("response.headers.get('X-NeutArr-Auth-Required') !== '1'", source)
 
+    def test_local_bypass_does_not_request_privileged_account_secrets(self):
+        auth = (_REPO_ROOT / "frontend" / "static" / "js" / "auth.js").read_text()
+        main = (_REPO_ROOT / "frontend" / "static" / "js" / "new-main.js").read_text()
+        account = (_REPO_ROOT / "frontend" / "static" / "js" / "new-user.js").read_text()
+        settings = (_REPO_ROOT / "frontend" / "templates" / "components" / "settings_section.html").read_text()
+
+        self.assertIn("function isLocalBypassActive()", auth)
+        self.assertIn("if (_authStatus) return _bypassActive;", auth)
+        self.assertIn("if (localBypassActive) return;", main)
+        self.assertIn("if (AuthManager.isLocalBypassActive())", account)
+        self.assertIn("showLocalBypassNotice();", account)
+        self.assertIn('id="accountSettingsLocalBypassNotice"', settings)
+        self.assertIn('id="accountSettingsControls"', settings)
+
 
 if __name__ == "__main__":
     unittest.main()

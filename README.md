@@ -161,6 +161,9 @@ curl -H "X-Api-Key: ${NEUTARR_API_KEY}" \
   http://neutarr.example/api/settings
 ```
 
+Local Bypass Mode does not expose account credentials or the API key. Connect
+from outside the configured bypass ranges and sign in before managing them.
+
 API keys in URL query strings are rejected. If an older integration uses
 `?apikey=...`, update it to use the header so credentials do not leak into
 browser history, proxy logs, monitoring tools, or referrer data.

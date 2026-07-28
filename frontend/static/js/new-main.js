@@ -2217,31 +2217,37 @@ let neutarrUI = {
     },
     
     // User
-    loadUsername: function() {
+    loadUsername: async function() {
         const usernameElement = document.getElementById('username');
         if (!usernameElement) return;
-        
-        NeutArrUtils.fetchWithTimeout('/api/auth/user')
-            .then(response => response.json())
-            .then(data => {
-                if (data.username) {
-                    usernameElement.textContent = data.username;
-                }
-                
-                // Check if local access bypass is enabled and update UI visibility
-                this.checkLocalAccessBypassStatus();
-            })
-            .catch(error => {
-                console.error('Error loading username:', error);
-                
-                // Still check local access bypass status even if username loading failed
-                this.checkLocalAccessBypassStatus();
-            });
+
+        if (typeof AuthManager !== 'undefined') {
+            await AuthManager.bootstrap();
+            const localBypassActive = AuthManager.isLocalBypassActive();
+            this.updateUIForLocalAccessBypass(localBypassActive);
+            if (localBypassActive) return;
+        }
+
+        try {
+            const response = await NeutArrUtils.fetchWithTimeout('/api/auth/user');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (data.username) {
+                usernameElement.textContent = data.username;
+            }
+        } catch (error) {
+            console.error('Error loading username:', error);
+        }
     },
     
     // Check if local access bypass is enabled and update UI accordingly
     checkLocalAccessBypassStatus: function() {
-        console.log("Checking local access bypass status...");
+        if (typeof AuthManager !== 'undefined') {
+            return AuthManager.bootstrap().then(() => {
+                this.updateUIForLocalAccessBypass(AuthManager.isLocalBypassActive());
+            });
+        }
+
         NeutArrUtils.fetchWithTimeout('/api/get_local_access_bypass_status') // Corrected URL
             .then(response => {
                 if (!response.ok) {
@@ -2275,9 +2281,8 @@ let neutarrUI = {
     // Update UI elements visibility based on local access bypass status
     updateUIForLocalAccessBypass: function(isEnabled) {
         // When bypass is active there is no login session, so hide the topbar
-        // username/logout widget. The User settings nav item stays visible in all
-        // modes — password management and API key rotation are still relevant
-        // (e.g. to manage credentials used by remote/non-bypass connections).
+        // username/logout widget. Account controls explain that an authenticated
+        // connection is required instead of requesting protected credentials.
         const userInfoContainer = document.getElementById('userInfoContainer');
         if (userInfoContainer) {
             userInfoContainer.style.display = isEnabled ? 'none' : '';

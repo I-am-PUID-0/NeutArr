@@ -4,14 +4,29 @@
  */
 
 (function() {
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
         if (!document.getElementById('accountSettingsPanel')) {
             return;
+        }
+
+        if (typeof AuthManager !== 'undefined') {
+            await AuthManager.bootstrap();
+            if (AuthManager.isLocalBypassActive()) {
+                showLocalBypassNotice();
+                return;
+            }
         }
 
         initAccountSettings();
         setupEventHandlers();
     });
+
+    function showLocalBypassNotice() {
+        const notice = document.getElementById('accountSettingsLocalBypassNotice');
+        const controls = document.getElementById('accountSettingsControls');
+        if (notice) notice.hidden = false;
+        if (controls) controls.hidden = true;
+    }
 
     function initAccountSettings() {
         fetchUserInfo();

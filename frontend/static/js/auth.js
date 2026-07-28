@@ -30,6 +30,7 @@ const AuthManager = (() => {
 
   let _refreshPromise = null; // Deduplicates concurrent refresh attempts
   let _bootstrapPromise = null;
+  let _authStatus = null;
   let _bypassActive = false;
   let _legacyTokenMigrationPending = false;
 
@@ -54,21 +55,28 @@ const AuthManager = (() => {
   function clearSession() {
     clearLegacyBrowserTokens();
     localStorage.removeItem(USERNAME_KEY);
+    _authStatus = null;
     _bypassActive = false;
   }
 
   async function bootstrap() {
+    if (_authStatus) return _bypassActive;
     if (_bootstrapPromise) return _bootstrapPromise; // In-flight request
 
     _bootstrapPromise = (async () => {
       try {
         const response = await nativeFetch('/api/auth/status');
-        if (!response.ok) return false;
+        if (!response.ok) {
+          _authStatus = null;
+          return false;
+        }
 
         const data = await response.json();
         if (data.instance_storage_key && data.instance_storage_key !== storageNamespace) {
+          _authStatus = null;
           return false;
         }
+        _authStatus = data;
         _bypassActive = Boolean(data.proxy_request_authenticated || data.local_client_bypass);
         if (_legacyTokenMigrationPending) {
           _legacyTokenMigrationPending = false;
@@ -76,6 +84,7 @@ const AuthManager = (() => {
         }
         return _bypassActive;
       } catch {
+        _authStatus = null;
         _bypassActive = false;
         return false;
       } finally {
@@ -130,9 +139,27 @@ const AuthManager = (() => {
     return _bypassActive;
   }
 
+  function isLocalBypassActive() {
+    return Boolean(_authStatus?.local_client_bypass);
+  }
+
+  function getStatus() {
+    return _authStatus ? { ..._authStatus } : null;
+  }
+
   clearLegacyBrowserTokens();
 
-  return { getUsername, setSession, clearSession, bootstrap, refresh, logout, isBypassActive };
+  return {
+    getUsername,
+    setSession,
+    clearSession,
+    bootstrap,
+    refresh,
+    logout,
+    isBypassActive,
+    isLocalBypassActive,
+    getStatus,
+  };
 })();
 
 

@@ -20,6 +20,18 @@
             <h3>Account & API</h3>
             <p class="settings-account-intro">Authentication mode stays in Security above. Username, password, and API key management live here.</p>
 
+            <div id="accountSettingsLocalBypassNotice" class="settings-account-bypass-notice" hidden>
+                <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                <div>
+                    <strong>Account controls require authentication</strong>
+                    <p>
+                        This connection is using Local Bypass Mode. Connect from outside the bypass ranges
+                        and sign in to manage the username, password, or API key.
+                    </p>
+                </div>
+            </div>
+
+            <div id="accountSettingsControls">
             <div class="settings-account-subsection">
                 <h4><i class="fas fa-user-edit"></i> Change Username</h4>
                 <div class="setting-item">
@@ -97,6 +109,7 @@
                 </div>
                 <div id="apiKeyStatus" class="status-message" style="display: none;"></div>
             </div>
+            </div>
         </div>
     </div>
 </section>
@@ -142,6 +155,32 @@
         margin: -4px 0 20px;
         color: var(--text-muted);
         font-size: 13px;
+    }
+
+    .settings-account-bypass-notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .settings-account-bypass-notice[hidden] {
+        display: none;
+    }
+
+    .settings-account-bypass-notice > i {
+        margin-top: 2px;
+        color: var(--accent-color);
+    }
+
+    .settings-account-bypass-notice p {
+        margin: 5px 0 0;
+        color: var(--text-muted);
+        line-height: 1.5;
     }
 
     .settings-account-subsection + .settings-account-subsection {

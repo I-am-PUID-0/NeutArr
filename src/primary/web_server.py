@@ -70,8 +70,11 @@ from src.primary.routes.history_routes import history_blueprint
 # Import scheduler blueprint
 from src.primary.routes.scheduler_routes import scheduler_api
 
-# Import background module to trigger manual cycle resets
-from src.primary import background
+# Keep the web routes attached to the same package instance as the runtime
+# worker import. NeutArr can be loaded as either ``primary`` (main.py) or
+# ``src.primary`` (tests/tooling), so an absolute import can create a second
+# background module with an empty cycle registry.
+from . import background
 
 # Disable Flask default logging
 log = logging.getLogger("werkzeug")

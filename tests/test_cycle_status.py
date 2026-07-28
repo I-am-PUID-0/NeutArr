@@ -12,8 +12,11 @@ from test_support import configure_test_environment
 
 configure_test_environment()
 
-from src.primary import background
-from src.primary.web_server import api_cycle_status, app
+from primary import background
+from primary import web_server
+
+api_cycle_status = web_server.api_cycle_status
+app = web_server.app
 
 
 class CycleStatusTests(unittest.TestCase):
@@ -109,6 +112,9 @@ class CycleStatusTests(unittest.TestCase):
             response = api_cycle_status()
 
         self.assertEqual(response.get_json(), payload)
+
+    def test_web_server_uses_the_runtime_background_module(self):
+        self.assertIs(web_server.background, background)
 
 
 if __name__ == "__main__":
