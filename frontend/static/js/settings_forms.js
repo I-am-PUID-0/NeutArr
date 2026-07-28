@@ -57,7 +57,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -68,17 +68,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="sonarr-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="sonarr-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Sonarr instance">
+                            <input type="text" id="sonarr-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Sonarr instance">
                             <p class="setting-help">Friendly name for this Sonarr instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="sonarr-url-${index}"><span class="info-icon" title="The base URL of your Sonarr instance, e.g. http://sonarr:8989"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="sonarr-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Sonarr (e.g., http://localhost:8989)">
+                            <input type="text" id="sonarr-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Sonarr (e.g., http://localhost:8989)">
                             <p class="setting-help">Base URL for Sonarr (e.g., http://localhost:8989)</p>
                         </div>
                         <div class="setting-item">
                             <label for="sonarr-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="sonarr-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Sonarr">
+                            <input type="text" id="sonarr-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Sonarr">
                             <p class="setting-help">API key for Sonarr</p>
                         </div>
                         <div class="setting-item">
@@ -210,7 +210,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -221,17 +221,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="radarr-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="radarr-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Radarr instance">
+                            <input type="text" id="radarr-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Radarr instance">
                             <p class="setting-help">Friendly name for this Radarr instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="radarr-url-${index}"><span class="info-icon" title="The base URL of your Radarr instance, e.g. http://radarr:7878"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="radarr-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Radarr (e.g., http://localhost:7878)">
+                            <input type="text" id="radarr-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Radarr (e.g., http://localhost:7878)">
                             <p class="setting-help">Base URL for Radarr (e.g., http://localhost:7878)</p>
                         </div>
                         <div class="setting-item">
                             <label for="radarr-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="radarr-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Radarr">
+                            <input type="text" id="radarr-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Radarr">
                             <p class="setting-help">API key for Radarr</p>
                         </div>
                         <div class="setting-item">
@@ -361,7 +361,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -372,17 +372,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="lidarr-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="lidarr-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Lidarr instance">
+                            <input type="text" id="lidarr-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Lidarr instance">
                             <p class="setting-help">Friendly name for this Lidarr instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="lidarr-url-${index}"><span class="info-icon" title="The base URL of your Lidarr instance, e.g. http://lidarr:8686"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="lidarr-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Lidarr (e.g., http://localhost:8686)">
+                            <input type="text" id="lidarr-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Lidarr (e.g., http://localhost:8686)">
                             <p class="setting-help">Base URL for Lidarr (e.g., http://localhost:8686)</p>
                         </div>
                         <div class="setting-item">
                             <label for="lidarr-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="lidarr-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Lidarr">
+                            <input type="text" id="lidarr-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Lidarr">
                             <p class="setting-help">API key for Lidarr</p>
                         </div>
                         <div class="setting-item">
@@ -497,7 +497,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -508,17 +508,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="readarr-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="readarr-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Readarr instance">
+                            <input type="text" id="readarr-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Readarr instance">
                             <p class="setting-help">Friendly name for this Readarr instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="readarr-url-${index}"><span class="info-icon" title="The base URL of your Readarr instance, e.g. http://readarr:8787"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="readarr-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Readarr (e.g., http://localhost:8787)">
+                            <input type="text" id="readarr-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Readarr (e.g., http://localhost:8787)">
                             <p class="setting-help">Base URL for Readarr (e.g., http://localhost:8787)</p>
                         </div>
                         <div class="setting-item">
                             <label for="readarr-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="readarr-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Readarr">
+                            <input type="text" id="readarr-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Readarr">
                             <p class="setting-help">API key for Readarr</p>
                         </div>
                         <div class="setting-item">
@@ -624,7 +624,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -635,17 +635,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="whisparr-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="whisparr-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Whisparr V2 instance">
+                            <input type="text" id="whisparr-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Whisparr V2 instance">
                             <p class="setting-help">Friendly name for this Whisparr V2 instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="whisparr-url-${index}"><span class="info-icon" title="The base URL of your Whisparr instance, e.g. http://whisparr:6969"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="whisparr-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Whisparr V2 (e.g., http://localhost:6969)">
+                            <input type="text" id="whisparr-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Whisparr V2 (e.g., http://localhost:6969)">
                             <p class="setting-help">Base URL for Whisparr V2 (e.g., http://localhost:6969)</p>
                         </div>
                         <div class="setting-item">
                             <label for="whisparr-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="whisparr-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Whisparr V2">
+                            <input type="text" id="whisparr-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Whisparr V2">
                             <p class="setting-help">API key for Whisparr V2</p>
                         </div>
                         <div class="setting-item">
@@ -755,7 +755,7 @@ const SettingsForms = {
             instancesHtml += `
                 <div class="instance-item" data-instance-id="${index}">
                     <div class="instance-header">
-                        <h4>Instance ${index + 1}: ${instance.name || 'Unnamed'}</h4>
+                        <h4>Instance ${index + 1}: ${SettingsForms.escapeHtml(instance.name || 'Unnamed')}</h4>
                         <div class="instance-actions">
                             ${index > 0 ? '<button type="button" class="remove-instance-btn">Remove</button>' : ''}
                             <button type="button" class="test-connection-btn" data-instance="${index}" style="margin-left: 10px;">
@@ -766,17 +766,17 @@ const SettingsForms = {
                     <div class="instance-content">
                         <div class="setting-item">
                             <label for="eros-name-${index}"><span class="info-icon" title="A friendly label to identify this instance in the UI"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Name:</label>
-                            <input type="text" id="eros-name-${index}" name="name" value="${instance.name || ''}" placeholder="Friendly name for this Whisparr V3 instance">
+                            <input type="text" id="eros-name-${index}" name="name" value="${SettingsForms.escapeHtml(instance.name || '')}" placeholder="Friendly name for this Whisparr V3 instance">
                             <p class="setting-help">Friendly name for this Whisparr V3 instance</p>
                         </div>
                         <div class="setting-item">
                             <label for="eros-url-${index}"><span class="info-icon" title="The base URL of your Whisparr V3 instance, e.g. http://whisparr:6969"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;URL:</label>
-                            <input type="text" id="eros-url-${index}" name="api_url" value="${instance.api_url || ''}" placeholder="Base URL for Whisparr V3 (e.g., http://localhost:6969)">
+                            <input type="text" id="eros-url-${index}" name="api_url" value="${SettingsForms.escapeHtml(instance.api_url || '')}" placeholder="Base URL for Whisparr V3 (e.g., http://localhost:6969)">
                             <p class="setting-help">Base URL for Whisparr V3 (e.g., http://localhost:6969)</p>
                         </div>
                         <div class="setting-item">
                             <label for="eros-key-${index}"><span class="info-icon" title="Found in your *arr app under Settings > General > API Key"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;API Key:</label>
-                            <input type="text" id="eros-key-${index}" name="api_key" value="${instance.api_key || ''}" placeholder="API key for Whisparr V3">
+                            <input type="text" id="eros-key-${index}" name="api_key" value="${SettingsForms.escapeHtml(instance.api_key || '')}" placeholder="API key for Whisparr V3">
                             <p class="setting-help">API key for Whisparr V3</p>
                         </div>
                         <div class="setting-item">
@@ -966,12 +966,12 @@ const SettingsForms = {
                 </div>
                 <div class="setting-item">
                     <label for="swaparr_max_download_time"><span class="info-icon" title="Maximum time in minutes before a download is considered stalled"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Max Download Time:</label>
-                    <input type="text" id="swaparr_max_download_time" value="${settings.max_download_time || '2h'}">
+                    <input type="text" id="swaparr_max_download_time" value="${SettingsForms.escapeHtml(settings.max_download_time || '2h')}">
                     <p class="setting-help">Maximum time a download can be stalled (e.g., 30m, 2h, 1d)</p>
                 </div>
                 <div class="setting-item">
                     <label for="swaparr_ignore_above_size"><span class="info-icon" title="Skip downloads larger than this size (in GB)"><i class="fas fa-info-circle"></i></span>&nbsp;&nbsp;&nbsp;Ignore Above Size:</label>
-                    <input type="text" id="swaparr_ignore_above_size" value="${settings.ignore_above_size || '25GB'}">
+                    <input type="text" id="swaparr_ignore_above_size" value="${SettingsForms.escapeHtml(settings.ignore_above_size || '25GB')}">
                     <p class="setting-help">Ignore files larger than this size (e.g., 1GB, 25GB, 1TB)</p>
                 </div>
                 <div class="setting-item">

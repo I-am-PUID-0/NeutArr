@@ -39,6 +39,26 @@ class FrontendSecurityTests(unittest.TestCase):
         self.assertIn("deleteButton.dataset.id = String(schedule.id ?? '');", source)
         self.assertIn("deleteButton.dataset.appType = String(schedule.appType ?? 'global');", source)
 
+    def test_settings_forms_escape_persisted_free_form_values(self):
+        source = (_REPO_ROOT / "frontend" / "static" / "js" / "settings_forms.js").read_text()
+
+        self.assertIn("escapeHtml: function(value)", source)
+        self.assertNotIn("${instance.name || 'Unnamed'}", source)
+        self.assertNotIn("value=\"${instance.name || ''}\"", source)
+        self.assertNotIn("value=\"${instance.api_url || ''}\"", source)
+        self.assertNotIn("value=\"${instance.api_key || ''}\"", source)
+        self.assertEqual(source.count("SettingsForms.escapeHtml(instance.name"), 12)
+        self.assertEqual(source.count("SettingsForms.escapeHtml(instance.api_url"), 6)
+        self.assertEqual(source.count("SettingsForms.escapeHtml(instance.api_key"), 6)
+        self.assertIn(
+            "SettingsForms.escapeHtml(settings.max_download_time || '2h')",
+            source,
+        )
+        self.assertIn(
+            "SettingsForms.escapeHtml(settings.ignore_above_size || '25GB')",
+            source,
+        )
+
     def test_browser_auth_does_not_persist_or_inject_jwts(self):
         source = (_REPO_ROOT / "frontend" / "static" / "js" / "auth.js").read_text()
 
