@@ -8,8 +8,8 @@ hashing. Config persisted in /config/users.json. Supports two bypass modes:
   - local_access_bypass: configured client CIDRs skip auth
 
 API key auth: an auto-generated key stored in users.json is always a valid
-credential via X-Api-Key header or ?apikey= query param, independent of
-login/bypass mode. Useful for scripts and external tool integrations.
+credential via the X-Api-Key header, independent of login/bypass mode.
+Useful for scripts and external tool integrations.
 """
 
 import json
@@ -449,11 +449,8 @@ def get_token_from_request() -> Optional[str]:
 
 
 def get_api_key_from_request() -> Optional[str]:
-    """Extract API key from X-Api-Key header or ?apikey= query param."""
-    key = request.headers.get("X-Api-Key")
-    if key:
-        return key
-    return request.args.get("apikey")
+    """Extract an API key from the non-URL X-Api-Key credential header."""
+    return request.headers.get("X-Api-Key")
 
 
 def validate_api_key(key: str) -> bool:
@@ -682,6 +679,20 @@ def authenticate_request():
     """
     path = request.path
     is_api = path.startswith("/api/")
+
+    # API keys in URLs leak through browser history, referrers, proxy logs, and
+    # monitoring. Reject them explicitly instead of silently treating them as
+    # missing credentials.
+    if "apikey" in request.args:
+        response = jsonify(
+            {
+                "error": "API keys in query parameters are not supported. Use the X-Api-Key header.",
+                "code": "api_key_query_unsupported",
+            }
+        )
+        response.status_code = 400
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     # 1. Public paths
     if is_public_path(path):
