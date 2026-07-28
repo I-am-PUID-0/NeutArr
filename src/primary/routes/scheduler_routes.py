@@ -88,7 +88,7 @@ def save_schedules():
 
     except ScheduleValidationError as error:
         scheduler_logger.warning(f"Rejected invalid schedule data: {error}")
-        return jsonify({"error": str(error)}), 400
+        return jsonify({"error": "Schedule data is invalid"}), 400
     except Exception as e:
         error_msg = f"Error saving schedules: {str(e)}"
         scheduler_logger.error(error_msg)

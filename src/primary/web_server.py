@@ -48,6 +48,7 @@ from src.primary.utils.version import get_runtime_version
 from src.primary.log_redaction import redact_sensitive_data
 from src.primary.auth import (
     INSTANCE_STORAGE_KEY,
+    INVALID_LOCAL_BYPASS_CIDRS_ERROR,
     authenticate_request,
     normalize_local_bypass_cidrs,
     reset_bypass_caches,
@@ -451,8 +452,9 @@ def save_general_settings():
 
     try:
         data["local_bypass_cidrs"] = normalize_local_bypass_cidrs(data.get("local_bypass_cidrs"))
-    except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+    except ValueError:
+        general_logger.warning("Rejected invalid local bypass CIDR configuration")
+        return jsonify({"success": False, "error": INVALID_LOCAL_BYPASS_CIDRS_ERROR}), 400
 
     # Save general settings
     success = settings_manager.save_settings("general", data)

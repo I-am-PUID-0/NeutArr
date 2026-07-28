@@ -14,6 +14,7 @@ configure_test_environment()
 from src.primary import settings_manager
 from src.primary.auth import (
     DEFAULT_LOCAL_BYPASS_CIDRS,
+    INVALID_LOCAL_BYPASS_CIDRS_ERROR,
     _is_local_ip,
     auth_config,
     normalize_local_bypass_cidrs,
@@ -90,7 +91,22 @@ class LocalBypassCidrTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("Invalid CIDR range: bad-range", response.get_json()["error"])
+        self.assertEqual(response.get_json()["error"], INVALID_LOCAL_BYPASS_CIDRS_ERROR)
+        self.assertNotIn("bad-range", response.get_json()["error"])
+
+    def test_auth_mode_save_does_not_expose_invalid_cidr_value(self):
+        response = self.client.post(
+            "/api/auth/mode",
+            headers=self._api_headers(),
+            json={
+                "auth_mode": "local_bypass",
+                "local_bypass_cidrs": "10.0.0.0/8\nprivate-invalid-range",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], INVALID_LOCAL_BYPASS_CIDRS_ERROR)
+        self.assertNotIn("private-invalid-range", response.get_json()["error"])
 
 
 if __name__ == "__main__":

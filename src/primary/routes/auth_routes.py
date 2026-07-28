@@ -33,6 +33,7 @@ from ..auth import (
     LEGACY_REFRESH_COOKIE,
     REFRESH_COOKIE,
     INSTANCE_STORAGE_KEY,
+    INVALID_LOCAL_BYPASS_CIDRS_ERROR,
     auth_config,
     consume_setup_token,
     ensure_setup_token,
@@ -497,8 +498,9 @@ def auth_mode():
     if "local_bypass_cidrs" in request.json:
         try:
             current["local_bypass_cidrs"] = normalize_local_bypass_cidrs(request.json.get("local_bypass_cidrs"))
-        except ValueError as e:
-            return jsonify({"success": False, "error": str(e)}), 400
+        except ValueError:
+            logger.warning("Rejected invalid local bypass CIDR configuration")
+            return jsonify({"success": False, "error": INVALID_LOCAL_BYPASS_CIDRS_ERROR}), 400
 
     if settings_manager.save_settings("general", current):
         reset_bypass_caches()

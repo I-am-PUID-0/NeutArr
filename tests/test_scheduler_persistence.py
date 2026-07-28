@@ -85,7 +85,7 @@ class SchedulerPersistenceTests(unittest.TestCase):
             response, status = save_schedules()
 
         self.assertEqual(status, 400)
-        self.assertIn("action is not supported", response.get_json()["error"])
+        self.assertEqual(response.get_json()["error"], "Schedule data is invalid")
         self.assertEqual(self.read_persisted(), original_schedule)
 
     def test_empty_api_payload_is_rejected_without_replacing_file(self):
@@ -96,8 +96,24 @@ class SchedulerPersistenceTests(unittest.TestCase):
             response, status = save_schedules()
 
         self.assertEqual(status, 400)
-        self.assertIn("at least one application group", response.get_json()["error"])
+        self.assertEqual(response.get_json()["error"], "Schedule data is invalid")
         self.assertEqual(self.read_persisted(), original_schedule)
+
+    def test_validation_exception_detail_is_not_returned(self):
+        exception_detail = "private scheduler validation detail"
+
+        with (
+            app.test_request_context("/api/scheduler/save", method="POST", json={"global": []}),
+            patch(
+                "src.primary.routes.scheduler_routes.save_schedule",
+                side_effect=scheduler_engine.ScheduleValidationError(exception_detail),
+            ),
+        ):
+            response, status = save_schedules()
+
+        self.assertEqual(status, 400)
+        self.assertEqual(response.get_json()["error"], "Schedule data is invalid")
+        self.assertNotIn(exception_detail, response.get_json()["error"])
 
     def test_duplicate_ids_are_rejected_across_groups(self):
         duplicate_id = "duplicate"
