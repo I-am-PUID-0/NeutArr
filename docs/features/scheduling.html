@@ -137,7 +137,10 @@
                 <ul>
                     <li>The scheduler checks saved entries once per minute.</li>
                     <li>An entry runs only on its selected weekdays.</li>
-                    <li>A four-minute execution window tolerates small startup or processing delays.</li>
+                    <li>
+                        A four-minute execution window tolerates small startup or processing
+                        delays, including when the window crosses into the next hour or day.
+                    </li>
                     <li>An entry is not run repeatedly during the same daily execution window.</li>
                     <li>
                         A failed settings update is not recorded as successful, allowing NeutArr

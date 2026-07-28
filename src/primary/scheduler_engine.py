@@ -384,7 +384,7 @@ def add_to_history(action_entry, status, message):
     )
 
 
-def execute_action(action_entry):
+def execute_action(action_entry, scheduled_for=None):
     """Execute a scheduled action"""
     if not isinstance(action_entry, dict):
         scheduler_logger.error("Refused malformed scheduler action: expected an object")
@@ -408,13 +408,17 @@ def execute_action(action_entry):
         return False
     app_type, instance_index = resolved_target
 
-    # Generate a unique key for this action to track execution
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    execution_key = f"{app_id}_{current_date}"
+    if isinstance(scheduled_for, datetime.datetime):
+        execution_date = scheduled_for.date()
+    elif isinstance(scheduled_for, datetime.date):
+        execution_date = scheduled_for
+    else:
+        execution_date = datetime.datetime.now().date()
+    execution_key = f"{app_id}_{execution_date.isoformat()}"
 
-    # Check if this action was already executed today
+    # Check if this action was already executed for this scheduled occurrence
     if execution_key in last_executed_actions:
-        message = f"Action {app_id} for {app_type} already executed today, skipping"
+        message = f"Action {app_id} for {app_type} already executed for {execution_date.isoformat()}, skipping"
         scheduler_logger.debug(message)
         add_to_history(action_entry, "skipped", message)
         return False  # Already executed
@@ -512,115 +516,73 @@ def execute_action(action_entry):
         return False
 
 
-def should_execute_schedule(schedule_entry):
-    """Check if a schedule entry should be executed now"""
+def should_execute_schedule(schedule_entry, current_time=None):
+    """Check whether the most recent scheduled occurrence is in its run window."""
+    if not isinstance(schedule_entry, dict):
+        scheduler_logger.warning("Invalid schedule entry: expected an object")
+        return False
+
+    schedule_entry.pop("_scheduled_for", None)
     schedule_id = schedule_entry.get("id", "unknown")
-
-    # Debug log the schedule we're checking
     scheduler_logger.debug(f"Checking if schedule {schedule_id} should be executed")
-
-    # Log exact system time for debugging
-    exact_time = datetime.datetime.now()
-    scheduler_logger.info(f"EXACT CURRENT TIME: {exact_time.strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
     if not schedule_entry.get("enabled", True):
         scheduler_logger.debug(f"Schedule {schedule_id} is disabled, skipping")
         return False
 
-    # Check if specific days are configured
-    days = schedule_entry.get("days", [])
-    scheduler_logger.debug(f"Schedule {schedule_id} days: {days}")
+    if current_time is None:
+        current_time = datetime.datetime.now()
+    if not isinstance(current_time, datetime.datetime):
+        scheduler_logger.warning("Invalid scheduler comparison time")
+        return False
 
-    # Get today's day of week in lowercase
-    current_day = datetime.datetime.now().strftime("%A").lower()  # e.g., 'monday'
-
-    # Debug what's being compared
-    scheduler_logger.info(f"CRITICAL DEBUG - Today: '{current_day}', Schedule days: {days}")
-
-    # If days array is empty, treat as "run every day"
-    if not days:
-        scheduler_logger.debug(f"Schedule {schedule_id} has no days specified, treating as 'run every day'")
-    else:
-        # Make sure all day comparisons are done with lowercase strings
-        lowercase_days = [str(day).lower() for day in days]
-
-        # If today is not in the schedule days, skip this schedule
-        if current_day not in lowercase_days:
-            scheduler_logger.info(f"FAILURE: Schedule {schedule_id} not configured to run on {current_day}, skipping")
-            return False
-        else:
-            scheduler_logger.info(f"SUCCESS: Schedule {schedule_id} IS configured to run on {current_day}")
-
-    # Get current time with second-level precision for accurate timing
-    current_time = datetime.datetime.now()
-
-    # Extract scheduled time from different possible formats
     try:
-        # First try the flat format
         schedule_hour = schedule_entry.get("hour")
         schedule_minute = schedule_entry.get("minute")
 
-        # If not found, try nested format
         if schedule_hour is None or schedule_minute is None:
             schedule_hour = schedule_entry.get("time", {}).get("hour")
             schedule_minute = schedule_entry.get("time", {}).get("minute")
 
-        # Convert to integers to ensure proper comparison
         schedule_hour = int(schedule_hour)
         schedule_minute = int(schedule_minute)
-    except (TypeError, ValueError):
+        if not 0 <= schedule_hour <= 23 or not 0 <= schedule_minute <= 59:
+            raise ValueError
+    except (AttributeError, TypeError, ValueError):
         scheduler_logger.warning(f"Invalid schedule time format in entry: {schedule_entry}")
         return False
 
-    # Add detailed logging for time debugging
-    scheduler_logger.info(
-        f"Schedule {schedule_id} time: {schedule_hour:02d}:{schedule_minute:02d}, "
-        f"current time: {current_time.hour:02d}:{current_time.minute:02d}:{current_time.second:02d}"
+    scheduled_at = current_time.replace(
+        hour=schedule_hour,
+        minute=schedule_minute,
+        second=0,
+        microsecond=0,
     )
+    if scheduled_at > current_time:
+        scheduled_at -= datetime.timedelta(days=1)
 
-    # ===== STRICT TIME COMPARISON - PREVENT EARLY EXECUTION =====
-
-    # If current hour is BEFORE scheduled hour, NEVER execute
-    if current_time.hour < schedule_hour:
-        scheduler_logger.info(
-            f"BLOCKED EXECUTION: Current hour {current_time.hour} is BEFORE scheduled hour {schedule_hour}"
+    days = schedule_entry.get("days", [])
+    scheduled_day = scheduled_at.strftime("%A").lower()
+    if days and scheduled_day not in {str(day).lower() for day in days}:
+        scheduler_logger.debug(
+            f"Schedule {schedule_id} is not configured for its most recent occurrence on {scheduled_day}"
         )
         return False
 
-    # If same hour but current minute is BEFORE scheduled minute, NEVER execute
-    if current_time.hour == schedule_hour and current_time.minute < schedule_minute:
+    elapsed = current_time - scheduled_at
+    should_execute = datetime.timedelta(0) <= elapsed < datetime.timedelta(minutes=4)
+    if should_execute:
+        schedule_entry["_scheduled_for"] = scheduled_at
         scheduler_logger.info(
-            f"BLOCKED EXECUTION: Current minute {current_time.minute} is BEFORE scheduled minute {schedule_minute}"
+            f"Schedule {schedule_id} is within its execution window "
+            f"({scheduled_at.strftime('%Y-%m-%d %H:%M')} scheduled)"
         )
-        return False
-
-    # ===== 4-MINUTE EXECUTION WINDOW =====
-
-    # We're in the scheduled hour and minute, or later - check 4-minute window
-    if current_time.hour == schedule_hour:
-        # Execute if we're in the scheduled minute or up to 3 minutes after the scheduled minute
-        if current_time.minute >= schedule_minute and current_time.minute < schedule_minute + 4:
-            scheduler_logger.info(
-                f"EXECUTING: Current time {current_time.hour:02d}:{current_time.minute:02d} is within the 4-minute window after {schedule_hour:02d}:{schedule_minute:02d}"
-            )
-            return True
-
-    # Handle hour rollover case (e.g., scheduled for 6:59, now it's 7:00, 7:01, or 7:02)
-    if current_time.hour == schedule_hour + 1:
-        # Only apply if scheduled minute was in the last 3 minutes of the hour (57-59)
-        # and current minute is in the first (60 - schedule_minute) minutes of the next hour
-        if schedule_minute >= 57 and current_time.minute < (60 - schedule_minute):
-            scheduler_logger.info(
-                f"EXECUTING: Hour rollover within 4-minute window after {schedule_hour:02d}:{schedule_minute:02d}"
-            )
-            return True
-
-    # We've missed the 4-minute window
-    scheduler_logger.info(
-        f"MISSED WINDOW: Current time {current_time.hour:02d}:{current_time.minute:02d} "
-        f"is past the 4-minute window for {schedule_hour:02d}:{schedule_minute:02d}"
-    )
-    return False
+    else:
+        scheduler_logger.debug(
+            f"Schedule {schedule_id} is outside its execution window "
+            f"({scheduled_at.strftime('%Y-%m-%d %H:%M')} scheduled)"
+        )
+    return should_execute
 
 
 def check_and_execute_schedules():
@@ -676,7 +638,10 @@ def check_and_execute_schedules():
 
                     # Execute the action
                     schedule_entry["appType"] = app_type
-                    action_succeeded = execute_action(schedule_entry)
+                    action_succeeded = execute_action(
+                        schedule_entry,
+                        scheduled_for=schedule_entry.pop("_scheduled_for", None),
+                    )
 
                     # Update last executed time
                     if entry_id and action_succeeded:
