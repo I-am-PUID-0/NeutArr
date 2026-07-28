@@ -171,7 +171,7 @@ NeutArr forks at **v6.6.3**: multi-instance + Swaparr, before the Requestarr/Pro
 - Bandit static analysis clean pass: MD5 marked `usedforsecurity=False`, bind-all documented, `random` calls marked non-crypto, bare `except` narrowed
 - pip-audit clean pass: waitress upgraded to `>=3.0.1` (patched PYSEC-2024-210 + PYSEC-2024-211)
 - Flask constraint raised to `>=3.1.3` (patched CVE-2026-27205)
-- XSS hardening on log renderer and Swaparr status/reset displays
+- XSS hardening across the main and Swaparr log renderers plus Swaparr status/reset displays; log-derived values are rendered as text rather than executable HTML
 - Dead code removed: unregistered blueprints, unreachable routes, legacy helper files
 - GitHub Actions pinned to immutable commit SHAs; Dependabot monitors both `pip` and `github-actions` weekly
 - See [SECURITY-AUDIT-COMPARISON.md](SECURITY-AUDIT-COMPARISON.md) for a finding-by-finding comparison against the Huntarr.io security audit (20 findings: 8 resolved, 11 N/A, 0 open)

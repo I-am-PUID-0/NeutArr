@@ -6,6 +6,17 @@
         return;
     }
 
+    function createTextElement(tagName, className, value) {
+        const element = document.createElement(tagName);
+        if (className) element.className = className;
+        element.textContent = String(value ?? '');
+        return element;
+    }
+
+    function appendConfigValue(container, label, value) {
+        container.appendChild(createTextElement('span', '', `${label}: ${value}`));
+    }
+
     const swaparrModule = {
         elements: {},
         isTableView: true, // Default to table view for Swaparr logs
@@ -204,18 +215,24 @@
                     logsContainer.appendChild(configPanel);
                 }
                 
-                // Update the panel content
-                configPanel.innerHTML = `
-                    <div class="swaparr-config">
-                        <h3>Swaparr${this.logData.config.platform ? ' — ' + this.logData.config.platform : ''}</h3>
-                        <div class="swaparr-config-content">
-                            <span>Max strikes: ${this.logData.config.maxStrikes}</span>
-                            <span>Scan interval: ${this.logData.config.scanInterval}</span>
-                            <span>Max download time: ${this.logData.config.maxDownloadTime}</span>
-                            <span>Ignore above size: ${this.logData.config.ignoreAboveSize}</span>
-                        </div>
-                    </div>
-                `;
+                // Build the panel with text nodes so log-derived values are never parsed as HTML.
+                const config = document.createElement('div');
+                config.className = 'swaparr-config';
+
+                const heading = createTextElement(
+                    'h3',
+                    '',
+                    `Swaparr${this.logData.config.platform ? ` — ${this.logData.config.platform}` : ''}`
+                );
+                const content = document.createElement('div');
+                content.className = 'swaparr-config-content';
+                appendConfigValue(content, 'Max strikes', this.logData.config.maxStrikes);
+                appendConfigValue(content, 'Scan interval', this.logData.config.scanInterval);
+                appendConfigValue(content, 'Max download time', this.logData.config.maxDownloadTime);
+                appendConfigValue(content, 'Ignore above size', this.logData.config.ignoreAboveSize);
+
+                config.append(heading, content);
+                configPanel.replaceChildren(config);
                 
                 this.hasRenderedAnyContent = true;
             }
@@ -238,51 +255,40 @@
             
             // Only render table if we have downloads to show
             if (this.logData.downloads.length > 0) {
-                // Generate table HTML
-                let tableHTML = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Strikes</th>
-                                <th>Status</th>
-                                <th>Name</th>
-                                <th>Size</th>
-                                <th>ETA</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
+                const table = document.createElement('table');
+                const tableHead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                ['Strikes', 'Status', 'Name', 'Size', 'ETA'].forEach(header => {
+                    headerRow.appendChild(createTextElement('th', '', header));
+                });
+                tableHead.appendChild(headerRow);
+
+                const tableBody = document.createElement('tbody');
                 
                 // Add each download as a row
                 this.logData.downloads.forEach(download => {
-                    // Apply status-specific CSS class
-                    let statusClass = download.status.toLowerCase();
-                    
-                    // Normalize some status values
-                    if (statusClass === 'pending removal') statusClass = 'pending';
-                    if (statusClass === 'removed') statusClass = 'removed';
-                    if (statusClass === 'striked') statusClass = 'striked';
-                    if (statusClass === 'normal') statusClass = 'normal';
-                    if (statusClass === 'ignored') statusClass = 'ignored';
-                    
-                    tableHTML += `
-                        <tr class="swaparr-status-${statusClass}">
-                            <td>${download.strikes}</td>
-                            <td>${download.status}</td>
-                            <td>${download.name}</td>
-                            <td>${download.size}</td>
-                            <td>${download.eta}</td>
-                        </tr>
-                    `;
+                    const normalizedStatus = String(download.status ?? '').toLowerCase();
+                    const statusClasses = {
+                        'pending removal': 'pending',
+                        removed: 'removed',
+                        striked: 'striked',
+                        normal: 'normal',
+                        ignored: 'ignored'
+                    };
+                    const statusClass = statusClasses[normalizedStatus] || 'unknown';
+                    const row = document.createElement('tr');
+                    row.classList.add(`swaparr-status-${statusClass}`);
+                    [download.strikes, download.status, download.name, download.size, download.eta].forEach(value => {
+                        row.appendChild(createTextElement('td', '', value));
+                    });
+                    tableBody.appendChild(row);
                 });
-                
-                tableHTML += `
-                        </tbody>
-                    </table>
-                `;
-                
-                tableView.innerHTML = tableHTML;
+
+                table.append(tableHead, tableBody);
+                tableView.replaceChildren(table);
                 this.hasRenderedAnyContent = true;
+            } else {
+                tableView.replaceChildren();
             }
         },
         
@@ -297,19 +303,20 @@
             // Start with a message
             const noDataMessage = document.createElement('div');
             noDataMessage.classList.add('swaparr-panel');
-            noDataMessage.innerHTML = `
-                <div class="swaparr-config">
-                    <h3>Swaparr Logs</h3>
-                    <p>Waiting for structured Swaparr data. Showing raw logs below:</p>
-                </div>
-            `;
+            const config = document.createElement('div');
+            config.className = 'swaparr-config';
+            config.append(
+                createTextElement('h3', '', 'Swaparr Logs'),
+                createTextElement('p', '', 'Waiting for structured Swaparr data. Showing raw logs below:')
+            );
+            noDataMessage.appendChild(config);
             logsContainer.appendChild(noDataMessage);
             
             // Add raw logs
             for (const logLine of this.logData.rawLogs) {
                 const logEntry = document.createElement('div');
                 logEntry.className = 'log-entry';
-                logEntry.innerHTML = `<span class="log-message">${logLine}</span>`;
+                logEntry.appendChild(createTextElement('span', 'log-message', logLine));
                 
                 // Basic level detection
                 if (logLine.includes('ERROR')) logEntry.classList.add('log-error');
