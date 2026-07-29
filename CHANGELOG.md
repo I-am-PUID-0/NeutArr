@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/I-am-PUID-0/NeutArr/compare/1.11.0...1.11.1) (2026-07-29)
+
+
+### 🐛 Bug Fixes
+
+* **version:** reject stale standalone runtime markers ([494b712](https://github.com/I-am-PUID-0/NeutArr/commit/494b71281ff8a31daf735ed995973ed378445cb3))
+
 ## [1.11.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.10.0...1.11.0) (2026-07-29)
 
 
