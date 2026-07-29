@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.10.0...1.11.0) (2026-07-29)
+
+
+### ✨ Features
+
+* **history:** explain Arr upgrade searches in centered details dialog ([e492b55](https://github.com/I-am-PUID-0/NeutArr/commit/e492b5552f169b5ed3aecd37673e72c009b406de))
+
+
+### 🐛 Bug Fixes
+
+* **history:** replace redundant details with media metadata snapshots ([e22f993](https://github.com/I-am-PUID-0/NeutArr/commit/e22f99385320ceaa222b8fe4151c92ad353c2c2a)), closes [#80](https://github.com/I-am-PUID-0/NeutArr/issues/80)
+
 ## [1.10.0](https://github.com/I-am-PUID-0/NeutArr/compare/1.9.1...1.10.0) (2026-07-28)
 
 
