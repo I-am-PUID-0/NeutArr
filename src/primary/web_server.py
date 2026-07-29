@@ -851,8 +851,9 @@ def api_version():
     """Serve the application version.
 
     Priority:
-    1. NEUTARR_VERSION env var — set by Docker build (e.g. "0.1.0" or "0.1.0-dev.3")
-    2. version field in pyproject.toml — used in local dev / devcontainer
+    1. A NEUTARR_VERSION build/runtime marker that matches the bundled
+       pyproject.toml release (or uses a non-release branch marker)
+    2. The bundled pyproject.toml version when a semantic runtime marker is stale
     3. Hardcoded fallback
     """
     try:
