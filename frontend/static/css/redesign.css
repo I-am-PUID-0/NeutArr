@@ -2026,18 +2026,59 @@ body #appsSection .app-apps-panel {
     padding: 0 !important;
 }
 
+.history-details-dialog__media-title {
+    margin: 0;
+    padding: 16px 16px 0;
+    color: var(--na-text);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
 .history-details-dialog__content {
     box-sizing: border-box;
     max-height: min(65dvh, 600px);
     margin: 0;
     padding: 16px;
     overflow: auto;
-    color: var(--na-text-secondary);
-    font-family: monospace;
-    font-size: 0.8rem;
-    line-height: 1.55;
-    white-space: pre-wrap;
+}
+
+.history-details-dialog__row {
+    display: grid;
+    grid-template-columns: minmax(140px, 0.45fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--na-border);
+}
+
+.history-details-dialog__row:first-child {
+    padding-top: 0;
+}
+
+.history-details-dialog__row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.history-details-dialog__row dt {
+    color: var(--na-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.history-details-dialog__row dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--na-text);
     overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+    .history-details-dialog__row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
 }
 
 /* Density */

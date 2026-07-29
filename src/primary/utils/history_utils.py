@@ -6,7 +6,88 @@ from src.primary.utils.logger import get_logger
 logger = get_logger("history")
 
 
-def log_processed_media(app_type, media_name, media_id, instance_name, operation_type="missing"):
+def _first_value(data, *paths):
+    """Return the first non-empty value found at one of the supplied paths."""
+    for path in paths:
+        value = data
+        for key in path:
+            if not isinstance(value, dict):
+                value = None
+                break
+            value = value.get(key)
+        if value not in (None, "", [], {}):
+            return value
+    return None
+
+
+def build_media_details(app_type, media, media_type=None):
+    """Build a small, safe metadata snapshot from an Arr API media object."""
+    if not isinstance(media, dict):
+        return {}
+
+    if app_type == "radarr":
+        details = {
+            "media_type": media_type or "Movie",
+            "original_title": media.get("originalTitle"),
+            "year": media.get("year"),
+            "status": media.get("status"),
+            "monitored": media.get("monitored"),
+            "minimum_availability": media.get("minimumAvailability"),
+            "runtime_minutes": media.get("runtime"),
+            "studio": media.get("studio"),
+            "certification": media.get("certification"),
+            "genres": media.get("genres"),
+            "quality": _first_value(
+                media,
+                ("movieFile", "quality", "quality", "name"),
+                ("quality", "quality", "name"),
+            ),
+            "custom_format_score": _first_value(
+                media,
+                ("movieFile", "customFormatScore"),
+                ("customFormatScore",),
+            ),
+            "quality_profile_id": media.get("qualityProfileId"),
+            "tmdb_id": media.get("tmdbId"),
+            "imdb_id": media.get("imdbId"),
+        }
+    elif app_type == "sonarr":
+        series = media.get("series") if isinstance(media.get("series"), dict) else {}
+        details = {
+            "media_type": media_type or "Episode",
+            "series": series.get("title"),
+            "episode_title": media.get("title"),
+            "season": media.get("seasonNumber"),
+            "episode": media.get("episodeNumber"),
+            "absolute_episode": media.get("absoluteEpisodeNumber"),
+            "air_date": media.get("airDate"),
+            "monitored": media.get("monitored"),
+            "file_available": media.get("hasFile"),
+            "quality": _first_value(
+                media,
+                ("episodeFile", "quality", "quality", "name"),
+                ("quality", "quality", "name"),
+            ),
+            "series_year": series.get("year"),
+            "series_status": series.get("status"),
+            "network": series.get("network"),
+            "genres": series.get("genres"),
+            "tvdb_id": media.get("tvdbId"),
+        }
+    else:
+        return {}
+
+    return {key: value for key, value in details.items() if value not in (None, "", [], {})}
+
+
+def log_processed_media(
+    app_type,
+    media_name,
+    media_id,
+    instance_name,
+    operation_type="missing",
+    details=None,
+):
     """
     Log when media is processed by an app instance
 
@@ -16,6 +97,7 @@ def log_processed_media(app_type, media_name, media_id, instance_name, operation
     - media_id: str/int - ID of the processed media
     - instance_name: str - Name of the instance that processed it
     - operation_type: str - Type of operation ("missing" or "upgrade")
+    - details: dict - Optional app-specific metadata snapshot
 
     Returns:
     - bool - Success or failure
@@ -29,6 +111,8 @@ def log_processed_media(app_type, media_name, media_id, instance_name, operation
             "instance_name": instance_name,
             "operation_type": operation_type,
         }
+        if isinstance(details, dict) and details:
+            entry_data["details"] = details
 
         result = add_history_entry(app_type, entry_data)
         if result:

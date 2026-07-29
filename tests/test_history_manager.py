@@ -14,6 +14,7 @@ configure_test_environment()
 
 from src.primary import history_manager
 from src.primary.instance_storage import legacy_instance_storage_key
+from src.primary.utils.history_utils import build_media_details
 
 
 class HistoryManagerTests(unittest.TestCase):
@@ -116,6 +117,80 @@ class HistoryManagerTests(unittest.TestCase):
         self.assertEqual(json.loads(history_file.read_text(encoding="utf-8")), original_entries)
         self.assertEqual(history_file.stat().st_mode & 0o777, 0o640)
         self.assertEqual(list(history_file.parent.glob(f".{history_file.name}.*.tmp")), [])
+
+    def test_add_history_entry_preserves_app_specific_details(self):
+        details = {
+            "media_type": "Movie",
+            "studio": "Example Studio",
+            "monitored": False,
+        }
+
+        entry = history_manager.add_history_entry(
+            "radarr",
+            {
+                "name": "Example Movie (2026)",
+                "instance_name": "Movies",
+                "id": 42,
+                "details": details,
+            },
+        )
+
+        self.assertEqual(entry["details"], details)
+        stored_entry = json.loads(
+            history_manager.get_history_file_path("radarr", "Movies").read_text(encoding="utf-8")
+        )[0]
+        self.assertEqual(stored_entry["details"], details)
+
+    def test_media_detail_snapshot_uses_an_allowlist(self):
+        details = build_media_details(
+            "radarr",
+            {
+                "title": "Example Movie",
+                "originalTitle": "Original Example",
+                "year": 2026,
+                "monitored": False,
+                "studio": "Example Studio",
+                "genres": ["Drama", "Science Fiction"],
+                "movieFile": {
+                    "quality": {"quality": {"name": "Bluray-1080p"}},
+                    "customFormatScore": 0,
+                    "path": "/private/media/movie.mkv",
+                },
+                "path": "/private/media",
+                "apiKey": "must-not-be-captured",
+                "overview": "A deliberately long plot summary.",
+            },
+        )
+
+        self.assertEqual(details["quality"], "Bluray-1080p")
+        self.assertEqual(details["custom_format_score"], 0)
+        self.assertFalse(details["monitored"])
+        self.assertNotIn("path", details)
+        self.assertNotIn("api_key", details)
+        self.assertNotIn("overview", details)
+
+    def test_sonarr_detail_snapshot_includes_episode_and_series_context(self):
+        details = build_media_details(
+            "sonarr",
+            {
+                "title": "The Episode",
+                "seasonNumber": 2,
+                "episodeNumber": 4,
+                "airDate": "2026-07-28",
+                "hasFile": False,
+                "series": {
+                    "title": "Example Series",
+                    "year": 2024,
+                    "network": "Example Network",
+                },
+            },
+        )
+
+        self.assertEqual(details["series"], "Example Series")
+        self.assertEqual(details["episode_title"], "The Episode")
+        self.assertEqual(details["season"], 2)
+        self.assertEqual(details["episode"], 4)
+        self.assertFalse(details["file_available"])
 
     def test_add_refuses_to_replace_wholly_malformed_history(self):
         instance_name = "Primary"

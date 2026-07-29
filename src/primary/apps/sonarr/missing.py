@@ -10,7 +10,7 @@ from src.primary.utils.logger import get_logger
 from src.primary.apps.sonarr import api as sonarr_api
 from src.primary.stats_manager import increment_stat
 from src.primary.stateful_manager import is_processed, add_processed_id
-from src.primary.utils.history_utils import log_processed_media
+from src.primary.utils.history_utils import build_media_details, log_processed_media
 from src.primary.settings_manager import load_settings, get_advanced_setting
 
 # Get logger for the Sonarr app
@@ -246,7 +246,14 @@ def process_missing_episodes_mode(
                         media_name = f"{series_title} - {season_episode} - {episode_title}"
                         process_id = f"{series_id}_{episode_id}"
                         add_processed_id("sonarr", instance_name, process_id)
-                        log_processed_media("sonarr", media_name, episode_id, instance_name, "missing")
+                        log_processed_media(
+                            "sonarr",
+                            media_name,
+                            episode_id,
+                            instance_name,
+                            "missing",
+                            build_media_details("sonarr", episode),
+                        )
 
                         # Increment the stat for each episode individually (like Radarr does for movies)
                         increment_stat("sonarr", "hunted")
@@ -388,7 +395,19 @@ def process_missing_seasons_packs_mode(
 
             # Log to history system
             media_name = f"{series_title} - Season {season_number} (contains {episode_count} missing episodes)"
-            log_processed_media("sonarr", media_name, season_id, instance_name, "missing")
+            log_processed_media(
+                "sonarr",
+                media_name,
+                season_id,
+                instance_name,
+                "missing",
+                {
+                    "media_type": "Season pack",
+                    "series": series_title,
+                    "season": season_number,
+                    "missing_episodes": episode_count,
+                },
+            )
             sonarr_logger.debug(f"Logged history entry for season pack: {media_name}")
 
             # Increment stats one by one instead of in a batch
@@ -552,7 +571,16 @@ def process_missing_shows_mode(
                             season_episode = f"S{season}E{ep_num}"
 
                         media_name = f"{show_title} - {season_episode} - {title}"
-                        log_processed_media("sonarr", media_name, str(episode_id), instance_name, "missing")
+                        details = build_media_details("sonarr", episode)
+                        details.setdefault("series", show_title)
+                        log_processed_media(
+                            "sonarr",
+                            media_name,
+                            str(episode_id),
+                            instance_name,
+                            "missing",
+                            details,
+                        )
                         sonarr_logger.debug(f"Logged history entry for episode: {media_name}")
                         break
 
@@ -562,7 +590,18 @@ def process_missing_shows_mode(
 
             # Also log the entire show to history
             media_name = f"{show_title} - Complete Series ({len(episode_ids)} episodes)"
-            log_processed_media("sonarr", media_name, str(show_id), instance_name, "missing")
+            log_processed_media(
+                "sonarr",
+                media_name,
+                str(show_id),
+                instance_name,
+                "missing",
+                {
+                    "media_type": "Complete series",
+                    "series": show_title,
+                    "missing_episodes": len(episode_ids),
+                },
+            )
             sonarr_logger.debug(f"Logged history entry for complete series: {media_name}")
 
             # Increment the hunted statistics

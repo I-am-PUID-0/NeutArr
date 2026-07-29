@@ -240,6 +240,8 @@ def add_history_entry(app_type, entry_data):
         "operation_type": entry_data.get("operation_type", "missing"),  # Default to "missing" if not specified
         "app_type": app_type,  # Include app_type in the entry for display in UI
     }
+    if isinstance(entry_data.get("details"), dict) and entry_data["details"]:
+        entry["details"] = entry_data["details"]
 
     history_file = get_history_file_path(app_type, instance_name)
     logger.debug(f"Writing to history file: {history_file}")

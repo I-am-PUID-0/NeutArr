@@ -11,7 +11,7 @@ from src.primary.utils.logger import get_logger
 from src.primary.apps.radarr import api as radarr_api
 from src.primary.stats_manager import increment_stat
 from src.primary.stateful_manager import is_processed, add_processed_id
-from src.primary.utils.history_utils import log_processed_media
+from src.primary.utils.history_utils import build_media_details, log_processed_media
 from src.primary.settings_manager import get_advanced_setting
 
 # Get logger for the app
@@ -108,7 +108,14 @@ def process_cutoff_upgrades(
 
             # Log to history so the upgrade appears in the history UI
             media_name = f"{movie_title} ({movie_year})"
-            log_processed_media("radarr", media_name, movie_id, instance_name, "upgrade")
+            log_processed_media(
+                "radarr",
+                media_name,
+                movie_id,
+                instance_name,
+                "upgrade",
+                build_media_details("radarr", movie),
+            )
             radarr_logger.debug(f"Logged quality upgrade to history for movie ID {movie_id}")
 
             processed_count += 1

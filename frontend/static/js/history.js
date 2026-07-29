@@ -56,6 +56,8 @@ const historyModule = {
 
             // Details dialog
             historyDetailsDialog: document.getElementById('historyDetailsDialog'),
+            historyDetailsTitle: document.getElementById('historyDetailsTitle'),
+            historyDetailsMediaTitle: document.getElementById('historyDetailsMediaTitle'),
             historyDetailsContent: document.getElementById('historyDetailsContent'),
             historyDetailsClose: document.getElementById('historyDetailsClose'),
             
@@ -264,22 +266,6 @@ const historyModule = {
             // Build the row content piece by piece to ensure ID has no wrapping elements
             const processedInfoCell = document.createElement('td');
             
-            // Use a button and native dialog so details work with mouse, keyboard,
-            // and touch without being clipped by the scrollable table wrapper.
-            const detailsButton = document.createElement('button');
-            detailsButton.type = 'button';
-            detailsButton.className = 'history-details-button';
-            detailsButton.setAttribute(
-                'aria-label',
-                `View details for ${entry.processed_info || 'history item'}`
-            );
-
-            const detailsIcon = document.createElement('i');
-            detailsIcon.className = 'fas fa-info-circle';
-            detailsIcon.setAttribute('aria-hidden', 'true');
-            detailsButton.appendChild(detailsIcon);
-            detailsButton.addEventListener('click', () => this.showEntryDetails(entry, detailsButton));
-            
             // Create a span for the title with wrapping enabled
             const titleSpan = document.createElement('span');
             titleSpan.className = 'processed-title';
@@ -295,8 +281,28 @@ const historyModule = {
             lineContainer.style.display = 'flex';
             lineContainer.style.alignItems = 'flex-start';
             
-            // Append details trigger and title to the container
-            lineContainer.appendChild(detailsButton);
+            const details = this.getEntryDetails(entry);
+            if (details) {
+                // Only offer the dialog when the entry contains metadata that is
+                // not already visible in the history row.
+                const detailsButton = document.createElement('button');
+                detailsButton.type = 'button';
+                detailsButton.className = 'history-details-button';
+                detailsButton.setAttribute(
+                    'aria-label',
+                    `View media details for ${entry.processed_info || 'history item'}`
+                );
+
+                const detailsIcon = document.createElement('i');
+                detailsIcon.className = 'fas fa-info-circle';
+                detailsIcon.setAttribute('aria-hidden', 'true');
+                detailsButton.appendChild(detailsIcon);
+                detailsButton.addEventListener('click', () => {
+                    this.showEntryDetails(entry, detailsButton);
+                });
+                lineContainer.appendChild(detailsButton);
+            }
+
             lineContainer.appendChild(titleSpan);
             
             // Add the container to the cell
@@ -328,30 +334,79 @@ const historyModule = {
         });
     },
 
-    // Show all available metadata for a history entry.
+    // Return app-specific metadata only when it adds information beyond the row.
+    getEntryDetails: function(entry) {
+        if (
+            !entry ||
+            !entry.details ||
+            typeof entry.details !== 'object' ||
+            Array.isArray(entry.details)
+        ) {
+            return null;
+        }
+
+        const details = Object.entries(entry.details).filter(([, value]) => {
+            return value !== null && value !== undefined && value !== '';
+        });
+        return details.length > 0 ? details : null;
+    },
+
+    formatDetailLabel: function(key) {
+        const labels = {
+            imdb_id: 'IMDb ID',
+            tmdb_id: 'TMDB ID',
+            tvdb_id: 'TVDB ID'
+        };
+        if (labels[key]) return labels[key];
+
+        return key
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, character => character.toUpperCase())
+            .replace(/\bId\b/g, 'ID');
+    },
+
+    formatDetailValue: function(value) {
+        if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+        if (Array.isArray(value)) return value.join(', ');
+        if (typeof value === 'object') return JSON.stringify(value);
+        return String(value);
+    },
+
+    // Show the useful app-specific metadata captured when the work was run.
     showEntryDetails: function(entry, trigger) {
         const dialog = this.elements.historyDetailsDialog;
         const content = this.elements.historyDetailsContent;
         if (!dialog || !content) return;
 
-        const details = {
-            title: entry.processed_info || 'Unknown',
-            id: entry.id ?? 'Unknown',
-            app: entry.app_type || 'Unknown',
-            instance: entry.instance_name || 'Default',
-            date: entry.date_time_readable || 'Unknown',
-            operation: entry.operation_type || 'Unknown'
-        };
+        const details = this.getEntryDetails(entry);
+        if (!details) return;
 
-        if (
-            entry.details !== null &&
-            entry.details !== undefined &&
-            (typeof entry.details !== 'object' || Object.keys(entry.details).length > 0)
-        ) {
-            details.details = entry.details;
+        const appName = entry.app_type
+            ? entry.app_type.charAt(0).toUpperCase() + entry.app_type.slice(1)
+            : 'Media';
+        if (this.elements.historyDetailsTitle) {
+            this.elements.historyDetailsTitle.textContent = `${appName} media details`;
+        }
+        if (this.elements.historyDetailsMediaTitle) {
+            this.elements.historyDetailsMediaTitle.textContent =
+                entry.processed_info || 'Unknown media';
         }
 
-        content.textContent = JSON.stringify(details, null, 2);
+        content.replaceChildren();
+        details.forEach(([key, value]) => {
+            const row = document.createElement('div');
+            row.className = 'history-details-dialog__row';
+
+            const term = document.createElement('dt');
+            term.textContent = this.formatDetailLabel(key);
+
+            const description = document.createElement('dd');
+            description.textContent = this.formatDetailValue(value);
+
+            row.appendChild(term);
+            row.appendChild(description);
+            content.appendChild(row);
+        });
 
         const restoreFocus = () => {
             if (trigger && trigger.isConnected) trigger.focus();
