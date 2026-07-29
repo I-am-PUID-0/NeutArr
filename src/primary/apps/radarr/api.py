@@ -322,6 +322,29 @@ def _is_radarr_upgrade_candidate(movie: Dict[str, Any], profile_info: Dict[str, 
     return _is_quality_cutoff_unmet(movie, profile_info) or _is_custom_format_cutoff_unmet(movie, profile_info)
 
 
+def _build_upgrade_search_context(
+    movie: Dict[str, Any],
+    profile_info: Dict[str, Any],
+    quality_unmet: bool,
+    format_unmet: bool,
+) -> Dict[str, Any]:
+    """Describe why NeutArr selected a Radarr movie for an upgrade search."""
+    reasons = []
+    if quality_unmet:
+        reasons.append("Quality is below profile cutoff")
+
+    current_score = _get_movie_file_custom_format_score(movie, profile_info)
+    target_score = max(profile_info.get("min_format_score", 0), profile_info.get("cutoff_format_score", 0))
+    if format_unmet:
+        label = "custom format score" if reasons else "Custom format score"
+        reasons.append(f"{label} {current_score} is below target {target_score}")
+
+    context = {"search_reason": "; ".join(reasons)}
+    if current_score is not None:
+        context["custom_format_target_score"] = target_score
+    return context
+
+
 def get_cutoff_unmet_movies(api_url: str, api_key: str, api_timeout: int, monitored_only: bool) -> Optional[List[Dict]]:
     """
     Get movies that do not meet their quality or custom-format profile cutoffs.
@@ -364,6 +387,13 @@ def get_cutoff_unmet_movies(api_url: str, api_key: str, api_timeout: int, monito
         format_unmet = _is_custom_format_cutoff_unmet(enriched_movie, profile_info)
 
         if quality_unmet or format_unmet:
+            enriched_movie = dict(enriched_movie)
+            enriched_movie["_neutarr_search_context"] = _build_upgrade_search_context(
+                enriched_movie,
+                profile_info,
+                quality_unmet,
+                format_unmet,
+            )
             unmet_movies.append(enriched_movie)
             if quality_unmet:
                 quality_unmet_count += 1

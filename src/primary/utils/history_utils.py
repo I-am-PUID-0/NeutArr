@@ -25,6 +25,10 @@ def build_media_details(app_type, media, media_type=None):
     if not isinstance(media, dict):
         return {}
 
+    search_context = (
+        media.get("_neutarr_search_context") if isinstance(media.get("_neutarr_search_context"), dict) else {}
+    )
+
     if app_type == "radarr":
         details = {
             "media_type": media_type or "Movie",
@@ -47,6 +51,8 @@ def build_media_details(app_type, media, media_type=None):
                 ("movieFile", "customFormatScore"),
                 ("customFormatScore",),
             ),
+            "custom_format_target_score": search_context.get("custom_format_target_score"),
+            "search_reason": search_context.get("search_reason"),
             "quality_profile_id": media.get("qualityProfileId"),
             "tmdb_id": media.get("tmdbId"),
             "imdb_id": media.get("imdbId"),
@@ -68,6 +74,12 @@ def build_media_details(app_type, media, media_type=None):
                 ("episodeFile", "quality", "quality", "name"),
                 ("quality", "quality", "name"),
             ),
+            "custom_format_score": _first_value(
+                media,
+                ("episodeFile", "customFormatScore"),
+                ("customFormatScore",),
+            ),
+            "search_reason": search_context.get("search_reason"),
             "series_year": series.get("year"),
             "series_status": series.get("status"),
             "network": series.get("network"),

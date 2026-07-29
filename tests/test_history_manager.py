@@ -156,6 +156,10 @@ class HistoryManagerTests(unittest.TestCase):
                     "customFormatScore": 0,
                     "path": "/private/media/movie.mkv",
                 },
+                "_neutarr_search_context": {
+                    "custom_format_target_score": 100,
+                    "search_reason": "Custom format score 0 is below target 100",
+                },
                 "path": "/private/media",
                 "apiKey": "must-not-be-captured",
                 "overview": "A deliberately long plot summary.",
@@ -164,6 +168,8 @@ class HistoryManagerTests(unittest.TestCase):
 
         self.assertEqual(details["quality"], "Bluray-1080p")
         self.assertEqual(details["custom_format_score"], 0)
+        self.assertEqual(details["custom_format_target_score"], 100)
+        self.assertEqual(details["search_reason"], "Custom format score 0 is below target 100")
         self.assertFalse(details["monitored"])
         self.assertNotIn("path", details)
         self.assertNotIn("api_key", details)
@@ -178,6 +184,14 @@ class HistoryManagerTests(unittest.TestCase):
                 "episodeNumber": 4,
                 "airDate": "2026-07-28",
                 "hasFile": False,
+                "episodeFile": {
+                    "quality": {"quality": {"name": "WEBDL-1080p"}},
+                    "customFormatScore": 125,
+                    "qualityCutoffNotMet": True,
+                },
+                "_neutarr_search_context": {
+                    "search_reason": "Quality is below profile cutoff",
+                },
                 "series": {
                     "title": "Example Series",
                     "year": 2024,
@@ -191,6 +205,27 @@ class HistoryManagerTests(unittest.TestCase):
         self.assertEqual(details["season"], 2)
         self.assertEqual(details["episode"], 4)
         self.assertFalse(details["file_available"])
+        self.assertEqual(details["quality"], "WEBDL-1080p")
+        self.assertEqual(details["custom_format_score"], 125)
+        self.assertEqual(
+            details["search_reason"],
+            "Quality is below profile cutoff",
+        )
+
+    def test_sonarr_detail_snapshot_does_not_invent_search_reason(self):
+        details = build_media_details(
+            "sonarr",
+            {
+                "title": "The Episode",
+                "episodeFile": {
+                    "customFormatScore": 0,
+                    "qualityCutoffNotMet": False,
+                },
+            },
+        )
+
+        self.assertEqual(details["custom_format_score"], 0)
+        self.assertNotIn("search_reason", details)
 
     def test_add_refuses_to_replace_wholly_malformed_history(self):
         instance_name = "Primary"

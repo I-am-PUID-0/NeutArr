@@ -1991,8 +1991,12 @@ body #appsSection .app-apps-panel {
 }
 
 .history-details-dialog {
+    position: fixed;
+    inset: 0;
     width: min(720px, calc(100vw - 32px)) !important;
+    height: fit-content;
     max-height: min(80dvh, 760px);
+    margin: auto !important;
     border: 1px solid var(--na-border-strong) !important;
     border-radius: var(--na-radius-lg) !important;
     background: var(--na-surface) !important;

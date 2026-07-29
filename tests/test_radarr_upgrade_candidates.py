@@ -11,6 +11,7 @@ from test_support import configure_test_environment
 configure_test_environment()
 
 from src.primary.apps.radarr.api import (
+    _build_upgrade_search_context,
     _build_quality_profile_map,
     _get_movie_file_custom_format_score,
     _is_radarr_upgrade_candidate,
@@ -55,6 +56,25 @@ class RadarrUpgradeCandidateTests(unittest.TestCase):
         movie = make_movie(quality_id=10, custom_format_score=0)
 
         self.assertTrue(_is_radarr_upgrade_candidate(movie, profile))
+        self.assertEqual(
+            _build_upgrade_search_context(movie, profile, quality_unmet=True, format_unmet=False),
+            {
+                "search_reason": "Quality is below profile cutoff",
+                "custom_format_target_score": 0,
+            },
+        )
+
+    def test_search_context_reports_quality_and_custom_format_reasons(self):
+        profile = _build_quality_profile_map([make_profile(cutoff_format_score=100)])[1]
+        movie = make_movie(quality_id=10, custom_format_score=-50)
+
+        self.assertEqual(
+            _build_upgrade_search_context(movie, profile, quality_unmet=True, format_unmet=True),
+            {
+                "search_reason": ("Quality is below profile cutoff; custom format score -50 is below target 100"),
+                "custom_format_target_score": 100,
+            },
+        )
 
     def test_quality_met_but_custom_format_score_below_cutoff_is_upgrade_candidate(self):
         profile = _build_quality_profile_map([make_profile(cutoff_format_score=100)])[1]
@@ -129,6 +149,13 @@ class RadarrUpgradeCandidateTests(unittest.TestCase):
 
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0]["movieFile"]["customFormatScore"], -50)
+        self.assertEqual(
+            candidates[0]["_neutarr_search_context"],
+            {
+                "search_reason": "Custom format score -50 is below target 100",
+                "custom_format_target_score": 100,
+            },
+        )
         self.assertIn("moviefile/456", requested_endpoints)
 
     def test_cutoff_check_can_calculate_score_from_detailed_movie_file_formats(self):

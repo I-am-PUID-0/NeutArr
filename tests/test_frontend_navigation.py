@@ -93,6 +93,15 @@ class FrontendNavigationTests(unittest.TestCase):
             with self.subTest(selector=selector):
                 self.assertIn(selector, source)
 
+    def test_history_details_dialog_is_centered_in_the_viewport(self):
+        styles = (_REPO_ROOT / "frontend" / "static" / "css" / "redesign.css").read_text()
+        dialog_rule = styles.split(".history-details-dialog {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("position: fixed;", dialog_rule)
+        self.assertIn("inset: 0;", dialog_rule)
+        self.assertIn("height: fit-content;", dialog_rule)
+        self.assertIn("margin: auto !important;", dialog_rule)
+
     def test_home_dashboard_only_reveals_configured_apps(self):
         template = (_REPO_ROOT / "frontend" / "templates" / "components" / "home_section.html").read_text()
         script = (_REPO_ROOT / "frontend" / "static" / "js" / "new-main.js").read_text()
